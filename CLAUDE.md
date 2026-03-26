@@ -1,5 +1,9 @@
 # CLAUDE.md — PixelForge Token Extractor (Figma Plugin)
 
+## 🎨 디자인 규칙 (필수)
+작업 전 QUALITY_RULES.md를 읽고 토큰/간격/컴포넌트 규칙을 반드시 준수해라.
+임의 색상값이나 간격값 사용 금지.
+
 ## 프로젝트 개요
 
 Figma에서 **Variables(디자인 토큰)** 와 **Styles(색상/텍스트/효과)** 를 추출하여 JSON으로 내보내는 Figma 플러그인.
