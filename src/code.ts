@@ -437,6 +437,209 @@ function inspectSelection() {
   };
 }
 
+function toKebabCase(name: string): string {
+  return name
+    .replace(/([a-z])([A-Z])/g, '$1-$2')
+    .replace(/[\s_/]+/g, '-')
+    .replace(/[^a-zA-Z0-9-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .toLowerCase();
+}
+
+function toPascalCase(name: string): string {
+  return name
+    .replace(/[^a-zA-Z0-9\s_/.\-]/g, '')
+    .split(/[\s_/.\-]+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join('');
+}
+
+function figmaColorToHex(c: { r: number; g: number; b: number }): string {
+  const r = Math.round(c.r * 255);
+  const g = Math.round(c.g * 255);
+  const b = Math.round(c.b * 255);
+  return '#' + [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('').toUpperCase();
+}
+
+async function exportIcons(): Promise<{ name: string; kebab: string; pascal: string; svg: string }[]> {
+  const sel = figma.currentPage.selection;
+  if (sel.length === 0) return [];
+  const results: { name: string; kebab: string; pascal: string; svg: string }[] = [];
+  for (const node of sel) {
+    try {
+      const svgBytes = await (node as any).exportAsync({ format: 'SVG' });
+      const bytes = new Uint8Array(svgBytes);
+      let svg = '';
+      for (let i = 0; i < bytes.length; i++) svg += String.fromCharCode(bytes[i]);
+      results.push({
+        name: node.name,
+        kebab: toKebabCase(node.name),
+        pascal: toPascalCase(node.name),
+        svg,
+      });
+    } catch (_) {
+      // skip nodes that can't be exported as SVG
+    }
+  }
+  return results;
+}
+
+async function extractThemes(): Promise<Record<string, { name: string; value: string }[]>> {
+  const collections = await figma.variables.getLocalVariableCollectionsAsync();
+  const variables = await figma.variables.getLocalVariablesAsync();
+  const result: Record<string, { name: string; value: string }[]> = {};
+
+  for (const col of collections) {
+    if (col.modes.length < 2) continue;
+    const colorVars = variables.filter(
+      (v) => v.variableCollectionId === col.id && v.resolvedType === 'COLOR'
+    );
+    if (colorVars.length === 0) continue;
+
+    for (const mode of col.modes) {
+      const entries = colorVars.map((v) => {
+        const val = v.valuesByMode[mode.modeId];
+        let hex = '#000000';
+        if (val && typeof val === 'object' && 'r' in (val as unknown as Record<string, unknown>)) {
+          hex = figmaColorToHex(val as { r: number; g: number; b: number });
+        }
+        return { name: v.name, value: hex };
+      });
+      if (result[mode.name]) {
+        result[mode.name] = result[mode.name].concat(entries);
+      } else {
+        result[mode.name] = entries;
+      }
+    }
+  }
+  return result;
+}
+
+async function generateComponent(): Promise<{ name: string; html: string; react: string } | null> {
+  const sel = figma.currentPage.selection;
+  if (sel.length === 0) return null;
+  const node = sel[0];
+
+  // Build color → CSS variable map
+  const allVars = await figma.variables.getLocalVariablesAsync();
+  const colorMap = new Map<string, string>();
+  for (const v of allVars) {
+    if (v.resolvedType !== 'COLOR') continue;
+    const firstMode = Object.keys(v.valuesByMode)[0];
+    if (!firstMode) continue;
+    const val = v.valuesByMode[firstMode];
+    if (val && typeof val === 'object' && 'r' in (val as unknown as Record<string, unknown>)) {
+      const hex = figmaColorToHex(val as { r: number; g: number; b: number });
+      if (!colorMap.has(hex)) {
+        const cssName = '--' + v.name
+          .replace(/([a-z])([A-Z])/g, '$1-$2')
+          .replace(/\//g, '-')
+          .replace(/[^a-zA-Z0-9-]/g, '-')
+          .replace(/-+/g, '-')
+          .replace(/^-|-$/g, '')
+          .toLowerCase();
+        colorMap.set(hex, cssName);
+      }
+    }
+  }
+
+  function resolveColor(c: { r: number; g: number; b: number }): string {
+    const hex = figmaColorToHex(c);
+    const varName = colorMap.get(hex);
+    return varName ? 'var(' + varName + ')' : hex.toLowerCase();
+  }
+
+  function getNodeStyles(n: SceneNode): Record<string, string> {
+    const s: Record<string, string> = {};
+    if ('fills' in n) {
+      const fills = (n as any).fills;
+      if (Array.isArray(fills)) {
+        const solid = fills.find((f: any) => f.type === 'SOLID' && f.visible !== false);
+        if (solid) s['background-color'] = resolveColor(solid.color);
+      }
+    }
+    if ('cornerRadius' in n) {
+      const cr = (n as any).cornerRadius;
+      if (typeof cr === 'number' && cr > 0) s['border-radius'] = cr + 'px';
+    }
+    if ('layoutMode' in n) {
+      const f = n as FrameNode;
+      if (f.layoutMode === 'HORIZONTAL') {
+        s['display'] = 'flex';
+      } else if (f.layoutMode === 'VERTICAL') {
+        s['display'] = 'flex';
+        s['flex-direction'] = 'column';
+      }
+      if (f.itemSpacing > 0) s['gap'] = f.itemSpacing + 'px';
+      const pt = f.paddingTop, pr = f.paddingRight, pb = f.paddingBottom, pl = f.paddingLeft;
+      if (pt > 0 || pr > 0 || pb > 0 || pl > 0) {
+        s['padding'] = pt + 'px ' + pr + 'px ' + pb + 'px ' + pl + 'px';
+      }
+    }
+    if ('width' in n && 'height' in n) {
+      s['width'] = Math.round(n.width) + 'px';
+      s['height'] = Math.round(n.height) + 'px';
+    }
+    return s;
+  }
+
+  function nodeToHtml(n: SceneNode, indent: number): string {
+    const pad = '  '.repeat(indent);
+    if (n.type === 'TEXT') {
+      const text = (n as TextNode).characters.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      return pad + '<span>' + text + '</span>';
+    }
+    const styles = getNodeStyles(n);
+    const entries = Object.entries(styles);
+    const styleAttr = entries.length > 0
+      ? ' style="' + entries.map(([k, v]) => k + ': ' + v).join('; ') + '"'
+      : '';
+    if ('children' in n && (n as ChildrenMixin).children.length > 0) {
+      const kids = (n as ChildrenMixin).children
+        .filter((c) => (c as SceneNode).visible !== false)
+        .map((c) => nodeToHtml(c as SceneNode, indent + 1))
+        .join('\n');
+      return pad + '<div' + styleAttr + '>\n' + kids + '\n' + pad + '</div>';
+    }
+    return pad + '<div' + styleAttr + '></div>';
+  }
+
+  function nodeToJsx(n: SceneNode, indent: number): string {
+    const pad = '  '.repeat(indent);
+    if (n.type === 'TEXT') {
+      const text = (n as TextNode).characters;
+      return pad + '<span>' + text + '</span>';
+    }
+    const styles = getNodeStyles(n);
+    const entries = Object.entries(styles);
+    let styleAttr = '';
+    if (entries.length > 0) {
+      const obj = entries.map(([k, v]) => {
+        const camelKey = k.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
+        return camelKey + ": '" + v + "'";
+      }).join(', ');
+      styleAttr = ' style={{' + obj + '}}';
+    }
+    if ('children' in n && (n as ChildrenMixin).children.length > 0) {
+      const kids = (n as ChildrenMixin).children
+        .filter((c) => (c as SceneNode).visible !== false)
+        .map((c) => nodeToJsx(c as SceneNode, indent + 1))
+        .join('\n');
+      return pad + '<div' + styleAttr + '>\n' + kids + '\n' + pad + '</div>';
+    }
+    return pad + '<div' + styleAttr + ' />';
+  }
+
+  const html = nodeToHtml(node, 0);
+  const componentName = toPascalCase(node.name) || 'Component';
+  const jsx = nodeToJsx(node, 1);
+  const react = 'export const ' + componentName + ' = () => (\n' + jsx + '\n);';
+
+  return { name: node.name, html, react };
+}
+
 figma.ui.onmessage = (msg: { type: string; options?: ExtractOptions; width?: number; height?: number }) => {
   if (msg.type === "resize") {
     figma.ui.resize(msg.width ?? 480, msg.height ?? 580);
@@ -458,6 +661,21 @@ figma.ui.onmessage = (msg: { type: string; options?: ExtractOptions; width?: num
     extractAll(options)
       .then((data) => figma.ui.postMessage({ type: "extract-result", data }))
       .catch((e) => figma.ui.postMessage({ type: "extract-error", message: String(e) }));
+  }
+  if (msg.type === "export-icons") {
+    exportIcons()
+      .then((data) => figma.ui.postMessage({ type: "export-icons-result", data }))
+      .catch((e) => figma.ui.postMessage({ type: "export-icons-error", message: String(e) }));
+  }
+  if (msg.type === "extract-themes") {
+    extractThemes()
+      .then((data) => figma.ui.postMessage({ type: "extract-themes-result", data }))
+      .catch((e) => figma.ui.postMessage({ type: "extract-themes-error", message: String(e) }));
+  }
+  if (msg.type === "generate-component") {
+    generateComponent()
+      .then((data) => figma.ui.postMessage({ type: "generate-component-result", data }))
+      .catch((e) => figma.ui.postMessage({ type: "generate-component-error", message: String(e) }));
   }
   if (msg.type === "close") {
     figma.closePlugin();

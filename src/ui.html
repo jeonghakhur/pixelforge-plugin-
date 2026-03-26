@@ -390,6 +390,163 @@
 
   .hidden { display: none !important; }
 
+  /* ── Main Tabs ── */
+  .main-tabs {
+    display: flex;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    padding: 0 8px;
+    gap: 0;
+  }
+  .main-tab {
+    padding: 8px 14px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .main-tab:hover { color: var(--text-secondary); }
+  .main-tab.active {
+    color: var(--primary);
+    font-weight: 600;
+    border-bottom-color: var(--primary);
+  }
+  .tab-panel {
+    flex: 1;
+    overflow: hidden;
+    flex-direction: column;
+  }
+  .tab-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  /* ── Icon List ── */
+  .icon-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+  .icon-preview {
+    width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    background: var(--bg);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .icon-preview svg { width: 24px; height: 24px; }
+  .icon-info { flex: 1; min-width: 0; }
+  .icon-name { font-size: 12px; font-weight: 600; color: var(--text-primary); }
+  .icon-names { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+  .icon-actions { display: flex; gap: 4px; flex-shrink: 0; }
+
+  /* ── A11y ── */
+  .a11y-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .a11y-badge.pass { background: #DCFCE7; color: #15803D; }
+  .a11y-badge.fail { background: #FEE2E2; color: #DC2626; }
+  .a11y-input {
+    width: 100%;
+    padding: 7px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 12px;
+    color: var(--text-primary);
+    background: var(--surface);
+    outline: none;
+  }
+  .a11y-input:focus { border-color: var(--primary); }
+  .a11y-select {
+    width: 100%;
+    padding: 7px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 12px;
+    color: var(--text-primary);
+    background: var(--surface);
+    cursor: pointer;
+    outline: none;
+    margin-bottom: 6px;
+  }
+
+  /* ── Theme ── */
+  .theme-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .theme-header {
+    padding: 8px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+  }
+  .theme-header:first-child { border-right: 1px solid var(--border); background: #FEFCE8; }
+  .theme-header:nth-child(2) { background: #1E293B; color: #94A3B8; }
+  .theme-row-light, .theme-row-dark {
+    padding: 6px 12px;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .theme-row-light { border-right: 1px solid var(--border); background: var(--surface); }
+  .theme-row-dark { background: #0F172A; color: #CBD5E1; }
+  .theme-row-light.highlight { background: #FEFCE8; }
+  .theme-row-dark.highlight { background: #1E293B; }
+  .theme-swatch {
+    width: 16px; height: 16px;
+    border-radius: 4px;
+    border: 1px solid rgba(0,0,0,0.1);
+    flex-shrink: 0;
+  }
+  .theme-var-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+  .theme-var-value { font-family: 'SF Mono', monospace; font-size: 10px; color: var(--text-muted); }
+  .theme-row-dark .theme-var-value { color: #64748B; }
+
+  /* ── Component ── */
+  .comp-tab {
+    padding: 6px 14px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .comp-tab.active {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+  }
+
   /* ── Scrollbar ── */
   ::-webkit-scrollbar { width: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -407,6 +564,18 @@
   <span class="file-name" id="headerFile">로딩 중...</span>
   <button class="back-btn" id="backBtn">← 뒤로</button>
 </div>
+
+<!-- ── Main Tabs ── -->
+<div class="main-tabs">
+  <button class="main-tab active" data-tab="extract">추출</button>
+  <button class="main-tab" data-tab="icons">아이콘</button>
+  <button class="main-tab" data-tab="a11y">접근성</button>
+  <button class="main-tab" data-tab="themes">테마</button>
+  <button class="main-tab" data-tab="component">컴포넌트</button>
+</div>
+
+<!-- ── Extract Panel ── -->
+<div class="tab-panel" id="panel-extract" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
 
 <!-- ── Filter View ── -->
 <div id="view-filter" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
@@ -617,6 +786,107 @@
     <button class="btn-ghost" id="downloadCssBtn">⬇ CSS</button>
   </div>
 
+</div>
+
+</div><!-- /panel-extract -->
+
+<!-- ── Icon Panel ── -->
+<div class="tab-panel" id="panel-icons" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
+  <div class="tab-body">
+    <div class="section-card">
+      <div class="section-label">아이콘 SVG 추출</div>
+      <p style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;">
+        Figma에서 아이콘을 선택한 후 추출 버튼을 클릭하세요.
+      </p>
+      <div id="iconSelInfo" style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">선택된 노드 없음</div>
+      <button class="btn-primary" id="exportIconsBtn" style="width:100%;height:40px;">선택한 아이콘 추출</button>
+    </div>
+    <div id="iconResults" class="hidden">
+      <div class="section-label" style="padding:0 2px;">추출 결과 (<span id="iconCount">0</span>개)</div>
+      <div id="iconList" style="display:flex;flex-direction:column;gap:8px;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Accessibility Panel ── -->
+<div class="tab-panel" id="panel-a11y" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
+  <div class="tab-body">
+    <div class="section-card">
+      <div class="section-label">WCAG 명도 대비 검사</div>
+      <div style="display:flex;gap:16px;margin-bottom:16px;">
+        <div style="flex:1;">
+          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px;">배경색</label>
+          <select id="a11yBgSelect" class="a11y-select"><option value="">직접 입력</option></select>
+          <input type="text" id="a11yBgHex" class="a11y-input" placeholder="#FFFFFF" value="#FFFFFF" />
+          <div id="a11yBgPreview" style="width:100%;height:32px;border-radius:6px;border:1px solid var(--border);margin-top:6px;background:#FFFFFF;"></div>
+        </div>
+        <div style="flex:1;">
+          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px;">텍스트색</label>
+          <select id="a11yFgSelect" class="a11y-select"><option value="">직접 입력</option></select>
+          <input type="text" id="a11yFgHex" class="a11y-input" placeholder="#000000" value="#000000" />
+          <div id="a11yFgPreview" style="width:100%;height:32px;border-radius:6px;border:1px solid var(--border);margin-top:6px;background:#000000;"></div>
+        </div>
+      </div>
+      <div style="text-align:center;padding:20px 0;background:var(--bg);border-radius:var(--radius);">
+        <div id="a11yRatio" style="font-size:36px;font-weight:700;color:var(--primary);">21:1</div>
+        <div style="display:flex;gap:8px;justify-content:center;margin-top:12px;">
+          <span id="a11yAA" class="a11y-badge pass">AA Normal ✓</span>
+          <span id="a11yAALarge" class="a11y-badge pass">AA Large ✓</span>
+          <span id="a11yAAA" class="a11y-badge pass">AAA ✓</span>
+        </div>
+      </div>
+      <div id="a11yPreviewBox" style="margin-top:12px;padding:20px;border-radius:var(--radius);background:#FFFFFF;border:1px solid var(--border);text-align:center;">
+        <span id="a11yPreviewText" style="font-size:16px;font-weight:500;color:#000000;">미리보기 텍스트 Preview</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Theme Panel ── -->
+<div class="tab-panel" id="panel-themes" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
+  <div class="tab-body">
+    <div class="section-card" style="margin-bottom:0;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div class="section-label" style="margin-bottom:0;">다크/라이트 테마 비교</div>
+        <div style="display:flex;gap:6px;">
+          <button class="btn-ghost" id="extractThemesBtn" style="height:32px;padding:0 12px;font-size:12px;">테마 추출</button>
+          <button class="btn-ghost" id="themeFilterBtn" style="height:32px;padding:0 12px;font-size:12px;" disabled>전체 보기</button>
+        </div>
+      </div>
+    </div>
+    <div id="themeContent" style="flex:1;overflow-y:auto;">
+      <div style="text-align:center;padding:40px 0;color:var(--text-muted);font-size:12px;">
+        "테마 추출" 버튼을 클릭하여 시작하세요
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Component Panel ── -->
+<div class="tab-panel" id="panel-component" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
+  <div class="tab-body">
+    <div class="section-card">
+      <div class="section-label">컴포넌트 코드 생성</div>
+      <p style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;">
+        Figma에서 컴포넌트를 선택하고 코드를 생성하세요.
+      </p>
+      <div id="compSelInfo" style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">선택된 노드 없음</div>
+      <button class="btn-primary" id="generateCompBtn" style="width:100%;height:40px;">코드 생성</button>
+    </div>
+    <div id="compResult" class="hidden">
+      <div style="display:flex;gap:4px;margin-bottom:8px;">
+        <button class="comp-tab active" data-comp-tab="html">HTML</button>
+        <button class="comp-tab" data-comp-tab="react">React</button>
+      </div>
+      <div style="position:relative;">
+        <textarea id="compCode" readonly style="width:100%;height:300px;font-family:'SF Mono','Fira Code',monospace;font-size:11px;line-height:1.6;padding:12px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text-secondary);resize:vertical;"></textarea>
+        <div style="position:absolute;top:8px;right:8px;display:flex;gap:4px;">
+          <button class="btn-ghost" id="compCopyBtn" style="height:28px;padding:0 10px;font-size:11px;">복사</button>
+          <button class="btn-ghost" id="compDownloadBtn" style="height:28px;padding:0 10px;font-size:11px;">JSON 저장</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- ── Toast ── -->

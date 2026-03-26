@@ -448,12 +448,450 @@ window.onmessage = function(event) {
     a.click(); URL.revokeObjectURL(url);
     showToast('inspect_nodes.json 저장됨');
   }
-  if (msg.type === 'extract-result') { renderResult(msg.data); }
+  if (msg.type === 'extract-result') {
+    renderResult(msg.data);
+    populateA11yColors();
+  }
   if (msg.type === 'extract-error') {
     showView('filter');
     showToast('오류: ' + (msg.message || '추출 실패'));
   }
+  // Icon results
+  if (msg.type === 'export-icons-result') {
+    exportIconsBtn.disabled = false;
+    exportIconsBtn.textContent = '선택한 아이콘 추출';
+    renderIconResults(msg.data || []);
+  }
+  if (msg.type === 'export-icons-error') {
+    exportIconsBtn.disabled = false;
+    exportIconsBtn.textContent = '선택한 아이콘 추출';
+    showToast('아이콘 추출 실패: ' + (msg.message || ''));
+  }
+  // Theme results
+  if (msg.type === 'extract-themes-result') {
+    extractThemesBtn.disabled = false;
+    extractThemesBtn.textContent = '테마 추출';
+    themeData = msg.data;
+    themeFilterBtn.disabled = false;
+    renderThemes();
+  }
+  if (msg.type === 'extract-themes-error') {
+    extractThemesBtn.disabled = false;
+    extractThemesBtn.textContent = '테마 추출';
+    showToast('테마 추출 실패: ' + (msg.message || ''));
+  }
+  // Component results
+  if (msg.type === 'generate-component-result') {
+    generateCompBtn.disabled = false;
+    generateCompBtn.textContent = '코드 생성';
+    compData = msg.data;
+    if (compData) {
+      compActiveTab = 'html';
+      document.querySelectorAll('.comp-tab').forEach(function(ct) {
+        ct.classList.toggle('active', ct.dataset.compTab === 'html');
+      });
+      updateCompCode();
+      $('compResult').classList.remove('hidden');
+    } else {
+      showToast('선택된 노드에서 코드를 생성할 수 없습니다');
+    }
+  }
+  if (msg.type === 'generate-component-error') {
+    generateCompBtn.disabled = false;
+    generateCompBtn.textContent = '코드 생성';
+    showToast('코드 생성 실패: ' + (msg.message || ''));
+  }
+  // Selection change also updates icon/component tab info
+  if (msg.type === 'selection-changed') {
+    if (currentMainTab === 'icons') updateIconSelInfo();
+    if (currentMainTab === 'component') updateCompSelInfo();
+  }
 };
+
+// ══════════════════════════════════════════════
+// ── Main Tab System ──
+// ══════════════════════════════════════════════
+var currentMainTab = 'extract';
+var mainTabs = document.querySelectorAll('.main-tab');
+var tabPanels = {
+  extract:   $('panel-extract'),
+  icons:     $('panel-icons'),
+  a11y:      $('panel-a11y'),
+  themes:    $('panel-themes'),
+  component: $('panel-component'),
+};
+
+function switchMainTab(tab) {
+  currentMainTab = tab;
+  mainTabs.forEach(function(t) {
+    t.classList.toggle('active', t.dataset.tab === tab);
+  });
+  Object.keys(tabPanels).forEach(function(k) {
+    var el = tabPanels[k];
+    if (k === tab) {
+      el.style.display = 'flex';
+      el.classList.remove('hidden');
+    } else {
+      el.style.display = 'none';
+    }
+  });
+  // Update selection info for relevant tabs
+  if (tab === 'icons') updateIconSelInfo();
+  if (tab === 'component') updateCompSelInfo();
+}
+
+mainTabs.forEach(function(t) {
+  t.addEventListener('click', function() {
+    switchMainTab(t.dataset.tab);
+  });
+});
+
+// ══════════════════════════════════════════════
+// ── Icon Tab ──
+// ══════════════════════════════════════════════
+var iconData = [];
+var exportIconsBtn = $('exportIconsBtn');
+
+function updateIconSelInfo() {
+  var info = $('iconSelInfo');
+  if (lastSelection.count > 0) {
+    info.textContent = lastSelection.count + '개 노드 선택됨: ' + lastSelection.names.slice(0, 3).join(', ') + (lastSelection.count > 3 ? ' 외 ' + (lastSelection.count - 3) + '개' : '');
+    info.style.color = 'var(--primary)';
+  } else {
+    info.textContent = '선택된 노드 없음';
+    info.style.color = 'var(--text-muted)';
+  }
+}
+
+exportIconsBtn.addEventListener('click', function() {
+  if (lastSelection.count === 0) { showToast('먼저 아이콘을 선택하세요'); return; }
+  exportIconsBtn.disabled = true;
+  exportIconsBtn.textContent = '추출 중...';
+  parent.postMessage({ pluginMessage: { type: 'export-icons' } }, '*');
+});
+
+function renderIconResults(data) {
+  iconData = data;
+  $('iconCount').textContent = data.length;
+  var list = $('iconList');
+  if (data.length === 0) {
+    list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12px;">추출된 아이콘 없음</div>';
+    $('iconResults').classList.remove('hidden');
+    return;
+  }
+  list.innerHTML = data.map(function(icon, idx) {
+    return '<div class="icon-item">'
+      + '<div class="icon-preview">' + icon.svg + '</div>'
+      + '<div class="icon-info">'
+      + '<div class="icon-name">' + escapeHtml(icon.name) + '</div>'
+      + '<div class="icon-names">' + icon.kebab + ' / ' + icon.pascal + '</div>'
+      + '</div>'
+      + '<div class="icon-actions">'
+      + '<button class="btn-ghost" style="height:28px;padding:0 8px;font-size:10px;" onclick="copyIconSvg(' + idx + ')">SVG 복사</button>'
+      + '<button class="btn-ghost" style="height:28px;padding:0 8px;font-size:10px;" onclick="copyIconReact(' + idx + ')">React 복사</button>'
+      + '</div>'
+      + '</div>';
+  }).join('');
+  $('iconResults').classList.remove('hidden');
+}
+
+// Global functions for icon copy (called from onclick)
+window.copyIconSvg = function(idx) {
+  var icon = iconData[idx];
+  if (!icon) return;
+  copyToClipboard(icon.svg);
+  showToast('SVG 복사됨');
+};
+
+window.copyIconReact = function(idx) {
+  var icon = iconData[idx];
+  if (!icon) return;
+  // Clean SVG for React: remove xml declaration, add props
+  var svgClean = icon.svg.replace(/<\?xml[^?]*\?>\s*/g, '').trim();
+  var react = 'export const ' + icon.pascal + ' = (props) => (\n  ' + svgClean.replace(/<svg/, '<svg {...props}') + '\n);';
+  copyToClipboard(react);
+  showToast('React 컴포넌트 복사됨');
+};
+
+// ══════════════════════════════════════════════
+// ── Accessibility Tab ──
+// ══════════════════════════════════════════════
+var a11yBgSelect = $('a11yBgSelect');
+var a11yFgSelect = $('a11yFgSelect');
+var a11yBgHex = $('a11yBgHex');
+var a11yFgHex = $('a11yFgHex');
+var a11yBgPreview = $('a11yBgPreview');
+var a11yFgPreview = $('a11yFgPreview');
+
+function hexToRgb(hex) {
+  hex = hex.replace(/^#/, '');
+  if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+  if (hex.length !== 6) return null;
+  var r = parseInt(hex.substring(0,2), 16);
+  var g = parseInt(hex.substring(2,4), 16);
+  var b = parseInt(hex.substring(4,6), 16);
+  if (isNaN(r) || isNaN(g) || isNaN(b)) return null;
+  return [r, g, b];
+}
+
+function relativeLuminance(rgb) {
+  var srgb = rgb.map(function(c) {
+    c = c / 255;
+    return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * srgb[0] + 0.7152 * srgb[1] + 0.0722 * srgb[2];
+}
+
+function contrastRatio(bg, fg) {
+  var l1 = relativeLuminance(bg);
+  var l2 = relativeLuminance(fg);
+  var lighter = Math.max(l1, l2);
+  var darker = Math.min(l1, l2);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+function updateA11y() {
+  var bgHex = a11yBgHex.value.trim();
+  var fgHex = a11yFgHex.value.trim();
+  if (!bgHex.startsWith('#')) bgHex = '#' + bgHex;
+  if (!fgHex.startsWith('#')) fgHex = '#' + fgHex;
+
+  var bgRgb = hexToRgb(bgHex);
+  var fgRgb = hexToRgb(fgHex);
+
+  a11yBgPreview.style.background = bgRgb ? bgHex : '#FFFFFF';
+  a11yFgPreview.style.background = fgRgb ? fgHex : '#000000';
+
+  if (!bgRgb || !fgRgb) return;
+
+  var ratio = contrastRatio(bgRgb, fgRgb);
+  var ratioStr = ratio.toFixed(2) + ':1';
+  $('a11yRatio').textContent = ratioStr;
+
+  // AA normal: 4.5:1, AA large: 3:1, AAA: 7:1
+  var aa = ratio >= 4.5;
+  var aaLarge = ratio >= 3;
+  var aaa = ratio >= 7;
+
+  $('a11yAA').className = 'a11y-badge ' + (aa ? 'pass' : 'fail');
+  $('a11yAA').textContent = 'AA Normal ' + (aa ? '✓' : '✗');
+  $('a11yAALarge').className = 'a11y-badge ' + (aaLarge ? 'pass' : 'fail');
+  $('a11yAALarge').textContent = 'AA Large ' + (aaLarge ? '✓' : '✗');
+  $('a11yAAA').className = 'a11y-badge ' + (aaa ? 'pass' : 'fail');
+  $('a11yAAA').textContent = 'AAA ' + (aaa ? '✓' : '✗');
+
+  // Color the ratio text
+  if (ratio >= 7) $('a11yRatio').style.color = '#15803D';
+  else if (ratio >= 4.5) $('a11yRatio').style.color = 'var(--primary)';
+  else if (ratio >= 3) $('a11yRatio').style.color = '#D97706';
+  else $('a11yRatio').style.color = '#DC2626';
+
+  // Preview
+  $('a11yPreviewBox').style.background = bgHex;
+  $('a11yPreviewText').style.color = fgHex;
+}
+
+a11yBgHex.addEventListener('input', updateA11y);
+a11yFgHex.addEventListener('input', updateA11y);
+a11yBgSelect.addEventListener('change', function() {
+  if (this.value) { a11yBgHex.value = this.value; updateA11y(); }
+});
+a11yFgSelect.addEventListener('change', function() {
+  if (this.value) { a11yFgHex.value = this.value; updateA11y(); }
+});
+
+// Populate a11y dropdowns from extracted data
+function populateA11yColors() {
+  if (!extractedData) return;
+  var colors = [];
+  // From color styles
+  if (extractedData.styles && extractedData.styles.colors) {
+    extractedData.styles.colors.forEach(function(s) {
+      if (s.paints && s.paints.length > 0 && s.paints[0].type === 'SOLID') {
+        var c = s.paints[0].color;
+        var r = Math.round((c.r || 0) * 255);
+        var g = Math.round((c.g || 0) * 255);
+        var b = Math.round((c.b || 0) * 255);
+        var hex = '#' + [r,g,b].map(function(v) { return v.toString(16).padStart(2,'0'); }).join('').toUpperCase();
+        colors.push({ name: s.name, hex: hex });
+      }
+    });
+  }
+  // From COLOR variables
+  if (extractedData.variables && extractedData.variables.variables) {
+    extractedData.variables.variables.forEach(function(v) {
+      if (v.resolvedType !== 'COLOR') return;
+      var modes = Object.keys(v.valuesByMode);
+      if (modes.length === 0) return;
+      var val = v.valuesByMode[modes[0]];
+      if (val && typeof val === 'object' && val.r !== undefined) {
+        var r = Math.round(val.r * 255);
+        var g = Math.round(val.g * 255);
+        var b = Math.round(val.b * 255);
+        var hex = '#' + [r,g,b].map(function(v) { return v.toString(16).padStart(2,'0'); }).join('').toUpperCase();
+        colors.push({ name: v.name, hex: hex });
+      }
+    });
+  }
+  [a11yBgSelect, a11yFgSelect].forEach(function(sel) {
+    // Keep the first "직접 입력" option
+    while (sel.options.length > 1) sel.remove(1);
+    colors.forEach(function(c) {
+      var opt = document.createElement('option');
+      opt.value = c.hex;
+      opt.textContent = c.name + ' (' + c.hex + ')';
+      sel.appendChild(opt);
+    });
+  });
+}
+
+updateA11y();
+
+// ══════════════════════════════════════════════
+// ── Theme Tab ──
+// ══════════════════════════════════════════════
+var themeData = null;
+var showChangedOnly = false;
+var extractThemesBtn = $('extractThemesBtn');
+var themeFilterBtn = $('themeFilterBtn');
+
+extractThemesBtn.addEventListener('click', function() {
+  extractThemesBtn.disabled = true;
+  extractThemesBtn.textContent = '추출 중...';
+  parent.postMessage({ pluginMessage: { type: 'extract-themes' } }, '*');
+});
+
+themeFilterBtn.addEventListener('click', function() {
+  showChangedOnly = !showChangedOnly;
+  themeFilterBtn.textContent = showChangedOnly ? '변경된 것만' : '전체 보기';
+  renderThemes();
+});
+
+function renderThemes() {
+  if (!themeData) return;
+  var modes = Object.keys(themeData);
+  if (modes.length < 2) {
+    $('themeContent').innerHTML = '<div style="text-align:center;padding:40px 0;color:var(--text-muted);font-size:12px;">2개 이상의 모드가 있는 컬렉션이 없습니다</div>';
+    return;
+  }
+  // Use first two modes for comparison
+  var mode1 = modes[0];
+  var mode2 = modes[1];
+  var vars1 = themeData[mode1];
+  var vars2 = themeData[mode2];
+
+  // Build map for mode2
+  var map2 = {};
+  vars2.forEach(function(v) { map2[v.name] = v.value; });
+
+  var rows = vars1.map(function(v) {
+    var val2 = map2[v.name] || '—';
+    var changed = v.value !== val2;
+    return { name: v.name, val1: v.value, val2: val2, changed: changed };
+  });
+
+  if (showChangedOnly) {
+    rows = rows.filter(function(r) { return r.changed; });
+  }
+
+  if (rows.length === 0) {
+    $('themeContent').innerHTML = '<div style="text-align:center;padding:40px 0;color:var(--text-muted);font-size:12px;">' + (showChangedOnly ? '변경된 항목이 없습니다' : '테마 변수가 없습니다') + '</div>';
+    return;
+  }
+
+  var html = '<div class="theme-grid">';
+  html += '<div class="theme-header">' + escapeHtml(mode1) + ' (' + rows.length + ')</div>';
+  html += '<div class="theme-header">' + escapeHtml(mode2) + '</div>';
+
+  rows.forEach(function(r) {
+    var hl = r.changed ? ' highlight' : '';
+    html += '<div class="theme-row-light' + hl + '">'
+      + '<div class="theme-swatch" style="background:' + r.val1 + '"></div>'
+      + '<span class="theme-var-name">' + escapeHtml(r.name) + '</span>'
+      + '<span class="theme-var-value">' + r.val1 + '</span>'
+      + '</div>';
+    html += '<div class="theme-row-dark' + hl + '">'
+      + '<div class="theme-swatch" style="background:' + r.val2 + '"></div>'
+      + '<span class="theme-var-name">' + escapeHtml(r.name) + '</span>'
+      + '<span class="theme-var-value">' + r.val2 + '</span>'
+      + '</div>';
+  });
+
+  html += '</div>';
+  $('themeContent').innerHTML = html;
+}
+
+// ══════════════════════════════════════════════
+// ── Component Tab ──
+// ══════════════════════════════════════════════
+var compData = null;
+var compActiveTab = 'html';
+var generateCompBtn = $('generateCompBtn');
+
+function updateCompSelInfo() {
+  var info = $('compSelInfo');
+  if (lastSelection.count > 0) {
+    info.textContent = '선택: ' + lastSelection.names[0] + (lastSelection.count > 1 ? ' 외 ' + (lastSelection.count - 1) + '개 (첫 번째 노드 사용)' : '');
+    info.style.color = 'var(--primary)';
+  } else {
+    info.textContent = '선택된 노드 없음';
+    info.style.color = 'var(--text-muted)';
+  }
+}
+
+generateCompBtn.addEventListener('click', function() {
+  if (lastSelection.count === 0) { showToast('먼저 컴포넌트를 선택하세요'); return; }
+  generateCompBtn.disabled = true;
+  generateCompBtn.textContent = '생성 중...';
+  parent.postMessage({ pluginMessage: { type: 'generate-component' } }, '*');
+});
+
+// Component sub-tab switching
+document.querySelectorAll('.comp-tab').forEach(function(t) {
+  t.addEventListener('click', function() {
+    compActiveTab = t.dataset.compTab;
+    document.querySelectorAll('.comp-tab').forEach(function(ct) {
+      ct.classList.toggle('active', ct.dataset.compTab === compActiveTab);
+    });
+    updateCompCode();
+  });
+});
+
+function updateCompCode() {
+  if (!compData) return;
+  $('compCode').value = compActiveTab === 'html' ? compData.html : compData.react;
+}
+
+$('compCopyBtn').addEventListener('click', function() {
+  if (!compData) return;
+  var text = compActiveTab === 'html' ? compData.html : compData.react;
+  copyToClipboard(text);
+  showToast((compActiveTab === 'html' ? 'HTML' : 'React') + ' 복사됨');
+});
+
+$('compDownloadBtn').addEventListener('click', function() {
+  if (!compData) return;
+  var json = JSON.stringify(compData, null, 2);
+  var blob = new Blob([json], { type: 'application/json' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = (compData.name || 'component') + '.json';
+  a.click(); URL.revokeObjectURL(url);
+  showToast('JSON 다운로드 시작!');
+});
+
+// ══════════════════════════════════════════════
+// ── Clipboard helper ──
+// ══════════════════════════════════════════════
+function copyToClipboard(text) {
+  var ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0';
+  document.body.appendChild(ta);
+  ta.focus(); ta.select();
+  document.execCommand('copy');
+  document.body.removeChild(ta);
+}
 
 // ── Init ──
 showView('filter');
