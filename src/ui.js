@@ -556,11 +556,15 @@ var exportIconsBtn = $('exportIconsBtn');
 function updateIconSelInfo() {
   var info = $('iconSelInfo');
   if (lastSelection.count > 0) {
-    info.textContent = lastSelection.count + '개 노드 선택됨: ' + lastSelection.names.slice(0, 3).join(', ') + (lastSelection.count > 3 ? ' 외 ' + (lastSelection.count - 3) + '개' : '');
+    info.textContent = lastSelection.count + '개 선택됨 — ' + lastSelection.names.slice(0, 3).join(', ') + (lastSelection.count > 3 ? ' 외 ' + (lastSelection.count - 3) + '개' : '');
     info.style.color = 'var(--primary)';
+    info.style.background = 'var(--primary-light)';
+    info.style.border = '1px solid var(--primary-border)';
   } else {
-    info.textContent = '선택된 노드 없음';
+    info.textContent = '0개 선택됨';
     info.style.color = 'var(--text-muted)';
+    info.style.background = 'var(--bg)';
+    info.style.border = 'none';
   }
 }
 
@@ -604,6 +608,17 @@ function cleanSvg(svg) {
     .replace(/\s+xmlns:xlink="[^"]*"/g, '')
     .trim();
 }
+
+// ── Icon format toggle ──
+var iconFormat = 'svg';
+document.querySelectorAll('[data-icon-fmt]').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    iconFormat = btn.dataset.iconFmt;
+    document.querySelectorAll('[data-icon-fmt]').forEach(function(b) {
+      b.classList.toggle('active', b.dataset.iconFmt === iconFormat);
+    });
+  });
+});
 
 // 이벤트 위임: 아이콘 복사 버튼
 $('iconList').addEventListener('click', function(e) {
@@ -701,10 +716,26 @@ function updateA11y() {
   // Preview
   $('a11yPreviewBox').style.background = bgHex;
   $('a11yPreviewText').style.color = fgHex;
+
+  // Add visible border when background is light
+  var bgLum = relativeLuminance(bgRgb);
+  $('a11yPreviewBox').style.border = bgLum > 0.8 ? '1px solid #ddd' : '1px solid transparent';
 }
 
 a11yBgHex.addEventListener('input', updateA11y);
 a11yFgHex.addEventListener('input', updateA11y);
+
+// Swap button
+$('a11ySwapBtn').addEventListener('click', function() {
+  var tmpHex = a11yBgHex.value;
+  a11yBgHex.value = a11yFgHex.value;
+  a11yFgHex.value = tmpHex;
+  // Also swap select values
+  var tmpSel = a11yBgSelect.value;
+  a11yBgSelect.value = a11yFgSelect.value;
+  a11yFgSelect.value = tmpSel;
+  updateA11y();
+});
 a11yBgSelect.addEventListener('change', function() {
   if (this.value) { a11yBgHex.value = this.value; updateA11y(); }
 });
@@ -783,6 +814,8 @@ themeFilterBtn.addEventListener('click', function() {
 
 function renderThemes() {
   if (!themeData) return;
+  var emptyState = $('themeEmptyState');
+  if (emptyState) emptyState.style.display = 'none';
   var modes = Object.keys(themeData);
   if (modes.length < 2) {
     $('themeContent').innerHTML = '<div style="text-align:center;padding:40px 0;color:var(--text-muted);font-size:12px;">2개 이상의 모드가 있는 컬렉션이 없습니다</div>';
@@ -894,11 +927,26 @@ function updateCompSelInfo() {
   if (lastSelection.count > 0) {
     info.textContent = '선택: ' + lastSelection.names[0] + (lastSelection.count > 1 ? ' 외 ' + (lastSelection.count - 1) + '개 (첫 번째 노드 사용)' : '');
     info.style.color = 'var(--primary)';
+    info.style.background = 'var(--primary-light)';
+    info.style.border = '1px solid var(--primary-border)';
   } else {
     info.textContent = '선택된 노드 없음';
     info.style.color = 'var(--text-muted)';
+    info.style.background = 'var(--bg)';
+    info.style.border = 'none';
   }
 }
+
+// ── Component language toggle ──
+var compLang = 'react';
+document.querySelectorAll('[data-comp-lang]').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    compLang = btn.dataset.compLang;
+    document.querySelectorAll('[data-comp-lang]').forEach(function(b) {
+      b.classList.toggle('active', b.dataset.compLang === compLang);
+    });
+  });
+});
 
 generateCompBtn.addEventListener('click', function() {
   if (lastSelection.count === 0) { showToast('먼저 컴포넌트를 선택하세요'); return; }
@@ -956,3 +1004,13 @@ function copyToClipboard(text) {
 
 // ── Init ──
 showView('filter');
+
+// Fallback: if no init-data arrives within 1s (non-Figma env), clear loading text
+setTimeout(function() {
+  if (headerFile.textContent === '로딩 중...') {
+    headerFile.textContent = 'Figma 파일';
+  }
+  if (colList.querySelector('.no-collections') && colList.textContent.trim() === '로딩 중...') {
+    colList.innerHTML = '<div class="no-collections">컬렉션 없음 — Figma에서 플러그인을 실행하세요</div>';
+  }
+}, 1000);

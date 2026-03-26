@@ -795,10 +795,26 @@
   <div class="tab-body">
     <div class="section-card">
       <div class="section-label">아이콘 SVG 추출</div>
-      <p style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;">
-        Figma에서 아이콘을 선택한 후 추출 버튼을 클릭하세요.
-      </p>
-      <div id="iconSelInfo" style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">선택된 노드 없음</div>
+      <div style="margin-bottom:12px;font-size:12px;color:var(--text-secondary);line-height:1.8;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+          <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--primary);color:#fff;font-size:10px;font-weight:700;flex-shrink:0;">1</span>
+          Figma에서 아이콘 레이어를 선택
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+          <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--primary);color:#fff;font-size:10px;font-weight:700;flex-shrink:0;">2</span>
+          추출 버튼 클릭
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--primary);color:#fff;font-size:10px;font-weight:700;flex-shrink:0;">3</span>
+          SVG / React 코드 복사
+        </div>
+      </div>
+      <div id="iconSelInfo" style="font-size:12px;color:var(--text-muted);margin-bottom:10px;padding:6px 10px;background:var(--bg);border-radius:6px;">0개 선택됨</div>
+      <div style="display:flex;gap:6px;margin-bottom:10px;">
+        <span style="font-size:11px;color:var(--text-muted);line-height:28px;">출력 형식:</span>
+        <button class="comp-tab active" id="iconFmtSvg" data-icon-fmt="svg">SVG</button>
+        <button class="comp-tab" id="iconFmtReact" data-icon-fmt="react">React</button>
+      </div>
       <button class="btn-primary" id="exportIconsBtn" style="width:100%;height:40px;">선택한 아이콘 추출</button>
     </div>
     <div id="iconResults" class="hidden">
@@ -816,18 +832,21 @@
     </div>
     <div class="section-card">
       <div class="section-label">WCAG 명도 대비 검사</div>
-      <div style="display:flex;gap:16px;margin-bottom:16px;">
+      <div style="display:flex;gap:10px;align-items:stretch;margin-bottom:16px;">
         <div style="flex:1;">
           <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px;">배경색</label>
           <select id="a11yBgSelect" class="a11y-select"><option value="">직접 입력</option></select>
           <input type="text" id="a11yBgHex" class="a11y-input" placeholder="#FFFFFF" value="#FFFFFF" />
-          <div id="a11yBgPreview" style="width:100%;height:32px;border-radius:6px;border:1px solid var(--border);margin-top:6px;background:#FFFFFF;"></div>
+          <div id="a11yBgPreview" style="width:100%;height:32px;border-radius:6px;border:1px solid #ddd;margin-top:6px;background:#FFFFFF;"></div>
+        </div>
+        <div style="display:flex;align-items:center;padding-top:16px;">
+          <button id="a11ySwapBtn" title="배경↔텍스트 교체" style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:var(--surface);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--text-secondary);transition:all 0.15s;">⇄</button>
         </div>
         <div style="flex:1;">
           <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px;">텍스트색</label>
           <select id="a11yFgSelect" class="a11y-select"><option value="">직접 입력</option></select>
           <input type="text" id="a11yFgHex" class="a11y-input" placeholder="#000000" value="#000000" />
-          <div id="a11yFgPreview" style="width:100%;height:32px;border-radius:6px;border:1px solid var(--border);margin-top:6px;background:#000000;"></div>
+          <div id="a11yFgPreview" style="width:100%;height:32px;border-radius:6px;border:1px solid #ddd;margin-top:6px;background:#000000;"></div>
         </div>
       </div>
       <div style="text-align:center;padding:20px 0;background:var(--bg);border-radius:var(--radius);">
@@ -838,7 +857,7 @@
           <span id="a11yAAA" class="a11y-badge pass">AAA ✓</span>
         </div>
       </div>
-      <div id="a11yPreviewBox" style="margin-top:12px;padding:20px;border-radius:var(--radius);background:#FFFFFF;border:1px solid var(--border);text-align:center;">
+      <div id="a11yPreviewBox" style="margin-top:12px;padding:20px;border-radius:var(--radius);background:#FFFFFF;border:1px solid #ddd;text-align:center;">
         <span id="a11yPreviewText" style="font-size:16px;font-weight:500;color:#000000;">미리보기 텍스트 Preview</span>
       </div>
     </div>
@@ -859,8 +878,56 @@
       </div>
     </div>
     <div id="themeContent" style="flex:1;overflow-y:auto;">
-      <div style="text-align:center;padding:40px 0;color:var(--text-muted);font-size:12px;">
-        "테마 추출" 버튼을 클릭하여 시작하세요
+      <div id="themeEmptyState" style="padding:14px 16px;">
+        <div class="section-card" style="background:var(--primary-light);border-color:var(--primary-border);margin-bottom:10px;">
+          <p style="font-size:12px;color:var(--primary);margin:0;line-height:1.6;">
+            Variables의 Light/Dark 모드를 자동 감지하여 비교합니다.
+          </p>
+        </div>
+        <div class="section-card" style="margin-bottom:10px;">
+          <div class="section-label">전제 조건</div>
+          <p style="font-size:12px;color:var(--text-secondary);margin:0;line-height:1.6;">
+            Figma Variables에 <strong>2개 이상의 모드</strong>(예: Light / Dark)가 정의되어 있어야 합니다.
+          </p>
+        </div>
+        <div class="section-card" style="margin-bottom:0;">
+          <div class="section-label">미리보기 (샘플)</div>
+          <div class="theme-grid">
+            <div class="theme-header">Light</div>
+            <div class="theme-header">Dark</div>
+            <div class="theme-row-light">
+              <div class="theme-swatch" style="background:#FFFFFF"></div>
+              <span class="theme-var-name" style="color:var(--text-muted);">color/background</span>
+              <span class="theme-var-value">#FFFFFF</span>
+            </div>
+            <div class="theme-row-dark">
+              <div class="theme-swatch" style="background:#0F172A"></div>
+              <span class="theme-var-name">color/background</span>
+              <span class="theme-var-value">#0F172A</span>
+            </div>
+            <div class="theme-row-light highlight">
+              <div class="theme-swatch" style="background:#1E293B"></div>
+              <span class="theme-var-name" style="color:var(--text-muted);">color/text-primary</span>
+              <span class="theme-var-value">#1E293B</span>
+            </div>
+            <div class="theme-row-dark highlight">
+              <div class="theme-swatch" style="background:#F1F5F9"></div>
+              <span class="theme-var-name">color/text-primary</span>
+              <span class="theme-var-value">#F1F5F9</span>
+            </div>
+            <div class="theme-row-light">
+              <div class="theme-swatch" style="background:#2563EB"></div>
+              <span class="theme-var-name" style="color:var(--text-muted);">color/primary</span>
+              <span class="theme-var-value">#2563EB</span>
+            </div>
+            <div class="theme-row-dark">
+              <div class="theme-swatch" style="background:#3B82F6"></div>
+              <span class="theme-var-name">color/primary</span>
+              <span class="theme-var-value">#3B82F6</span>
+            </div>
+          </div>
+          <p style="font-size:10px;color:var(--text-muted);margin-top:8px;text-align:center;">위는 샘플 데이터입니다. "테마 추출" 버튼을 클릭하여 실제 데이터를 확인하세요.</p>
+        </div>
       </div>
     </div>
   </div>
@@ -871,10 +938,32 @@
   <div class="tab-body">
     <div class="section-card">
       <div class="section-label">컴포넌트 코드 생성</div>
-      <p style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;">
-        Figma에서 컴포넌트를 선택하고 코드를 생성하세요.
-      </p>
-      <div id="compSelInfo" style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">선택된 노드 없음</div>
+      <div style="margin-bottom:12px;font-size:12px;color:var(--text-secondary);line-height:1.8;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+          <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--primary);color:#fff;font-size:10px;font-weight:700;flex-shrink:0;">1</span>
+          Figma에서 컴포넌트 선택
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+          <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--primary);color:#fff;font-size:10px;font-weight:700;flex-shrink:0;">2</span>
+          출력 형식 선택 후 코드 생성
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--primary);color:#fff;font-size:10px;font-weight:700;flex-shrink:0;">3</span>
+          생성된 코드 복사 또는 JSON 저장
+        </div>
+      </div>
+      <div id="compSelInfo" style="font-size:12px;color:var(--text-muted);margin-bottom:10px;padding:6px 10px;background:var(--bg);border-radius:6px;">선택된 노드 없음</div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+        <span style="font-size:11px;color:var(--text-muted);">출력 언어:</span>
+        <div style="display:flex;gap:4px;">
+          <button class="comp-tab" id="compLangHtml" data-comp-lang="html">HTML</button>
+          <button class="comp-tab active" id="compLangReact" data-comp-lang="react">React</button>
+        </div>
+        <label style="display:flex;align-items:center;gap:4px;margin-left:auto;cursor:pointer;">
+          <input type="checkbox" id="compTsCheck" style="accent-color:var(--primary);width:14px;height:14px;cursor:pointer;">
+          <span style="font-size:11px;color:var(--text-secondary);">TypeScript</span>
+        </label>
+      </div>
       <button class="btn-primary" id="generateCompBtn" style="width:100%;height:40px;">코드 생성</button>
     </div>
     <div id="compResult" class="hidden">
