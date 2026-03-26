@@ -486,6 +486,36 @@ async function exportIcons(): Promise<{ name: string; kebab: string; pascal: str
   return results;
 }
 
+async function exportIconsAll(): Promise<{ name: string; kebab: string; pascal: string; svg: string }[]> {
+  const ICON_RE = /icon|ic[/\\]/i;
+  const nodes = figma.currentPage.findAll((n) => {
+    if (n.type !== 'COMPONENT' && n.type !== 'INSTANCE' && n.type !== 'FRAME' && n.type !== 'GROUP' && n.type !== 'VECTOR' && n.type !== 'BOOLEAN_OPERATION') return false;
+    const parentName = n.parent && 'name' in n.parent ? (n.parent as any).name as string : '';
+    return ICON_RE.test(n.name) || ICON_RE.test(parentName);
+  });
+  const results: { name: string; kebab: string; pascal: string; svg: string }[] = [];
+  const seen = new Set<string>();
+  for (const node of nodes) {
+    if (seen.has(node.name)) continue;
+    seen.add(node.name);
+    try {
+      const svgBytes = await (node as any).exportAsync({ format: 'SVG' });
+      const bytes = new Uint8Array(svgBytes);
+      let svg = '';
+      for (let i = 0; i < bytes.length; i++) svg += String.fromCharCode(bytes[i]);
+      results.push({
+        name: node.name,
+        kebab: toKebabCase(node.name),
+        pascal: toPascalCase(node.name),
+        svg,
+      });
+    } catch (_) {
+      // skip nodes that can't be exported as SVG
+    }
+  }
+  return results;
+}
+
 async function extractThemes(): Promise<Record<string, { name: string; value: string }[]>> {
   const collections = await figma.variables.getLocalVariableCollectionsAsync();
   const variables = await figma.variables.getLocalVariablesAsync();
@@ -684,6 +714,11 @@ figma.ui.onmessage = (msg: { type: string; options?: ExtractOptions; width?: num
     exportIcons()
       .then((data) => figma.ui.postMessage({ type: "export-icons-result", data }))
       .catch((e) => figma.ui.postMessage({ type: "export-icons-error", message: String(e) }));
+  }
+  if (msg.type === "export-icons-all") {
+    exportIconsAll()
+      .then((data) => figma.ui.postMessage({ type: "export-icons-all-result", data }))
+      .catch((e) => figma.ui.postMessage({ type: "export-icons-all-error", message: String(e) }));
   }
   if (msg.type === "extract-themes") {
     extractThemes()

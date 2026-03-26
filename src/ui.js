@@ -13,6 +13,7 @@ var collections = [];
 var activeTab = 'json';
 var cssUnit = 'px';
 var activeStatTypes = new Set();
+var extractedColors = []; // {name, hex}[] for matrix
 
 // ── DOM ──
 var $ = function(id) { return document.getElementById(id); };
@@ -451,6 +452,7 @@ window.onmessage = function(event) {
   if (msg.type === 'extract-result') {
     renderResult(msg.data);
     populateA11yColors();
+    buildExtractedColors();
   }
   if (msg.type === 'extract-error') {
     showView('filter');
@@ -459,12 +461,22 @@ window.onmessage = function(event) {
   // Icon results
   if (msg.type === 'export-icons-result') {
     exportIconsBtn.disabled = false;
-    exportIconsBtn.textContent = '선택한 아이콘 추출';
+    exportIconsBtn.textContent = '선택 요소 추출하기';
     renderIconResults(msg.data || []);
   }
   if (msg.type === 'export-icons-error') {
     exportIconsBtn.disabled = false;
-    exportIconsBtn.textContent = '선택한 아이콘 추출';
+    exportIconsBtn.textContent = '선택 요소 추출하기';
+    showToast('아이콘 추출 실패: ' + (msg.message || ''));
+  }
+  if (msg.type === 'export-icons-all-result') {
+    exportIconsAllBtn.disabled = false;
+    exportIconsAllBtn.textContent = '전체 아이콘 추출하기';
+    renderIconResults(msg.data || []);
+  }
+  if (msg.type === 'export-icons-all-error') {
+    exportIconsAllBtn.disabled = false;
+    exportIconsAllBtn.textContent = '전체 아이콘 추출하기';
     showToast('아이콘 추출 실패: ' + (msg.message || ''));
   }
   // Theme results
@@ -551,7 +563,21 @@ mainTabs.forEach(function(t) {
 // ── Icon Tab ──
 // ══════════════════════════════════════════════
 var iconData = [];
+var iconMode = 'all';
 var exportIconsBtn = $('exportIconsBtn');
+var exportIconsAllBtn = $('exportIconsAllBtn');
+
+// ── Icon mode toggle ──
+document.querySelectorAll('[data-icon-mode]').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    iconMode = btn.dataset.iconMode;
+    document.querySelectorAll('[data-icon-mode]').forEach(function(b) {
+      b.classList.toggle('active', b.dataset.iconMode === iconMode);
+    });
+    $('iconModeAll').style.display = iconMode === 'all' ? 'block' : 'none';
+    $('iconModeSelection').style.display = iconMode === 'selection' ? 'block' : 'none';
+  });
+});
 
 function updateIconSelInfo() {
   var info = $('iconSelInfo');
@@ -568,6 +594,14 @@ function updateIconSelInfo() {
   }
 }
 
+// 전체 추출
+exportIconsAllBtn.addEventListener('click', function() {
+  exportIconsAllBtn.disabled = true;
+  exportIconsAllBtn.textContent = '추출 중...';
+  parent.postMessage({ pluginMessage: { type: 'export-icons-all' } }, '*');
+});
+
+// 선택 추출
 exportIconsBtn.addEventListener('click', function() {
   if (lastSelection.count === 0) { showToast('먼저 아이콘을 선택하세요'); return; }
   exportIconsBtn.disabled = true;
@@ -580,20 +614,17 @@ function renderIconResults(data) {
   $('iconCount').textContent = data.length;
   var list = $('iconList');
   if (data.length === 0) {
-    list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12px;">추출된 아이콘 없음</div>';
+    list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12px;grid-column:1/-1;">추출된 아이콘 없음</div>';
     $('iconResults').classList.remove('hidden');
     return;
   }
   list.innerHTML = data.map(function(icon, idx) {
-    return '<div class="icon-item">'
-      + '<div class="icon-preview">' + cleanSvg(icon.svg) + '</div>'
-      + '<div class="icon-info">'
-      + '<div class="icon-name">' + escapeHtml(icon.name) + '</div>'
-      + '<div class="icon-names">' + icon.kebab + ' / ' + icon.pascal + '</div>'
-      + '</div>'
-      + '<div class="icon-actions">'
-      + '<button class="btn-ghost icon-copy-btn" data-idx="' + idx + '" data-action="svg" style="height:28px;padding:0 8px;font-size:10px;">SVG 복사</button>'
-      + '<button class="btn-ghost icon-copy-btn" data-idx="' + idx + '" data-action="react" style="height:28px;padding:0 8px;font-size:10px;">React 복사</button>'
+    return '<div class="icon-card">'
+      + '<div class="icon-card-preview">' + cleanSvg(icon.svg) + '</div>'
+      + '<div class="icon-card-name">' + escapeHtml(icon.name) + '</div>'
+      + '<div class="icon-card-actions">'
+      + '<button class="btn-ghost icon-copy-btn" data-idx="' + idx + '" data-action="svg" style="height:24px;padding:0 6px;font-size:9px;">SVG</button>'
+      + '<button class="btn-ghost icon-copy-btn" data-idx="' + idx + '" data-action="react" style="height:24px;padding:0 6px;font-size:9px;">React</button>'
       + '</div>'
       + '</div>';
   }).join('');
@@ -608,17 +639,6 @@ function cleanSvg(svg) {
     .replace(/\s+xmlns:xlink="[^"]*"/g, '')
     .trim();
 }
-
-// ── Icon format toggle ──
-var iconFormat = 'svg';
-document.querySelectorAll('[data-icon-fmt]').forEach(function(btn) {
-  btn.addEventListener('click', function() {
-    iconFormat = btn.dataset.iconFmt;
-    document.querySelectorAll('[data-icon-fmt]').forEach(function(b) {
-      b.classList.toggle('active', b.dataset.iconFmt === iconFormat);
-    });
-  });
-});
 
 // 이벤트 위임: 아이콘 복사 버튼
 $('iconList').addEventListener('click', function(e) {
@@ -638,6 +658,20 @@ $('iconList').addEventListener('click', function(e) {
     copyToClipboard(react);
     showToast('React 컴포넌트 복사됨');
   }
+});
+
+// 전체 SVG 다운로드
+$('iconDownloadAllBtn').addEventListener('click', function() {
+  if (iconData.length === 0) { showToast('추출된 아이콘 없음'); return; }
+  var json = JSON.stringify(iconData.map(function(icon) {
+    return { name: icon.name, kebab: icon.kebab, pascal: icon.pascal, svg: cleanSvg(icon.svg) };
+  }), null, 2);
+  var blob = new Blob([json], { type: 'application/json' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = 'icons_' + iconData.length + '.json';
+  a.click(); URL.revokeObjectURL(url);
+  showToast('아이콘 JSON 다운로드 시작!');
 });
 
 // ══════════════════════════════════════════════
@@ -791,6 +825,104 @@ function populateA11yColors() {
 }
 
 updateA11y();
+
+// ── A11y Sub-Tab Switching ──
+var a11ySubTab = 'manual';
+document.querySelectorAll('.a11y-subtab').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    a11ySubTab = btn.dataset.a11ySub;
+    document.querySelectorAll('.a11y-subtab').forEach(function(b) {
+      b.classList.toggle('active', b.dataset.a11ySub === a11ySubTab);
+    });
+    $('a11yManualPanel').style.display = a11ySubTab === 'manual' ? 'flex' : 'none';
+    $('a11yMatrixPanel').style.display = a11ySubTab === 'matrix' ? 'flex' : 'none';
+    if (a11ySubTab === 'matrix') renderMatrix();
+  });
+});
+
+// ── Build extracted colors from data ──
+function buildExtractedColors() {
+  extractedColors = [];
+  if (!extractedData) return;
+  var seen = {};
+  // From color styles
+  if (extractedData.styles && extractedData.styles.colors) {
+    extractedData.styles.colors.forEach(function(s) {
+      if (s.paints && s.paints.length > 0 && s.paints[0].type === 'SOLID') {
+        var c = s.paints[0].color;
+        var r = Math.round((c.r || 0) * 255);
+        var g = Math.round((c.g || 0) * 255);
+        var b = Math.round((c.b || 0) * 255);
+        var hex = '#' + [r,g,b].map(function(v) { return v.toString(16).padStart(2,'0'); }).join('').toUpperCase();
+        if (!seen[hex]) { seen[hex] = true; extractedColors.push({ name: s.name, hex: hex }); }
+      }
+    });
+  }
+  // From COLOR variables
+  if (extractedData.variables && extractedData.variables.variables) {
+    extractedData.variables.variables.forEach(function(v) {
+      if (v.resolvedType !== 'COLOR') return;
+      var modes = Object.keys(v.valuesByMode);
+      if (modes.length === 0) return;
+      var val = v.valuesByMode[modes[0]];
+      if (val && typeof val === 'object' && val.r !== undefined) {
+        var r = Math.round(val.r * 255);
+        var g = Math.round(val.g * 255);
+        var b = Math.round(val.b * 255);
+        var hex = '#' + [r,g,b].map(function(v) { return v.toString(16).padStart(2,'0'); }).join('').toUpperCase();
+        if (!seen[hex]) { seen[hex] = true; extractedColors.push({ name: v.name, hex: hex }); }
+      }
+    });
+  }
+}
+
+// ── Matrix Rendering ──
+function renderMatrix() {
+  if (extractedColors.length === 0) {
+    $('matrixEmpty').style.display = 'block';
+    $('matrixContent').classList.add('hidden');
+    return;
+  }
+  $('matrixEmpty').style.display = 'none';
+  $('matrixContent').classList.remove('hidden');
+
+  // Limit to 20 colors
+  var colors = extractedColors.slice(0, 20);
+  $('matrixColorCount').textContent = colors.length;
+
+  // Short name: last segment of path
+  function shortName(name) {
+    var parts = name.split('/');
+    return parts[parts.length - 1];
+  }
+
+  var html = '<thead><tr><th></th>';
+  colors.forEach(function(c) {
+    html += '<th><span class="matrix-swatch" style="background:' + c.hex + '"></span>' + escapeHtml(shortName(c.name)) + '</th>';
+  });
+  html += '</tr></thead><tbody>';
+
+  colors.forEach(function(row) {
+    html += '<tr><td><span class="matrix-swatch" style="background:' + row.hex + '"></span>' + escapeHtml(shortName(row.name)) + '</td>';
+    var rowRgb = hexToRgb(row.hex);
+    colors.forEach(function(col) {
+      if (row.hex === col.hex) {
+        html += '<td class="matrix-same">-</td>';
+        return;
+      }
+      var colRgb = hexToRgb(col.hex);
+      if (!rowRgb || !colRgb) { html += '<td>-</td>'; return; }
+      var ratio = contrastRatio(rowRgb, colRgb);
+      var cls = ratio >= 7 ? 'matrix-aaa' : ratio >= 4.5 ? 'matrix-aa' : 'matrix-fail';
+      var icon = ratio >= 7 ? '✅' : ratio >= 4.5 ? '⚠️' : '❌';
+      html += '<td class="' + cls + '">' + ratio.toFixed(1) + ':1 ' + icon + '</td>';
+    });
+    html += '</tr>';
+  });
+
+  html += '</tbody>';
+  $('matrixTable').innerHTML = html;
+}
 
 // ══════════════════════════════════════════════
 // ── Theme Tab ──
