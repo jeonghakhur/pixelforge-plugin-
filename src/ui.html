@@ -811,6 +811,9 @@
 <!-- ── Accessibility Panel ── -->
 <div class="tab-panel" id="panel-a11y" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
   <div class="tab-body">
+    <div id="a11yHint" class="section-card" style="background:var(--primary-light);border-color:var(--primary-border);">
+      <p style="font-size:12px;color:var(--primary);margin:0;">추출 탭에서 토큰을 먼저 추출하면, 디자인 색상을 드롭다운에서 선택할 수 있습니다.</p>
+    </div>
     <div class="section-card">
       <div class="section-label">WCAG 명도 대비 검사</div>
       <div style="display:flex;gap:16px;margin-bottom:16px;">
@@ -850,6 +853,7 @@
         <div class="section-label" style="margin-bottom:0;">다크/라이트 테마 비교</div>
         <div style="display:flex;gap:6px;">
           <button class="btn-ghost" id="extractThemesBtn" style="height:32px;padding:0 12px;font-size:12px;">테마 추출</button>
+          <button class="btn-ghost" id="themeCopyCssBtn" style="height:32px;padding:0 12px;font-size:12px;" disabled>CSS 복사</button>
           <button class="btn-ghost" id="themeFilterBtn" style="height:32px;padding:0 12px;font-size:12px;" disabled>전체 보기</button>
         </div>
       </div>

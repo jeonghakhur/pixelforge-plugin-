@@ -578,6 +578,24 @@ async function generateComponent(): Promise<{ name: string; html: string; react:
         s['padding'] = pt + 'px ' + pr + 'px ' + pb + 'px ' + pl + 'px';
       }
     }
+    // Stroke → border
+    if ('strokes' in n) {
+      const strokes = (n as any).strokes;
+      if (Array.isArray(strokes)) {
+        const solid = strokes.find((f: any) => f.type === 'SOLID' && f.visible !== false);
+        if (solid) {
+          const strokeWeight = 'strokeWeight' in n ? (n as any).strokeWeight : 1;
+          s['border'] = strokeWeight + 'px solid ' + resolveColor(solid.color);
+        }
+      }
+    }
+    // Opacity
+    if ('opacity' in n) {
+      const op = (n as any).opacity;
+      if (typeof op === 'number' && op < 1) {
+        s['opacity'] = String(Math.round(op * 100) / 100);
+      }
+    }
     if ('width' in n && 'height' in n) {
       s['width'] = Math.round(n.width) + 'px';
       s['height'] = Math.round(n.height) + 'px';

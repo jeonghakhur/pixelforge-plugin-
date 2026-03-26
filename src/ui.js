@@ -473,6 +473,7 @@ window.onmessage = function(event) {
     extractThemesBtn.textContent = '테마 추출';
     themeData = msg.data;
     themeFilterBtn.disabled = false;
+    if (themeCopyCssBtn) themeCopyCssBtn.disabled = false;
     renderThemes();
   }
   if (msg.type === 'extract-themes-error') {
@@ -581,37 +582,48 @@ function renderIconResults(data) {
   }
   list.innerHTML = data.map(function(icon, idx) {
     return '<div class="icon-item">'
-      + '<div class="icon-preview">' + icon.svg + '</div>'
+      + '<div class="icon-preview">' + cleanSvg(icon.svg) + '</div>'
       + '<div class="icon-info">'
       + '<div class="icon-name">' + escapeHtml(icon.name) + '</div>'
       + '<div class="icon-names">' + icon.kebab + ' / ' + icon.pascal + '</div>'
       + '</div>'
       + '<div class="icon-actions">'
-      + '<button class="btn-ghost" style="height:28px;padding:0 8px;font-size:10px;" onclick="copyIconSvg(' + idx + ')">SVG 복사</button>'
-      + '<button class="btn-ghost" style="height:28px;padding:0 8px;font-size:10px;" onclick="copyIconReact(' + idx + ')">React 복사</button>'
+      + '<button class="btn-ghost icon-copy-btn" data-idx="' + idx + '" data-action="svg" style="height:28px;padding:0 8px;font-size:10px;">SVG 복사</button>'
+      + '<button class="btn-ghost icon-copy-btn" data-idx="' + idx + '" data-action="react" style="height:28px;padding:0 8px;font-size:10px;">React 복사</button>'
       + '</div>'
       + '</div>';
   }).join('');
   $('iconResults').classList.remove('hidden');
 }
 
-// Global functions for icon copy (called from onclick)
-window.copyIconSvg = function(idx) {
-  var icon = iconData[idx];
-  if (!icon) return;
-  copyToClipboard(icon.svg);
-  showToast('SVG 복사됨');
-};
+// SVG 정리: xml 선언, 불필요 속성 제거, viewBox 보존
+function cleanSvg(svg) {
+  return svg
+    .replace(/<\?xml[^?]*\?>\s*/g, '')
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/\s+xmlns:xlink="[^"]*"/g, '')
+    .trim();
+}
 
-window.copyIconReact = function(idx) {
+// 이벤트 위임: 아이콘 복사 버튼
+$('iconList').addEventListener('click', function(e) {
+  var btn = e.target.closest('.icon-copy-btn');
+  if (!btn) return;
+  var idx = parseInt(btn.dataset.idx, 10);
+  var action = btn.dataset.action;
   var icon = iconData[idx];
   if (!icon) return;
-  // Clean SVG for React: remove xml declaration, add props
-  var svgClean = icon.svg.replace(/<\?xml[^?]*\?>\s*/g, '').trim();
-  var react = 'export const ' + icon.pascal + ' = (props) => (\n  ' + svgClean.replace(/<svg/, '<svg {...props}') + '\n);';
-  copyToClipboard(react);
-  showToast('React 컴포넌트 복사됨');
-};
+
+  if (action === 'svg') {
+    copyToClipboard(cleanSvg(icon.svg));
+    showToast('SVG 복사됨');
+  } else if (action === 'react') {
+    var svgClean = cleanSvg(icon.svg);
+    var react = 'import type { SVGProps } from "react";\n\nexport const ' + icon.pascal + ' = (props: SVGProps<SVGSVGElement>) => (\n  ' + svgClean.replace(/<svg/, '<svg {...props}') + '\n);';
+    copyToClipboard(react);
+    showToast('React 컴포넌트 복사됨');
+  }
+});
 
 // ══════════════════════════════════════════════
 // ── Accessibility Tab ──
@@ -703,6 +715,8 @@ a11yFgSelect.addEventListener('change', function() {
 // Populate a11y dropdowns from extracted data
 function populateA11yColors() {
   if (!extractedData) return;
+  var hint = $('a11yHint');
+  if (hint) hint.style.display = 'none';
   var colors = [];
   // From color styles
   if (extractedData.styles && extractedData.styles.colors) {
@@ -819,6 +833,53 @@ function renderThemes() {
 
   html += '</div>';
   $('themeContent').innerHTML = html;
+}
+
+// 테마 CSS 변수 생성
+function generateThemeCSS() {
+  if (!themeData) return '';
+  var modes = Object.keys(themeData);
+  if (modes.length < 2) return '';
+  var mode1 = modes[0];
+  var mode2 = modes[1];
+  var vars1 = themeData[mode1];
+  var vars2 = themeData[mode2];
+  var map2 = {};
+  vars2.forEach(function(v) { map2[v.name] = v.value; });
+
+  function toCssVar(name) {
+    return '--' + name.replace(/\//g, '-').replace(/([a-z])([A-Z])/g, '$1-$2').replace(/[^a-zA-Z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').toLowerCase();
+  }
+
+  var css = '/* ' + mode1 + ' (default) */\n:root {\n';
+  vars1.forEach(function(v) {
+    css += '  ' + toCssVar(v.name) + ': ' + v.value + ';\n';
+  });
+  css += '}\n\n/* ' + mode2 + ' */\n[data-theme="' + mode2.toLowerCase() + '"] {\n';
+  vars1.forEach(function(v) {
+    var val2 = map2[v.name] || v.value;
+    css += '  ' + toCssVar(v.name) + ': ' + val2 + ';\n';
+  });
+  css += '}\n\n@media (prefers-color-scheme: dark) {\n  :root {\n';
+  vars1.forEach(function(v) {
+    var val2 = map2[v.name] || v.value;
+    if (v.value !== val2) {
+      css += '    ' + toCssVar(v.name) + ': ' + val2 + ';\n';
+    }
+  });
+  css += '  }\n}\n';
+  return css;
+}
+
+// 테마 CSS 복사 버튼 (ui.html에 id="themeCopyCssBtn" 필요)
+var themeCopyCssBtn = $('themeCopyCssBtn');
+if (themeCopyCssBtn) {
+  themeCopyCssBtn.addEventListener('click', function() {
+    var css = generateThemeCSS();
+    if (!css) { showToast('먼저 테마를 추출하세요'); return; }
+    copyToClipboard(css);
+    showToast('CSS 변수 복사됨');
+  });
 }
 
 // ══════════════════════════════════════════════
