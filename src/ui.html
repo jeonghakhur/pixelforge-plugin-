@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --primary: #2563EB;
+    --primary-light: #EFF6FF;
+    --primary-border: #BFDBFE;
+    --primary-disabled: #93C5FD;
+    --text-primary: #1E293B;
+    --text-secondary: #64748B;
+    --text-muted: #94A3B8;
+    --border: #E2E8F0;
+    --bg: #F8FAFC;
+    --surface: #FFFFFF;
+    --success: #16A34A;
+    --success-light: #F0FDF4;
+    --radius: 8px;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+    font-size: 13px;
+    color: var(--text-primary);
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ── Header (fixed 48px) ── */
+  .header {
+    height: 48px;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    gap: 10px;
+  }
+  .brand-logo {
+    width: 28px; height: 28px; border-radius: 7px;
+    background: var(--primary); color: #fff;
+    font-size: 11px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .brand-name { font-size: 15px; font-weight: 700; color: var(--text-primary); }
+  .header-sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
+  .file-name {
+    font-size: 11px; color: var(--text-muted);
+    max-width: 220px; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap;
+    flex: 1;
+  }
+  .back-btn {
+    display: none;
+    align-items: center; gap: 5px;
+    background: none; border: none;
+    color: var(--text-secondary); font-size: 12px;
+    cursor: pointer; padding: 4px 8px;
+    border-radius: 6px; margin-left: auto;
+  }
+  .back-btn:hover { background: var(--bg); }
+  .back-btn.visible { display: flex; }
+
+  /* ── Filter Panel (scrollable) ── */
+  .filter-panel {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  /* ── Section Card ── */
+  .section-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+  .section-label {
+    font-size: 11px; font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 10px;
+  }
+
+  /* ── Token Type Grid ── */
+  .token-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .token-card {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 14px;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    color: var(--text-secondary);
+    font-size: 12px; font-weight: 500;
+    cursor: pointer; transition: all 0.15s;
+    user-select: none;
+  }
+  .token-card:hover { background: var(--bg); color: var(--text-primary); border-color: #CBD5E1; }
+  .token-card.active {
+    background: var(--primary-light);
+    border-color: var(--primary);
+    color: #1E40AF;
+    font-weight: 600;
+  }
+  .token-card.active svg { color: var(--primary); }
+  .token-card-icon {
+    width: 30px; height: 30px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 7px; background: var(--bg);
+    transition: background 0.15s;
+  }
+  .token-card.active .token-card-icon { background: #DBEAFE; }
+  .token-card-label { flex: 1; line-height: 1.3; }
+  .token-card.full-width { grid-column: 1 / -1; }
+  .token-hint {
+    grid-column: 1 / -1;
+    margin-top: 2px;
+    font-size: 10px; color: var(--text-muted);
+  }
+
+  /* ── Scope Radio ── */
+  .radio-group { display: flex; gap: 16px; }
+  .radio-item { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  .radio-item input[type="radio"] { accent-color: var(--primary); width: 14px; height: 14px; cursor: pointer; }
+  .radio-label { font-size: 13px; color: var(--text-secondary); }
+  .radio-item:has(input:checked) .radio-label { color: var(--text-primary); font-weight: 600; }
+
+  /* ── Selection Info ── */
+  .selection-info {
+    margin-top: 10px;
+    padding: 8px 10px;
+    background: var(--primary-light);
+    border: 1px solid var(--primary-border);
+    border-radius: 6px;
+  }
+  .sel-count {
+    font-size: 12px; font-weight: 600;
+    color: var(--primary);
+    margin-bottom: 4px;
+  }
+  .sel-names {
+    font-size: 11px; color: var(--text-secondary);
+    line-height: 1.5;
+  }
+  .sel-item {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: var(--surface);
+    border: 1px solid var(--primary-border);
+    border-radius: 4px;
+    padding: 2px 6px;
+    margin: 2px 2px 0 0;
+  }
+  .sel-type { font-size: 9px; color: var(--text-muted); text-transform: uppercase; }
+  .sel-name-text { font-size: 11px; color: var(--text-primary); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sel-more { font-size: 11px; color: var(--text-muted); padding: 2px 4px; }
+
+  /* ── Collections ── */
+  .col-list { display: flex; flex-direction: column; gap: 4px; }
+  .col-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 10px; border-radius: 6px;
+    cursor: pointer; transition: background 0.1s;
+  }
+  .col-item:hover { background: var(--bg); }
+  .col-item input[type="checkbox"] { accent-color: var(--primary); width: 14px; height: 14px; cursor: pointer; flex-shrink: 0; }
+  .col-name { font-size: 13px; color: var(--text-primary); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .col-count { font-size: 11px; color: var(--text-muted); }
+  .no-collections { font-size: 12px; color: var(--text-muted); padding: 4px 2px; }
+
+  /* ── Action Bar (fixed) ── */
+  .action-bar {
+    height: 60px;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+    gap: 10px;
+  }
+  .btn-primary {
+    flex: 1; height: 40px;
+    background: var(--primary); color: #fff;
+    border: none; border-radius: var(--radius);
+    font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: background 0.15s;
+    display: flex; align-items: center; justify-content: center; gap: 7px;
+  }
+  .btn-primary:hover { background: #1d4ed8; }
+  .btn-primary:disabled { background: var(--primary-disabled); cursor: not-allowed; }
+  .btn-ghost {
+    height: 40px; padding: 0 16px;
+    background: transparent; color: var(--text-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 12px; cursor: pointer; transition: all 0.15s;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .btn-ghost:hover { background: var(--bg); color: var(--text-primary); }
+  .btn-ghost:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ── Result Panel ── */
+  .result-panel {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px 16px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 0;
+  }
+  .result-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 0;
+  }
+  .result-bar {
+    display: flex; gap: 8px;
+    padding: 10px 16px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .result-bar .btn-ghost { flex: 1; justify-content: center; }
+
+  /* ── Stat Cards ── */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 6px;
+    text-align: center;
+  }
+  .stat-value { font-size: 18px; font-weight: 700; color: var(--primary); }
+  .stat-label { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+  .stat-card.inactive { opacity: 0.3; cursor: default; }
+  .stat-card:not(.inactive) { cursor: pointer; }
+  .stat-card:not(.inactive):hover { border-color: var(--primary); background: var(--primary-light); }
+  .stat-card.selected { border-color: var(--primary); background: var(--primary-light); }
+  .stat-card.selected .stat-value { color: var(--primary); }
+  .stat-card.dimmed { opacity: 0.3; }
+
+  /* ── Meta Info ── */
+  .meta-bar {
+    display: flex; gap: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 14px;
+  }
+  .meta-item { display: flex; flex-direction: column; gap: 2px; }
+  .meta-key { font-size: 10px; color: var(--text-muted); }
+  .meta-val { font-size: 12px; color: var(--text-primary); font-weight: 500; }
+
+  /* ── Preview Panel ── */
+  .preview-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .preview-tab-bar {
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    height: 36px;
+    gap: 2px;
+  }
+  .preview-tab {
+    height: 100%;
+    padding: 0 12px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-bottom: -1px;
+  }
+  .preview-tab:hover { color: var(--text-secondary); }
+  .preview-tab.active {
+    color: var(--text-primary);
+    font-weight: 600;
+    border-bottom-color: var(--primary);
+  }
+  .unit-toggle {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .unit-label { font-size: 11px; color: var(--text-muted); margin-right: 2px; }
+  .unit-btn {
+    padding: 3px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .unit-btn.active {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+  }
+  .preview-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 14px;
+    min-height: 0;
+    background: var(--bg);
+  }
+  .preview-pre {
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 11px;
+    line-height: 1.65;
+    color: var(--text-secondary);
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+  /* CSS Syntax Highlight */
+  .cs { color: #7C3AED; font-weight: 600; }  /* selector */
+  .cp { color: #2563EB; }                      /* property */
+  .cv { color: #059669; }                      /* value */
+  .cc { color: #94A3B8; font-style: italic; }  /* comment */
+
+  /* ── Loading View ── */
+  .loading-view {
+    flex: 1;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 12px;
+  }
+  .spinner {
+    width: 28px; height: 28px;
+    border: 3px solid var(--border);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { font-size: 13px; color: var(--text-secondary); }
+
+  /* ── Toast ── */
+  .toast {
+    position: fixed; bottom: 70px; left: 50%;
+    transform: translateX(-50%);
+    background: var(--text-primary); color: #fff;
+    font-size: 12px; padding: 8px 14px;
+    border-radius: var(--radius); white-space: nowrap;
+    pointer-events: none; opacity: 0;
+    transition: opacity 0.2s; z-index: 999;
+  }
+  .toast.show { opacity: 1; }
+
+  .hidden { display: none !important; }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #CBD5E1; }
+</style>
+</head>
+<body>
+
+<!-- ── Header ── -->
+<div class="header">
+  <div class="brand-logo">PF</div>
+  <span class="brand-name">PixelForge</span>
+  <div class="header-sep"></div>
+  <span class="file-name" id="headerFile">로딩 중...</span>
+  <button class="back-btn" id="backBtn">← 뒤로</button>
+</div>
+
+<!-- ── Filter View ── -->
+<div id="view-filter" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
+  <div class="filter-panel">
+
+    <!-- 토큰 타입 -->
+    <div class="section-card">
+      <div class="section-label">토큰 타입</div>
+      <div class="token-grid">
+
+        <div class="token-card active" data-type="variables">
+          <div class="token-card-icon">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+              <rect x="2" y="2" width="12" height="12" rx="2.5"/>
+              <path d="M5.5 8h5M8 5.5v5"/>
+            </svg>
+          </div>
+          <span class="token-card-label">Variables</span>
+        </div>
+
+        <div class="token-card active" data-type="colors">
+          <div class="token-card-icon">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+              <circle cx="8" cy="8" r="5.5"/>
+              <circle cx="8" cy="8" r="2.5" fill="currentColor" stroke="none"/>
+            </svg>
+          </div>
+          <span class="token-card-label">Color Styles</span>
+        </div>
+
+        <div class="token-card active" data-type="spacing">
+          <div class="token-card-icon">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2 8h12M2 8l3-3M2 8l3 3M14 8l-3-3M14 8l-3 3"/>
+            </svg>
+          </div>
+          <span class="token-card-label">Spacing</span>
+        </div>
+
+        <div class="token-card active" data-type="texts">
+          <div class="token-card-icon">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+              <path d="M3 4h10M8 4v8M5 12h6"/>
+            </svg>
+          </div>
+          <span class="token-card-label">Text Styles</span>
+        </div>
+
+        <div class="token-card active" data-type="radius">
+          <div class="token-card-icon">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+              <path d="M3 13V8a5 5 0 0 1 5-5h5"/>
+            </svg>
+          </div>
+          <span class="token-card-label">Radius</span>
+        </div>
+
+        <div class="token-card active" data-type="effects">
+          <div class="token-card-icon">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8.5 2L5 9h3L6.5 14 12 7H9L10.5 2z"/>
+            </svg>
+          </div>
+          <span class="token-card-label">Effect Styles</span>
+        </div>
+
+        <div class="token-card active full-width" data-type="icons">
+          <div class="token-card-icon">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="2" y="2" width="5" height="5" rx="1.5"/>
+              <rect x="9" y="2" width="5" height="5" rx="1.5"/>
+              <rect x="2" y="9" width="5" height="5" rx="1.5"/>
+              <rect x="9" y="9" width="5" height="5" rx="1.5"/>
+            </svg>
+          </div>
+          <span class="token-card-label">Icons</span>
+        </div>
+
+        <div class="token-hint">Spacing·Radius = FLOAT Variables 자동 감지 / Shadow = Effect Styles 포함</div>
+      </div>
+    </div>
+
+    <!-- 추출 범위 -->
+    <div class="section-card">
+      <div class="section-label">추출 범위</div>
+      <div class="radio-group">
+        <label class="radio-item">
+          <input type="radio" name="scope" value="all" checked>
+          <span class="radio-label">전체 페이지</span>
+        </label>
+        <label class="radio-item">
+          <input type="radio" name="scope" value="selection">
+          <span class="radio-label">선택 레이어만</span>
+        </label>
+      </div>
+      <div class="selection-info hidden" id="selectionInfo">
+        <div class="sel-count" id="selCount">0개 선택됨</div>
+        <div class="sel-names" id="selNames"></div>
+      </div>
+    </div>
+
+    <!-- 컬렉션 -->
+    <div class="section-card" id="colSection">
+      <div class="section-label">컬렉션</div>
+      <div class="col-list" id="colList">
+        <div class="no-collections">로딩 중...</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Action Bar -->
+  <div class="action-bar">
+    <button class="btn-ghost" id="inspectBtn" title="선택된 노드의 원시 데이터 확인">🔍 검사</button>
+    <button class="btn-primary" id="extractBtn">
+      토큰 추출하기
+    </button>
+  </div>
+</div>
+
+<!-- ── Loading View ── -->
+<div id="view-loading" class="hidden" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
+  <div class="loading-view">
+    <div class="spinner"></div>
+    <span class="loading-text">토큰을 추출하고 있습니다...</span>
+  </div>
+</div>
+
+<!-- ── Result View ── -->
+<div id="view-result" class="hidden" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
+
+  <div class="result-body">
+
+    <!-- Stat Cards -->
+    <div class="stats-grid" id="statsRow">
+      <div class="stat-card" id="statVar" data-type="variables">
+        <div class="stat-value" id="statVarNum">0</div>
+        <div class="stat-label">Variables</div>
+      </div>
+      <div class="stat-card" id="statSpacing" data-type="spacing">
+        <div class="stat-value" id="statSpacingNum">0</div>
+        <div class="stat-label">Spacing</div>
+      </div>
+      <div class="stat-card" id="statRadius" data-type="radius">
+        <div class="stat-value" id="statRadiusNum">0</div>
+        <div class="stat-label">Radius</div>
+      </div>
+      <div class="stat-card" id="statColor" data-type="colors">
+        <div class="stat-value" id="statColorNum">0</div>
+        <div class="stat-label">Color Styles</div>
+      </div>
+      <div class="stat-card" id="statText" data-type="texts">
+        <div class="stat-value" id="statTextNum">0</div>
+        <div class="stat-label">Text Styles</div>
+      </div>
+      <div class="stat-card" id="statEffect" data-type="effects">
+        <div class="stat-value" id="statEffectNum">0</div>
+        <div class="stat-label">Effect Styles</div>
+      </div>
+      <div class="stat-card" id="statIcons" data-type="icons">
+        <div class="stat-value" id="statIconsNum">0</div>
+        <div class="stat-label">Icons</div>
+      </div>
+    </div>
+
+    <!-- Meta Info -->
+    <div class="meta-bar">
+      <div class="meta-item">
+        <span class="meta-key">파일</span>
+        <span class="meta-val" id="metaFile">—</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-key">범위</span>
+        <span class="meta-val" id="metaMode">—</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-key">노드</span>
+        <span class="meta-val" id="metaNodes">—</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-key">추출 시각</span>
+        <span class="meta-val" id="metaTime">—</span>
+      </div>
+    </div>
+
+    <!-- Preview Panel -->
+    <div class="preview-panel">
+      <div class="preview-tab-bar">
+        <button class="preview-tab active" id="tabJson">JSON</button>
+        <button class="preview-tab" id="tabCss">CSS</button>
+        <div class="unit-toggle" id="unitToggle" style="display:none;">
+          <span class="unit-label">단위:</span>
+          <button class="unit-btn active" id="unitPx">px</button>
+          <button class="unit-btn" id="unitRem">rem</button>
+        </div>
+      </div>
+      <div class="preview-body">
+        <pre class="preview-pre" id="previewPre"></pre>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Fixed Bottom Bar -->
+  <div class="result-bar">
+    <button class="btn-ghost" id="copyBtn">📋 복사</button>
+    <button class="btn-ghost" id="downloadJsonBtn">⬇ JSON</button>
+    <button class="btn-ghost" id="downloadCssBtn">⬇ CSS</button>
+  </div>
+
+</div>
+
+<!-- ── Toast ── -->
+<div class="toast" id="toast"></div>
+
+<!-- UI_SCRIPT_PLACEHOLDER -->
+</body>
+</html>
