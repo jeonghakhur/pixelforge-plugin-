@@ -64,10 +64,21 @@
     background: none; border: none;
     color: var(--text-secondary); font-size: 12px;
     cursor: pointer; padding: 4px 8px;
-    border-radius: 6px; margin-left: auto;
+    border-radius: 6px;
   }
   .back-btn:hover { background: var(--bg); }
   .back-btn.visible { display: flex; }
+
+  /* ── Lang Toggle ── */
+  .lang-toggle { display: flex; gap: 3px; margin-left: auto; flex-shrink: 0; }
+  .lang-btn {
+    padding: 3px 8px; border-radius: 4px;
+    border: 1px solid var(--border); background: transparent;
+    color: var(--text-muted); font-size: 10px; font-weight: 600;
+    cursor: pointer; transition: all 0.15s; line-height: 1;
+  }
+  .lang-btn:hover { border-color: var(--primary); color: var(--primary); }
+  .lang-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
 
   /* ── Filter Panel (scrollable) ── */
   .filter-panel {
@@ -479,11 +490,47 @@
   .matrix-table th { background: var(--bg); font-weight: 600; color: var(--text-secondary); font-size: 10px; position: sticky; top: 0; z-index: 1; }
   .matrix-table th:first-child { position: sticky; left: 0; z-index: 2; }
   .matrix-table td:first-child { position: sticky; left: 0; background: var(--bg); font-weight: 600; color: var(--text-secondary); font-size: 10px; z-index: 1; }
-  .matrix-table .matrix-swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; border: 1px solid rgba(0,0,0,0.1); vertical-align: middle; margin-right: 3px; }
+  .matrix-table .matrix-swatch { display: inline-block; width: 20px; height: 20px; border-radius: 4px; border: 1px solid rgba(0,0,0,0.1); vertical-align: middle; margin-right: 4px; }
+  .matrix-header-label { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 72px; max-width: 100px; }
+  .matrix-header-name { font-size: 9px; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+  .matrix-header-hex { font-size: 8px; color: var(--text-muted); font-weight: 400; font-family: 'SF Mono', monospace; }
   .matrix-aaa { background: #DCFCE7; color: #15803D; }
-  .matrix-aa { background: #FEF9C3; color: #A16207; }
+  .matrix-aa { background: #DBEAFE; color: #1D4ED8; }
+  .matrix-aa-large { background: #F3E8FF; color: #7C3AED; }
   .matrix-fail { background: #FEE2E2; color: #DC2626; }
-  .matrix-same { background: var(--bg); color: var(--text-muted); }
+  .matrix-same { background: repeating-linear-gradient(135deg, var(--bg), var(--bg) 4px, var(--border) 4px, var(--border) 5px); color: var(--text-muted); }
+  .matrix-badge {
+    display: inline-block; padding: 2px 6px; border-radius: 3px;
+    font-size: 9px; font-weight: 700; letter-spacing: 0.02em;
+  }
+  .badge-aaa { background: #15803D; color: #fff; }
+  .badge-aa { background: #1D4ED8; color: #fff; }
+  .badge-aa-large { background: #7C3AED; color: #fff; }
+  .badge-fail { background: #DC2626; color: #fff; }
+  .matrix-cell { position: relative; cursor: default; }
+  .matrix-tooltip {
+    display: none; position: absolute; z-index: 10;
+    bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+    background: var(--text-primary); color: #fff;
+    font-size: 11px; padding: 10px 12px; border-radius: 8px;
+    white-space: nowrap; pointer-events: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2); line-height: 1.6;
+    min-width: 180px; text-align: left;
+  }
+  .matrix-tooltip::after {
+    content: ''; position: absolute; top: 100%; left: 50%;
+    transform: translateX(-50%); border: 5px solid transparent;
+    border-top-color: var(--text-primary);
+  }
+  .matrix-cell:hover .matrix-tooltip { display: block; }
+  .matrix-summary {
+    display: flex; gap: 12px; padding: 8px 12px; margin-bottom: 8px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); font-size: 11px; color: var(--text-secondary);
+    flex-wrap: wrap; align-items: center;
+  }
+  .matrix-summary-item { display: flex; align-items: center; gap: 4px; }
+  .matrix-summary-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
 
   /* ── Icon Grid ── */
   .icon-grid {
@@ -619,17 +666,21 @@
   <div class="brand-logo">PF</div>
   <span class="brand-name">PixelForge</span>
   <div class="header-sep"></div>
-  <span class="file-name" id="headerFile">로딩 중...</span>
-  <button class="back-btn" id="backBtn">← 뒤로</button>
+  <span class="file-name" id="headerFile" data-i18n-loading>로딩 중...</span>
+  <button class="back-btn" id="backBtn" data-i18n="extract.back">← 뒤로</button>
+  <div class="lang-toggle">
+    <button class="lang-btn active" data-lang="ko">KO</button>
+    <button class="lang-btn" data-lang="en">EN</button>
+  </div>
 </div>
 
 <!-- ── Main Tabs ── -->
 <div class="main-tabs">
-  <button class="main-tab active" data-tab="extract">추출</button>
-  <button class="main-tab" data-tab="icons">아이콘</button>
-  <button class="main-tab" data-tab="a11y">명도대비</button>
-  <button class="main-tab" data-tab="themes">테마</button>
-  <button class="main-tab" data-tab="component">컴포넌트</button>
+  <button class="main-tab active" data-tab="extract" data-i18n="tabs.extract">추출</button>
+  <button class="main-tab" data-tab="icons" data-i18n="tabs.icon">아이콘</button>
+  <button class="main-tab" data-tab="a11y" data-i18n="tabs.contrast">명도대비</button>
+  <button class="main-tab" data-tab="themes" data-i18n="tabs.theme">테마</button>
+  <button class="main-tab" data-tab="component" data-i18n="tabs.component">컴포넌트</button>
 </div>
 
 <!-- ── Extract Panel ── -->
@@ -641,7 +692,7 @@
 
     <!-- 토큰 타입 -->
     <div class="section-card">
-      <div class="section-label">토큰 타입</div>
+      <div class="section-label" data-i18n="extract.tokenType">토큰 타입</div>
       <div class="token-grid">
 
         <div class="token-card active" data-type="variables">
@@ -712,21 +763,21 @@
           <span class="token-card-label">Icons</span>
         </div>
 
-        <div class="token-hint">Spacing·Radius = FLOAT Variables 자동 감지 / Shadow = Effect Styles 포함</div>
+        <div class="token-hint" data-i18n="extract.tokenHint">Spacing·Radius = FLOAT Variables 자동 감지 / Shadow = Effect Styles 포함</div>
       </div>
     </div>
 
     <!-- 추출 범위 -->
     <div class="section-card">
-      <div class="section-label">추출 범위</div>
+      <div class="section-label" data-i18n="extract.scope">추출 범위</div>
       <div class="radio-group">
         <label class="radio-item">
           <input type="radio" name="scope" value="all" checked>
-          <span class="radio-label">전체 페이지</span>
+          <span class="radio-label" data-i18n="extract.allPage">전체 페이지</span>
         </label>
         <label class="radio-item">
           <input type="radio" name="scope" value="selection">
-          <span class="radio-label">선택 레이어만</span>
+          <span class="radio-label" data-i18n="extract.selection">선택 레이어만</span>
         </label>
       </div>
       <div class="selection-info hidden" id="selectionInfo">
@@ -737,9 +788,9 @@
 
     <!-- 컬렉션 -->
     <div class="section-card" id="colSection">
-      <div class="section-label">컬렉션</div>
+      <div class="section-label" data-i18n="extract.collections">컬렉션</div>
       <div class="col-list" id="colList">
-        <div class="no-collections">로딩 중...</div>
+        <div class="no-collections" data-i18n-loading>로딩 중...</div>
       </div>
     </div>
 
@@ -747,8 +798,8 @@
 
   <!-- Action Bar -->
   <div class="action-bar">
-    <button class="btn-ghost" id="inspectBtn" title="선택된 노드의 원시 데이터 확인">🔍 검사</button>
-    <button class="btn-primary" id="extractBtn">
+    <button class="btn-ghost" id="inspectBtn" data-i18n="extract.inspect">🔍 검사</button>
+    <button class="btn-primary" id="extractBtn" data-i18n="extract.btn">
       토큰 추출하기
     </button>
   </div>
@@ -758,7 +809,7 @@
 <div id="view-loading" class="hidden" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
   <div class="loading-view">
     <div class="spinner"></div>
-    <span class="loading-text">토큰을 추출하고 있습니다...</span>
+    <span class="loading-text" data-i18n="extract.loading">토큰을 추출하고 있습니다...</span>
   </div>
 </div>
 
@@ -802,19 +853,19 @@
     <!-- Meta Info -->
     <div class="meta-bar">
       <div class="meta-item">
-        <span class="meta-key">파일</span>
+        <span class="meta-key" data-i18n="extract.metaFile">파일</span>
         <span class="meta-val" id="metaFile">—</span>
       </div>
       <div class="meta-item">
-        <span class="meta-key">범위</span>
+        <span class="meta-key" data-i18n="extract.metaScope">범위</span>
         <span class="meta-val" id="metaMode">—</span>
       </div>
       <div class="meta-item">
-        <span class="meta-key">노드</span>
+        <span class="meta-key" data-i18n="extract.metaNodes">노드</span>
         <span class="meta-val" id="metaNodes">—</span>
       </div>
       <div class="meta-item">
-        <span class="meta-key">추출 시각</span>
+        <span class="meta-key" data-i18n="extract.metaTime">추출 시각</span>
         <span class="meta-val" id="metaTime">—</span>
       </div>
     </div>
@@ -825,7 +876,7 @@
         <button class="preview-tab active" id="tabJson">JSON</button>
         <button class="preview-tab" id="tabCss">CSS</button>
         <div class="unit-toggle" id="unitToggle" style="display:none;">
-          <span class="unit-label">단위:</span>
+          <span class="unit-label" data-i18n="extract.unit">단위:</span>
           <button class="unit-btn active" id="unitPx">px</button>
           <button class="unit-btn" id="unitRem">rem</button>
         </div>
@@ -839,7 +890,7 @@
 
   <!-- Fixed Bottom Bar -->
   <div class="result-bar">
-    <button class="btn-ghost" id="copyBtn">📋 복사</button>
+    <button class="btn-ghost" id="copyBtn" data-i18n="extract.copy">📋 복사</button>
     <button class="btn-ghost" id="downloadJsonBtn">⬇ JSON</button>
     <button class="btn-ghost" id="downloadCssBtn">⬇ CSS</button>
   </div>
@@ -852,11 +903,11 @@
 <div class="tab-panel" id="panel-icons" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
   <div class="tab-body">
     <div class="section-card">
-      <div class="section-label">아이콘 SVG 추출</div>
+      <div class="section-label" data-i18n="icon.title">아이콘 SVG 추출</div>
       <div style="display:flex;justify-content:center;margin-bottom:12px;">
         <div class="icon-mode-toggle">
-          <button class="icon-mode-btn active" data-icon-mode="all">전체 추출</button>
-          <button class="icon-mode-btn" data-icon-mode="selection">선택 추출</button>
+          <button class="icon-mode-btn active" data-icon-mode="all" data-i18n="icon.allMode">전체 추출</button>
+          <button class="icon-mode-btn" data-icon-mode="selection" data-i18n="icon.selMode">선택 추출</button>
         </div>
       </div>
 
@@ -865,20 +916,20 @@
         <div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;line-height:1.6;padding:8px 10px;background:var(--bg);border-radius:6px;">
           아이콘 패턴으로 자동 탐색합니다 (<code style="font-size:11px;background:var(--surface);padding:1px 4px;border-radius:3px;">icon*</code>, <code style="font-size:11px;background:var(--surface);padding:1px 4px;border-radius:3px;">Icon*</code>, <code style="font-size:11px;background:var(--surface);padding:1px 4px;border-radius:3px;">ic/*</code>)
         </div>
-        <button class="btn-primary" id="exportIconsAllBtn" style="width:100%;height:40px;">전체 아이콘 추출하기</button>
+        <button class="btn-primary" id="exportIconsAllBtn" style="width:100%;height:40px;" data-i18n="icon.allBtn">전체 아이콘 추출하기</button>
       </div>
 
       <!-- 선택 추출 모드 -->
       <div id="iconModeSelection" style="display:none;">
         <div style="margin-bottom:8px;font-size:12px;color:var(--text-secondary);line-height:1.6;">Figma에서 프레임/요소를 선택하세요</div>
         <div id="iconSelInfo" style="font-size:12px;color:var(--text-muted);margin-bottom:10px;padding:6px 10px;background:var(--bg);border-radius:6px;">0개 선택됨</div>
-        <button class="btn-primary" id="exportIconsBtn" style="width:100%;height:40px;">선택 요소 추출하기</button>
+        <button class="btn-primary" id="exportIconsBtn" style="width:100%;height:40px;" data-i18n="icon.selBtn">선택 요소 추출하기</button>
       </div>
     </div>
     <div id="iconResults" class="hidden">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
         <div class="section-label" style="margin-bottom:0;padding:0 2px;">추출 결과 (<span id="iconCount">0</span>개)</div>
-        <button class="btn-ghost" id="iconDownloadAllBtn" style="height:28px;padding:0 10px;font-size:11px;">전체 SVG 다운로드</button>
+        <button class="btn-ghost" id="iconDownloadAllBtn" style="height:28px;padding:0 10px;font-size:11px;" data-i18n="icon.downloadAll">전체 SVG 다운로드</button>
       </div>
       <div id="iconList" class="icon-grid"></div>
     </div>
@@ -888,20 +939,20 @@
 <!-- ── Accessibility Panel ── -->
 <div class="tab-panel" id="panel-a11y" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
   <div class="a11y-subtabs">
-    <button class="a11y-subtab active" data-a11y-sub="manual">수동 검사</button>
-    <button class="a11y-subtab" data-a11y-sub="matrix">컬러 매트릭스</button>
+    <button class="a11y-subtab active" data-a11y-sub="manual" data-i18n="contrast.manual">수동 검사</button>
+    <button class="a11y-subtab" data-a11y-sub="matrix" data-i18n="contrast.matrix">컬러 매트릭스</button>
   </div>
 
   <!-- 수동 검사 -->
   <div class="tab-body" id="a11yManualPanel">
     <div id="a11yHint" class="section-card" style="background:var(--primary-light);border-color:var(--primary-border);">
-      <p style="font-size:12px;color:var(--primary);margin:0;">추출 탭에서 토큰을 먼저 추출하면, 디자인 색상을 드롭다운에서 선택할 수 있습니다.</p>
+      <p style="font-size:12px;color:var(--primary);margin:0;" data-i18n="contrast.hint">추출 탭에서 토큰을 먼저 추출하면, 디자인 색상을 드롭다운에서 선택할 수 있습니다.</p>
     </div>
     <div class="section-card">
-      <div class="section-label">WCAG 명도 대비 검사</div>
+      <div class="section-label" data-i18n="contrast.title">WCAG 명도 대비 검사</div>
       <div style="display:flex;gap:10px;align-items:stretch;margin-bottom:16px;">
         <div style="flex:1;">
-          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px;">배경색</label>
+          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px;" data-i18n="contrast.bg">배경색</label>
           <select id="a11yBgSelect" class="a11y-select"><option value="">직접 입력</option></select>
           <input type="text" id="a11yBgHex" class="a11y-input" placeholder="#FFFFFF" value="#FFFFFF" />
           <div id="a11yBgPreview" style="width:100%;height:32px;border-radius:6px;border:1px solid #ddd;margin-top:6px;background:#FFFFFF;"></div>
@@ -910,7 +961,7 @@
           <button id="a11ySwapBtn" title="배경↔텍스트 교체" style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:var(--surface);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--text-secondary);transition:all 0.15s;">⇄</button>
         </div>
         <div style="flex:1;">
-          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px;">텍스트색</label>
+          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px;" data-i18n="contrast.fg">텍스트색</label>
           <select id="a11yFgSelect" class="a11y-select"><option value="">직접 입력</option></select>
           <input type="text" id="a11yFgHex" class="a11y-input" placeholder="#000000" value="#000000" />
           <div id="a11yFgPreview" style="width:100%;height:32px;border-radius:6px;border:1px solid #ddd;margin-top:6px;background:#000000;"></div>
@@ -925,7 +976,7 @@
         </div>
       </div>
       <div id="a11yPreviewBox" style="margin-top:12px;padding:20px;border-radius:var(--radius);background:#FFFFFF;border:1px solid #ddd;text-align:center;">
-        <span id="a11yPreviewText" style="font-size:16px;font-weight:500;color:#000000;">미리보기 텍스트 Preview</span>
+        <span id="a11yPreviewText" style="font-size:16px;font-weight:500;color:#000000;" data-i18n="contrast.preview">미리보기 텍스트 Preview</span>
       </div>
     </div>
   </div>
@@ -933,7 +984,7 @@
   <!-- 컬러 매트릭스 -->
   <div class="tab-body" id="a11yMatrixPanel" style="display:none;">
     <div id="matrixEmpty" class="section-card" style="background:var(--primary-light);border-color:var(--primary-border);">
-      <p style="font-size:12px;color:var(--primary);margin:0;">추출 탭에서 색상을 먼저 추출하세요. 추출된 색상으로 자동 매트릭스를 생성합니다.</p>
+      <p style="font-size:12px;color:var(--primary);margin:0;" data-i18n="contrast.noColors">추출 탭에서 색상을 먼저 추출하세요. 추출된 색상으로 자동 매트릭스를 생성합니다.</p>
     </div>
     <div id="matrixContent" class="hidden">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
@@ -942,10 +993,12 @@
       <div class="matrix-wrap">
         <table class="matrix-table" id="matrixTable"></table>
       </div>
-      <div style="display:flex;gap:12px;margin-top:10px;font-size:10px;color:var(--text-muted);">
+      <div id="matrixSummary"></div>
+      <div style="display:flex;gap:12px;margin-top:10px;font-size:10px;color:var(--text-muted);flex-wrap:wrap;">
         <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#DCFCE7;vertical-align:middle;margin-right:2px;"></span> AAA (7:1+)</span>
-        <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#FEF9C3;vertical-align:middle;margin-right:2px;"></span> AA (4.5:1~7:1)</span>
-        <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#FEE2E2;vertical-align:middle;margin-right:2px;"></span> 미달 (&lt;4.5:1)</span>
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#DBEAFE;vertical-align:middle;margin-right:2px;"></span> AA (4.5:1~7:1)</span>
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#F3E8FF;vertical-align:middle;margin-right:2px;"></span> AA Large (3:1~4.5:1)</span>
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#FEE2E2;vertical-align:middle;margin-right:2px;"></span> <span data-i18n="contrast.fail">미달</span> (&lt;3:1)</span>
       </div>
     </div>
   </div>
@@ -956,11 +1009,11 @@
   <div class="tab-body">
     <div class="section-card" style="margin-bottom:0;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-        <div class="section-label" style="margin-bottom:0;">다크/라이트 테마 비교</div>
+        <div class="section-label" style="margin-bottom:0;" data-i18n="theme.title">다크/라이트 테마 비교</div>
         <div style="display:flex;gap:6px;">
-          <button class="btn-ghost" id="extractThemesBtn" style="height:32px;padding:0 12px;font-size:12px;">테마 추출</button>
-          <button class="btn-ghost" id="themeCopyCssBtn" style="height:32px;padding:0 12px;font-size:12px;" disabled>CSS 복사</button>
-          <button class="btn-ghost" id="themeFilterBtn" style="height:32px;padding:0 12px;font-size:12px;" disabled>전체 보기</button>
+          <button class="btn-ghost" id="extractThemesBtn" style="height:32px;padding:0 12px;font-size:12px;" data-i18n="theme.extract">테마 추출</button>
+          <button class="btn-ghost" id="themeCopyCssBtn" style="height:32px;padding:0 12px;font-size:12px;" disabled data-i18n="theme.copyCss">CSS 복사</button>
+          <button class="btn-ghost" id="themeFilterBtn" style="height:32px;padding:0 12px;font-size:12px;" disabled data-i18n="theme.showAll">전체 보기</button>
         </div>
       </div>
     </div>
@@ -1024,7 +1077,7 @@
 <div class="tab-panel" id="panel-component" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
   <div class="tab-body">
     <div class="section-card">
-      <div class="section-label">컴포넌트 코드 생성</div>
+      <div class="section-label" data-i18n="component.title">컴포넌트 코드 생성</div>
       <div style="margin-bottom:12px;font-size:12px;color:var(--text-secondary);line-height:1.8;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
           <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--primary);color:#fff;font-size:10px;font-weight:700;flex-shrink:0;">1</span>
@@ -1051,7 +1104,7 @@
           <span style="font-size:11px;color:var(--text-secondary);">TypeScript</span>
         </label>
       </div>
-      <button class="btn-primary" id="generateCompBtn" style="width:100%;height:40px;">코드 생성</button>
+      <button class="btn-primary" id="generateCompBtn" style="width:100%;height:40px;" data-i18n="component.generate">코드 생성</button>
     </div>
     <div id="compResult" class="hidden">
       <div style="display:flex;gap:4px;margin-bottom:8px;">
@@ -1061,8 +1114,8 @@
       <div style="position:relative;">
         <textarea id="compCode" readonly style="width:100%;height:300px;font-family:'SF Mono','Fira Code',monospace;font-size:11px;line-height:1.6;padding:12px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);color:var(--text-secondary);resize:vertical;"></textarea>
         <div style="position:absolute;top:8px;right:8px;display:flex;gap:4px;">
-          <button class="btn-ghost" id="compCopyBtn" style="height:28px;padding:0 10px;font-size:11px;">복사</button>
-          <button class="btn-ghost" id="compDownloadBtn" style="height:28px;padding:0 10px;font-size:11px;">JSON 저장</button>
+          <button class="btn-ghost" id="compCopyBtn" style="height:28px;padding:0 10px;font-size:11px;" data-i18n="component.copy">복사</button>
+          <button class="btn-ghost" id="compDownloadBtn" style="height:28px;padding:0 10px;font-size:11px;" data-i18n="component.save">JSON 저장</button>
         </div>
       </div>
     </div>

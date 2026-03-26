@@ -7,6 +7,154 @@ import { convertTextStyles } from './converters/typography.js';
 import { convertEffectStyles } from './converters/effects.js';
 import { highlightCSS } from './converters/highlight.js';
 
+// ── i18n ──
+var i18n = {
+  ko: {
+    tabs: { extract: '추출', icon: '아이콘', contrast: '명도대비', theme: '테마', component: '컴포넌트' },
+    extract: {
+      tokenType: '토큰 타입', btn: '토큰 추출하기', inspect: '🔍 검사', scope: '추출 범위',
+      allPage: '전체 페이지', selection: '선택 레이어만', collections: '컬렉션',
+      loading: '토큰을 추출하고 있습니다...', back: '← 뒤로',
+      copy: '📋 복사', unit: '단위:',
+      metaFile: '파일', metaScope: '범위', metaNodes: '노드', metaTime: '추출 시각',
+      scopeAll: '전체 페이지', scopeSelection: '선택 레이어',
+      noCollections: '컬렉션 없음', noCollectionsFallback: '컬렉션 없음 — Figma에서 플러그인을 실행하세요',
+      extracting: '추출 중...', minType: '최소 1개 타입을 선택해야 합니다',
+      jsonCopied: 'JSON 복사됨', cssCopied: 'CSS 복사됨',
+      jsonDownload: 'JSON 다운로드 시작!', cssDownload: 'CSS 다운로드 시작!',
+      errorPrefix: '오류: ', extractFail: '추출 실패',
+      layerSelected: '개 레이어 선택됨', more: '외 ',
+      tokenHint: 'Spacing·Radius = FLOAT Variables 자동 감지 / Shadow = Effect Styles 포함',
+    },
+    icon: {
+      title: '아이콘 SVG 추출', allMode: '전체 추출', selMode: '선택 추출',
+      allBtn: '전체 아이콘 추출하기', selBtn: '선택 요소 추출하기',
+      noSel: '선택된 노드 없음', copySvg: 'SVG 복사됨', copyReact: 'React 컴포넌트 복사됨',
+      selected: '개 선택됨', extracting: '추출 중...',
+      selectFirst: '먼저 아이콘을 선택하세요', noIcons: '추출된 아이콘 없음',
+      downloadAll: '전체 SVG 다운로드', iconDownload: '아이콘 JSON 다운로드 시작!',
+      exportFail: '아이콘 추출 실패: ',
+    },
+    contrast: {
+      title: 'WCAG 명도 대비 검사', manual: '수동 검사', matrix: '컬러 매트릭스',
+      bg: '배경색', fg: '텍스트색', preview: '미리보기 텍스트 Preview',
+      noColors: '추출 탭에서 색상을 먼저 추출하세요. 추출된 색상으로 자동 매트릭스를 생성합니다.',
+      hint: '추출 탭에서 토큰을 먼저 추출하면, 디자인 색상을 드롭다운에서 선택할 수 있습니다.',
+      directInput: '직접 입력', fail: '미달',
+      summaryTotal: '전체', summaryCombos: '조합',
+      on: ' on ', ratio: '대비: ',
+      sampleText: 'Sample 가나다ABC',
+    },
+    theme: {
+      title: '다크/라이트 테마 비교', extract: '테마 추출', copyCss: 'CSS 복사',
+      showAll: '전체 보기', changedOnly: '변경된 것만',
+      noData: 'Variables의 Light/Dark 모드를 자동 감지하여 비교합니다.',
+      noModes: '2개 이상의 모드가 있는 컬렉션이 없습니다',
+      noChanged: '변경된 항목이 없습니다', noVars: '테마 변수가 없습니다',
+      extracting: '추출 중...', cssCopied: 'CSS 변수 복사됨',
+      extractFirst: '먼저 테마를 추출하세요', exportFail: '테마 추출 실패: ',
+    },
+    component: {
+      title: '컴포넌트 코드 생성', generate: '코드 생성', copy: '복사', save: 'JSON 저장',
+      noSel: '선택된 노드 없음', outputLang: '출력 언어:',
+      selectFirst: '먼저 컴포넌트를 선택하세요', generating: '생성 중...',
+      cannotGenerate: '선택된 노드에서 코드를 생성할 수 없습니다',
+      copied: ' 복사됨', downloadStart: 'JSON 다운로드 시작!',
+      generateFail: '코드 생성 실패: ',
+    },
+  },
+  en: {
+    tabs: { extract: 'Extract', icon: 'Icons', contrast: 'Contrast', theme: 'Theme', component: 'Component' },
+    extract: {
+      tokenType: 'Token Type', btn: 'Extract Tokens', inspect: '🔍 Inspect', scope: 'Scope',
+      allPage: 'Entire Page', selection: 'Selection Only', collections: 'Collections',
+      loading: 'Extracting tokens...', back: '← Back',
+      copy: '📋 Copy', unit: 'Unit:',
+      metaFile: 'File', metaScope: 'Scope', metaNodes: 'Nodes', metaTime: 'Time',
+      scopeAll: 'Entire Page', scopeSelection: 'Selection',
+      noCollections: 'No collections', noCollectionsFallback: 'No collections — Run plugin in Figma',
+      extracting: 'Extracting...', minType: 'Select at least 1 type',
+      jsonCopied: 'JSON copied', cssCopied: 'CSS copied',
+      jsonDownload: 'JSON download started!', cssDownload: 'CSS download started!',
+      errorPrefix: 'Error: ', extractFail: 'Extraction failed',
+      layerSelected: ' layers selected', more: '+ ',
+      tokenHint: 'Spacing·Radius = Auto-detected FLOAT Variables / Shadow = Included in Effect Styles',
+    },
+    icon: {
+      title: 'Icon SVG Export', allMode: 'All Icons', selMode: 'Selection',
+      allBtn: 'Export All Icons', selBtn: 'Export Selected',
+      noSel: 'No node selected', copySvg: 'SVG copied', copyReact: 'React component copied',
+      selected: ' selected', extracting: 'Exporting...',
+      selectFirst: 'Select icons first', noIcons: 'No icons found',
+      downloadAll: 'Download All SVG', iconDownload: 'Icon JSON download started!',
+      exportFail: 'Icon export failed: ',
+    },
+    contrast: {
+      title: 'WCAG Contrast Checker', manual: 'Manual', matrix: 'Color Matrix',
+      bg: 'Background', fg: 'Text Color', preview: 'Preview Text Sample',
+      noColors: 'Extract colors first from the Extract tab to generate the matrix.',
+      hint: 'Extract tokens first to select design colors from the dropdown.',
+      directInput: 'Manual input', fail: 'Fail',
+      summaryTotal: 'Total', summaryCombos: 'combos',
+      on: ' on ', ratio: 'Contrast: ',
+      sampleText: 'Sample Text ABC',
+    },
+    theme: {
+      title: 'Dark/Light Theme Compare', extract: 'Extract Theme', copyCss: 'Copy CSS',
+      showAll: 'Show All', changedOnly: 'Changed Only',
+      noData: 'Automatically detects and compares Light/Dark modes from Variables.',
+      noModes: 'No collections with 2+ modes found',
+      noChanged: 'No changed items', noVars: 'No theme variables',
+      extracting: 'Extracting...', cssCopied: 'CSS variables copied',
+      extractFirst: 'Extract theme first', exportFail: 'Theme export failed: ',
+    },
+    component: {
+      title: 'Component Code', generate: 'Generate Code', copy: 'Copy', save: 'Save JSON',
+      noSel: 'No node selected', outputLang: 'Output:',
+      selectFirst: 'Select a component first', generating: 'Generating...',
+      cannotGenerate: 'Cannot generate code from selected node',
+      copied: ' copied', downloadStart: 'JSON download started!',
+      generateFail: 'Code generation failed: ',
+    },
+  }
+};
+
+var lang = 'ko';
+
+function t(path) {
+  var parts = path.split('.');
+  var obj = i18n[lang];
+  for (var i = 0; i < parts.length; i++) {
+    if (!obj) return path;
+    obj = obj[parts[i]];
+  }
+  return obj || path;
+}
+
+function applyLang() {
+  document.querySelectorAll('[data-i18n]').forEach(function(el) {
+    el.textContent = t(el.dataset.i18n);
+  });
+  // Update dynamic text that depends on language
+  if (extractedData) {
+    var meta = extractedData.meta;
+    $('metaMode').textContent = meta.sourceMode === 'selection' ? t('extract.scopeSelection') : t('extract.scopeAll');
+  }
+}
+
+// ── Lang toggle ──
+document.querySelectorAll('.lang-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    lang = btn.dataset.lang;
+    document.querySelectorAll('.lang-btn').forEach(function(b) {
+      b.classList.toggle('active', b.dataset.lang === lang);
+    });
+    applyLang();
+    // Re-render matrix if visible
+    if (a11ySubTab === 'matrix') renderMatrix();
+  });
+});
+
 // ── State ──
 var extractedData = null;
 var collections = [];
@@ -82,7 +230,7 @@ function renderSelectionInfo(sel) {
   if (!isSelMode) { selectionInfo.classList.add('hidden'); return; }
 
   selectionInfo.classList.remove('hidden');
-  selCount.textContent = sel.count + '개 레이어 선택됨';
+  selCount.textContent = sel.count + t('extract.layerSelected');
 
   var MAX_SHOW = 5;
   var items = sel.names.slice(0, MAX_SHOW).map(function(name, i) {
@@ -90,7 +238,7 @@ function renderSelectionInfo(sel) {
     return '<span class="sel-item"><span class="sel-type">' + type + '</span><span class="sel-name-text">' + name + '</span></span>';
   });
   if (sel.count > MAX_SHOW) {
-    items.push('<span class="sel-more">외 ' + (sel.count - MAX_SHOW) + '개</span>');
+    items.push('<span class="sel-more">' + t('extract.more') + (sel.count - MAX_SHOW) + '</span>');
   }
   selNames.innerHTML = items.join('');
 }
@@ -116,7 +264,7 @@ function updateExtractBtn() {
 function renderCollections(cols) {
   collections = cols;
   if (!cols || cols.length === 0) {
-    colList.innerHTML = '<div class="no-collections">컬렉션 없음</div>';
+    colList.innerHTML = '<div class="no-collections">' + t('extract.noCollections') + '</div>';
     return;
   }
   colList.innerHTML = cols.map(function(c) {
@@ -133,7 +281,7 @@ document.querySelectorAll('.token-card').forEach(function(card) {
     var isActive = card.classList.contains('active');
     var active = getSelectedTypes();
     if (isActive && active.length === 1) {
-      showToast('최소 1개 타입을 선택해야 합니다');
+      showToast(t('extract.minType'));
       return;
     }
     card.classList.toggle('active');
@@ -144,13 +292,13 @@ document.querySelectorAll('.token-card').forEach(function(card) {
 // ── Inspect ──
 inspectBtn.addEventListener('click', function() {
   parent.postMessage({ pluginMessage: { type: 'inspect' } }, '*');
-  showToast('노드 데이터 읽는 중...');
+  showToast(lang === 'ko' ? '노드 데이터 읽는 중...' : 'Reading node data...');
 });
 
 // ── Extract ──
 extractBtn.addEventListener('click', function() {
   var types = getSelectedTypes();
-  if (types.length === 0) { showToast('최소 1개 타입을 선택해야 합니다'); return; }
+  if (types.length === 0) { showToast(t('extract.minType')); return; }
   showView('loading');
   var options = {
     collectionIds: getSelectedCollectionIds(),
@@ -352,7 +500,7 @@ copyBtn.addEventListener('click', function() {
   ta.focus(); ta.select();
   document.execCommand('copy');
   document.body.removeChild(ta);
-  showToast(activeTab === 'json' ? 'JSON 복사됨' : 'CSS 복사됨');
+  showToast(activeTab === 'json' ? t('extract.jsonCopied') : t('extract.cssCopied'));
 });
 
 // ── Download JSON ──
@@ -363,7 +511,7 @@ downloadJsonBtn.addEventListener('click', function() {
   var a = document.createElement('a');
   a.href = url; a.download = buildFileBase() + '_tokens.json';
   a.click(); URL.revokeObjectURL(url);
-  showToast('JSON 다운로드 시작!');
+  showToast(t('extract.jsonDownload'));
 });
 
 // ── Download CSS ──
@@ -374,7 +522,7 @@ downloadCssBtn.addEventListener('click', function() {
   var a = document.createElement('a');
   a.href = url; a.download = buildFileBase() + '_tokens.css';
   a.click(); URL.revokeObjectURL(url);
-  showToast('CSS 다운로드 시작!');
+  showToast(t('extract.cssDownload'));
 });
 
 // ── Result rendering ──
@@ -404,7 +552,7 @@ function renderResult(data) {
   ].forEach(function(p) { $(p[0]).classList.toggle('inactive', p[1] === 0); });
 
   $('metaFile').textContent  = meta.fileName || '—';
-  $('metaMode').textContent  = meta.sourceMode === 'selection' ? '선택 레이어' : '전체 페이지';
+  $('metaMode').textContent  = meta.sourceMode === 'selection' ? t('extract.scopeSelection') : t('extract.scopeAll');
   $('metaNodes').textContent = (meta.totalNodes || 0).toLocaleString() + '개';
   var d = new Date(meta.extractedAt);
   $('metaTime').textContent  = d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
@@ -431,7 +579,7 @@ window.onmessage = function(event) {
   if (!msg) return;
 
   if (msg.type === 'init-data') {
-    headerFile.textContent = msg.fileName || 'Figma 파일';
+    headerFile.textContent = msg.fileName || (lang === 'ko' ? 'Figma 파일' : 'Figma File');
     renderCollections(msg.collections || []);
     if (msg.selection) { lastSelection = msg.selection; renderSelectionInfo(msg.selection); }
     updateExtractBtn();
@@ -447,7 +595,7 @@ window.onmessage = function(event) {
     var a = document.createElement('a');
     a.href = url; a.download = 'inspect_nodes.json';
     a.click(); URL.revokeObjectURL(url);
-    showToast('inspect_nodes.json 저장됨');
+    showToast(lang === 'ko' ? 'inspect_nodes.json 저장됨' : 'inspect_nodes.json saved');
   }
   if (msg.type === 'extract-result') {
     renderResult(msg.data);
@@ -456,33 +604,33 @@ window.onmessage = function(event) {
   }
   if (msg.type === 'extract-error') {
     showView('filter');
-    showToast('오류: ' + (msg.message || '추출 실패'));
+    showToast(t('extract.errorPrefix') + (msg.message || t('extract.extractFail')));
   }
   // Icon results
   if (msg.type === 'export-icons-result') {
     exportIconsBtn.disabled = false;
-    exportIconsBtn.textContent = '선택 요소 추출하기';
+    exportIconsBtn.textContent = t('icon.selBtn');
     renderIconResults(msg.data || []);
   }
   if (msg.type === 'export-icons-error') {
     exportIconsBtn.disabled = false;
-    exportIconsBtn.textContent = '선택 요소 추출하기';
-    showToast('아이콘 추출 실패: ' + (msg.message || ''));
+    exportIconsBtn.textContent = t('icon.selBtn');
+    showToast(t('icon.exportFail') + (msg.message || ''));
   }
   if (msg.type === 'export-icons-all-result') {
     exportIconsAllBtn.disabled = false;
-    exportIconsAllBtn.textContent = '전체 아이콘 추출하기';
+    exportIconsAllBtn.textContent = t('icon.allBtn');
     renderIconResults(msg.data || []);
   }
   if (msg.type === 'export-icons-all-error') {
     exportIconsAllBtn.disabled = false;
-    exportIconsAllBtn.textContent = '전체 아이콘 추출하기';
-    showToast('아이콘 추출 실패: ' + (msg.message || ''));
+    exportIconsAllBtn.textContent = t('icon.allBtn');
+    showToast(t('icon.exportFail') + (msg.message || ''));
   }
   // Theme results
   if (msg.type === 'extract-themes-result') {
     extractThemesBtn.disabled = false;
-    extractThemesBtn.textContent = '테마 추출';
+    extractThemesBtn.textContent = t('theme.extract');
     themeData = msg.data;
     themeFilterBtn.disabled = false;
     if (themeCopyCssBtn) themeCopyCssBtn.disabled = false;
@@ -490,13 +638,13 @@ window.onmessage = function(event) {
   }
   if (msg.type === 'extract-themes-error') {
     extractThemesBtn.disabled = false;
-    extractThemesBtn.textContent = '테마 추출';
-    showToast('테마 추출 실패: ' + (msg.message || ''));
+    extractThemesBtn.textContent = t('theme.extract');
+    showToast(t('theme.exportFail') + (msg.message || ''));
   }
   // Component results
   if (msg.type === 'generate-component-result') {
     generateCompBtn.disabled = false;
-    generateCompBtn.textContent = '코드 생성';
+    generateCompBtn.textContent = t('component.generate');
     compData = msg.data;
     if (compData) {
       compActiveTab = 'html';
@@ -506,13 +654,13 @@ window.onmessage = function(event) {
       updateCompCode();
       $('compResult').classList.remove('hidden');
     } else {
-      showToast('선택된 노드에서 코드를 생성할 수 없습니다');
+      showToast(t('component.cannotGenerate'));
     }
   }
   if (msg.type === 'generate-component-error') {
     generateCompBtn.disabled = false;
-    generateCompBtn.textContent = '코드 생성';
-    showToast('코드 생성 실패: ' + (msg.message || ''));
+    generateCompBtn.textContent = t('component.generate');
+    showToast(t('component.generateFail') + (msg.message || ''));
   }
   // Selection change also updates icon/component tab info
   if (msg.type === 'selection-changed') {
@@ -582,12 +730,12 @@ document.querySelectorAll('[data-icon-mode]').forEach(function(btn) {
 function updateIconSelInfo() {
   var info = $('iconSelInfo');
   if (lastSelection.count > 0) {
-    info.textContent = lastSelection.count + '개 선택됨 — ' + lastSelection.names.slice(0, 3).join(', ') + (lastSelection.count > 3 ? ' 외 ' + (lastSelection.count - 3) + '개' : '');
+    info.textContent = lastSelection.count + t('icon.selected') + ' — ' + lastSelection.names.slice(0, 3).join(', ') + (lastSelection.count > 3 ? ' ' + t('extract.more') + (lastSelection.count - 3) : '');
     info.style.color = 'var(--primary)';
     info.style.background = 'var(--primary-light)';
     info.style.border = '1px solid var(--primary-border)';
   } else {
-    info.textContent = '0개 선택됨';
+    info.textContent = '0' + t('icon.selected');
     info.style.color = 'var(--text-muted)';
     info.style.background = 'var(--bg)';
     info.style.border = 'none';
@@ -597,15 +745,15 @@ function updateIconSelInfo() {
 // 전체 추출
 exportIconsAllBtn.addEventListener('click', function() {
   exportIconsAllBtn.disabled = true;
-  exportIconsAllBtn.textContent = '추출 중...';
+  exportIconsAllBtn.textContent = t('icon.extracting');
   parent.postMessage({ pluginMessage: { type: 'export-icons-all' } }, '*');
 });
 
 // 선택 추출
 exportIconsBtn.addEventListener('click', function() {
-  if (lastSelection.count === 0) { showToast('먼저 아이콘을 선택하세요'); return; }
+  if (lastSelection.count === 0) { showToast(t('icon.selectFirst')); return; }
   exportIconsBtn.disabled = true;
-  exportIconsBtn.textContent = '추출 중...';
+  exportIconsBtn.textContent = t('icon.extracting');
   parent.postMessage({ pluginMessage: { type: 'export-icons' } }, '*');
 });
 
@@ -614,7 +762,7 @@ function renderIconResults(data) {
   $('iconCount').textContent = data.length;
   var list = $('iconList');
   if (data.length === 0) {
-    list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12px;grid-column:1/-1;">추출된 아이콘 없음</div>';
+    list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12px;grid-column:1/-1;">' + t('icon.noIcons') + '</div>';
     $('iconResults').classList.remove('hidden');
     return;
   }
@@ -651,18 +799,18 @@ $('iconList').addEventListener('click', function(e) {
 
   if (action === 'svg') {
     copyToClipboard(cleanSvg(icon.svg));
-    showToast('SVG 복사됨');
+    showToast(t('icon.copySvg'));
   } else if (action === 'react') {
     var svgClean = cleanSvg(icon.svg);
     var react = 'import type { SVGProps } from "react";\n\nexport const ' + icon.pascal + ' = (props: SVGProps<SVGSVGElement>) => (\n  ' + svgClean.replace(/<svg/, '<svg {...props}') + '\n);';
     copyToClipboard(react);
-    showToast('React 컴포넌트 복사됨');
+    showToast(t('icon.copyReact'));
   }
 });
 
 // 전체 SVG 다운로드
 $('iconDownloadAllBtn').addEventListener('click', function() {
-  if (iconData.length === 0) { showToast('추출된 아이콘 없음'); return; }
+  if (iconData.length === 0) { showToast(t('icon.noIcons')); return; }
   var json = JSON.stringify(iconData.map(function(icon) {
     return { name: icon.name, kebab: icon.kebab, pascal: icon.pascal, svg: cleanSvg(icon.svg) };
   }), null, 2);
@@ -671,7 +819,7 @@ $('iconDownloadAllBtn').addEventListener('click', function() {
   var a = document.createElement('a');
   a.href = url; a.download = 'icons_' + iconData.length + '.json';
   a.click(); URL.revokeObjectURL(url);
-  showToast('아이콘 JSON 다운로드 시작!');
+  showToast(t('icon.iconDownload'));
 });
 
 // ══════════════════════════════════════════════
@@ -813,8 +961,9 @@ function populateA11yColors() {
     });
   }
   [a11yBgSelect, a11yFgSelect].forEach(function(sel) {
-    // Keep the first "직접 입력" option
+    // Keep the first option, update its text
     while (sel.options.length > 1) sel.remove(1);
+    sel.options[0].textContent = t('contrast.directInput');
     colors.forEach(function(c) {
       var opt = document.createElement('option');
       opt.value = c.hex;
@@ -881,6 +1030,7 @@ function renderMatrix() {
   if (extractedColors.length === 0) {
     $('matrixEmpty').style.display = 'block';
     $('matrixContent').classList.add('hidden');
+    $('matrixSummary').innerHTML = '';
     return;
   }
   $('matrixEmpty').style.display = 'none';
@@ -890,38 +1040,98 @@ function renderMatrix() {
   var colors = extractedColors.slice(0, 20);
   $('matrixColorCount').textContent = colors.length;
 
-  // Short name: last segment of path
-  function shortName(name) {
-    var parts = name.split('/');
-    return parts[parts.length - 1];
+  // Header cell with full name + hex + swatch
+  function headerCell(c) {
+    return '<div class="matrix-header-label">'
+      + '<span class="matrix-swatch" style="background:' + c.hex + '"></span>'
+      + '<span class="matrix-header-name" title="' + escapeHtml(c.name) + '">' + escapeHtml(c.name) + '</span>'
+      + '<span class="matrix-header-hex">' + c.hex + '</span>'
+      + '</div>';
   }
+
+  // Badge helpers
+  function getBadge(ratio) {
+    if (ratio >= 7) return '<span class="matrix-badge badge-aaa">AAA</span>';
+    if (ratio >= 4.5) return '<span class="matrix-badge badge-aa">AA</span>';
+    if (ratio >= 3) return '<span class="matrix-badge badge-aa-large">AA+</span>';
+    return '<span class="matrix-badge badge-fail">FAIL</span>';
+  }
+  function getCellClass(ratio) {
+    if (ratio >= 7) return 'matrix-aaa';
+    if (ratio >= 4.5) return 'matrix-aa';
+    if (ratio >= 3) return 'matrix-aa-large';
+    return 'matrix-fail';
+  }
+  function getLevel(ratio) {
+    if (ratio >= 7) return 'AAA';
+    if (ratio >= 4.5) return 'AA';
+    if (ratio >= 3) return 'AA Large';
+    return 'FAIL';
+  }
+  function levelChecks(ratio) {
+    var aaa = ratio >= 7 ? '✓' : '✗';
+    var aa = ratio >= 4.5 ? '✓' : '✗';
+    var aaLarge = ratio >= 3 ? '✓' : '✗';
+    return 'AAA ' + aaa + '  AA ' + aa + '  AA Large ' + aaLarge;
+  }
+
+  // Summary counters
+  var countAAA = 0, countAA = 0, countAALarge = 0, countFail = 0;
 
   var html = '<thead><tr><th></th>';
   colors.forEach(function(c) {
-    html += '<th><span class="matrix-swatch" style="background:' + c.hex + '"></span>' + escapeHtml(shortName(c.name)) + '</th>';
+    html += '<th>' + headerCell(c) + '</th>';
   });
   html += '</tr></thead><tbody>';
 
   colors.forEach(function(row) {
-    html += '<tr><td><span class="matrix-swatch" style="background:' + row.hex + '"></span>' + escapeHtml(shortName(row.name)) + '</td>';
+    html += '<tr><td>' + headerCell(row) + '</td>';
     var rowRgb = hexToRgb(row.hex);
     colors.forEach(function(col) {
       if (row.hex === col.hex) {
-        html += '<td class="matrix-same">-</td>';
+        html += '<td class="matrix-same"></td>';
         return;
       }
       var colRgb = hexToRgb(col.hex);
       if (!rowRgb || !colRgb) { html += '<td>-</td>'; return; }
       var ratio = contrastRatio(rowRgb, colRgb);
-      var cls = ratio >= 7 ? 'matrix-aaa' : ratio >= 4.5 ? 'matrix-aa' : 'matrix-fail';
-      var icon = ratio >= 7 ? '✅' : ratio >= 4.5 ? '⚠️' : '❌';
-      html += '<td class="' + cls + '">' + ratio.toFixed(1) + ':1 ' + icon + '</td>';
+      var cls = getCellClass(ratio);
+      var badge = getBadge(ratio);
+      // Count
+      if (ratio >= 7) countAAA++;
+      else if (ratio >= 4.5) countAA++;
+      else if (ratio >= 3) countAALarge++;
+      else countFail++;
+
+      var tooltipContent = escapeHtml(col.name) + t('contrast.on') + escapeHtml(row.name)
+        + '<br>' + t('contrast.ratio') + ratio.toFixed(2) + ':1'
+        + '<br>' + levelChecks(ratio)
+        + '<br><br><span style="font-size:13px;font-weight:500;">' + t('contrast.sampleText') + '</span>';
+
+      html += '<td class="' + cls + ' matrix-cell">'
+        + ratio.toFixed(1) + ':1 ' + badge
+        + '<div class="matrix-tooltip">'
+        + '<div style="padding:6px 8px;border-radius:4px;background:' + row.hex + ';color:' + col.hex + ';margin-bottom:4px;text-align:center;">'
+        + '<span style="font-size:13px;font-weight:500;">' + t('contrast.sampleText') + '</span></div>'
+        + tooltipContent + '</div>'
+        + '</td>';
     });
     html += '</tr>';
   });
 
   html += '</tbody>';
   $('matrixTable').innerHTML = html;
+
+  // Summary stats
+  var total = countAAA + countAA + countAALarge + countFail;
+  var pct = function(n) { return total > 0 ? Math.round(n / total * 100) : 0; };
+  $('matrixSummary').innerHTML = '<div class="matrix-summary">'
+    + '<span style="font-weight:600;">' + t('contrast.summaryTotal') + ' ' + total + ' ' + t('contrast.summaryCombos') + '</span>'
+    + '<span class="matrix-summary-item"><span class="matrix-summary-dot" style="background:#15803D;"></span> AAA ' + countAAA + ' (' + pct(countAAA) + '%)</span>'
+    + '<span class="matrix-summary-item"><span class="matrix-summary-dot" style="background:#1D4ED8;"></span> AA ' + countAA + ' (' + pct(countAA) + '%)</span>'
+    + '<span class="matrix-summary-item"><span class="matrix-summary-dot" style="background:#7C3AED;"></span> AA+ ' + countAALarge + ' (' + pct(countAALarge) + '%)</span>'
+    + '<span class="matrix-summary-item"><span class="matrix-summary-dot" style="background:#DC2626;"></span> FAIL ' + countFail + ' (' + pct(countFail) + '%)</span>'
+    + '</div>';
 }
 
 // ══════════════════════════════════════════════
@@ -934,13 +1144,13 @@ var themeFilterBtn = $('themeFilterBtn');
 
 extractThemesBtn.addEventListener('click', function() {
   extractThemesBtn.disabled = true;
-  extractThemesBtn.textContent = '추출 중...';
+  extractThemesBtn.textContent = t('theme.extracting');
   parent.postMessage({ pluginMessage: { type: 'extract-themes' } }, '*');
 });
 
 themeFilterBtn.addEventListener('click', function() {
   showChangedOnly = !showChangedOnly;
-  themeFilterBtn.textContent = showChangedOnly ? '변경된 것만' : '전체 보기';
+  themeFilterBtn.textContent = showChangedOnly ? t('theme.changedOnly') : t('theme.showAll');
   renderThemes();
 });
 
@@ -950,7 +1160,7 @@ function renderThemes() {
   if (emptyState) emptyState.style.display = 'none';
   var modes = Object.keys(themeData);
   if (modes.length < 2) {
-    $('themeContent').innerHTML = '<div style="text-align:center;padding:40px 0;color:var(--text-muted);font-size:12px;">2개 이상의 모드가 있는 컬렉션이 없습니다</div>';
+    $('themeContent').innerHTML = '<div style="text-align:center;padding:40px 0;color:var(--text-muted);font-size:12px;">' + t('theme.noModes') + '</div>';
     return;
   }
   // Use first two modes for comparison
@@ -974,7 +1184,7 @@ function renderThemes() {
   }
 
   if (rows.length === 0) {
-    $('themeContent').innerHTML = '<div style="text-align:center;padding:40px 0;color:var(--text-muted);font-size:12px;">' + (showChangedOnly ? '변경된 항목이 없습니다' : '테마 변수가 없습니다') + '</div>';
+    $('themeContent').innerHTML = '<div style="text-align:center;padding:40px 0;color:var(--text-muted);font-size:12px;">' + (showChangedOnly ? t('theme.noChanged') : t('theme.noVars')) + '</div>';
     return;
   }
 
@@ -1041,9 +1251,9 @@ var themeCopyCssBtn = $('themeCopyCssBtn');
 if (themeCopyCssBtn) {
   themeCopyCssBtn.addEventListener('click', function() {
     var css = generateThemeCSS();
-    if (!css) { showToast('먼저 테마를 추출하세요'); return; }
+    if (!css) { showToast(t('theme.extractFirst')); return; }
     copyToClipboard(css);
-    showToast('CSS 변수 복사됨');
+    showToast(t('theme.cssCopied'));
   });
 }
 
@@ -1057,12 +1267,15 @@ var generateCompBtn = $('generateCompBtn');
 function updateCompSelInfo() {
   var info = $('compSelInfo');
   if (lastSelection.count > 0) {
-    info.textContent = '선택: ' + lastSelection.names[0] + (lastSelection.count > 1 ? ' 외 ' + (lastSelection.count - 1) + '개 (첫 번째 노드 사용)' : '');
+    var selLabel = lang === 'ko'
+      ? '선택: ' + lastSelection.names[0] + (lastSelection.count > 1 ? ' 외 ' + (lastSelection.count - 1) + '개 (첫 번째 노드 사용)' : '')
+      : 'Selected: ' + lastSelection.names[0] + (lastSelection.count > 1 ? ' + ' + (lastSelection.count - 1) + ' more (using first)' : '');
+    info.textContent = selLabel;
     info.style.color = 'var(--primary)';
     info.style.background = 'var(--primary-light)';
     info.style.border = '1px solid var(--primary-border)';
   } else {
-    info.textContent = '선택된 노드 없음';
+    info.textContent = t('component.noSel');
     info.style.color = 'var(--text-muted)';
     info.style.background = 'var(--bg)';
     info.style.border = 'none';
@@ -1081,9 +1294,9 @@ document.querySelectorAll('[data-comp-lang]').forEach(function(btn) {
 });
 
 generateCompBtn.addEventListener('click', function() {
-  if (lastSelection.count === 0) { showToast('먼저 컴포넌트를 선택하세요'); return; }
+  if (lastSelection.count === 0) { showToast(t('component.selectFirst')); return; }
   generateCompBtn.disabled = true;
-  generateCompBtn.textContent = '생성 중...';
+  generateCompBtn.textContent = t('component.generating');
   parent.postMessage({ pluginMessage: { type: 'generate-component' } }, '*');
 });
 
@@ -1107,7 +1320,7 @@ $('compCopyBtn').addEventListener('click', function() {
   if (!compData) return;
   var text = compActiveTab === 'html' ? compData.html : compData.react;
   copyToClipboard(text);
-  showToast((compActiveTab === 'html' ? 'HTML' : 'React') + ' 복사됨');
+  showToast((compActiveTab === 'html' ? 'HTML' : 'React') + t('component.copied'));
 });
 
 $('compDownloadBtn').addEventListener('click', function() {
@@ -1118,7 +1331,7 @@ $('compDownloadBtn').addEventListener('click', function() {
   var a = document.createElement('a');
   a.href = url; a.download = (compData.name || 'component') + '.json';
   a.click(); URL.revokeObjectURL(url);
-  showToast('JSON 다운로드 시작!');
+  showToast(t('component.downloadStart'));
 });
 
 // ══════════════════════════════════════════════
@@ -1139,10 +1352,10 @@ showView('filter');
 
 // Fallback: if no init-data arrives within 1s (non-Figma env), clear loading text
 setTimeout(function() {
-  if (headerFile.textContent === '로딩 중...') {
-    headerFile.textContent = 'Figma 파일';
+  if (headerFile.textContent === '로딩 중...' || headerFile.textContent === 'Loading...') {
+    headerFile.textContent = lang === 'ko' ? 'Figma 파일' : 'Figma File';
   }
-  if (colList.querySelector('.no-collections') && colList.textContent.trim() === '로딩 중...') {
-    colList.innerHTML = '<div class="no-collections">컬렉션 없음 — Figma에서 플러그인을 실행하세요</div>';
+  if (colList.querySelector('.no-collections') && (colList.textContent.trim() === '로딩 중...' || colList.textContent.trim() === 'Loading...')) {
+    colList.innerHTML = '<div class="no-collections">' + t('extract.noCollectionsFallback') + '</div>';
   }
 }, 1000);
