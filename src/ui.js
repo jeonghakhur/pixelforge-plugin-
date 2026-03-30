@@ -34,6 +34,19 @@ var i18n = {
       selectFirst: '먼저 아이콘을 선택하세요', noIcons: '추출된 아이콘 없음',
       downloadAll: '전체 SVG 다운로드', iconDownload: '아이콘 JSON 다운로드 시작!',
       exportFail: '아이콘 추출 실패: ',
+      searchPlaceholder: '아이콘 검색...',
+      noSearchResult: '검색 결과 없음',
+      colorMode: '색상 모드',
+      colorModeCC: 'currentColor',
+      colorModeCssVar: 'CSS 변수',
+      colorModeCustom: '커스텀 색상',
+      cssVarPlaceholder: '--icon-color',
+      detailSvg: 'SVG',
+      detailReact: 'React',
+      detailCss: 'CSS',
+      detailCopy: '복사',
+      detailCopied: '복사됨',
+      filterCount: '/{total}개',
     },
     contrast: {
       title: 'WCAG 명도 대비 검사', manual: '수동 검사', matrix: '컬러 매트릭스',
@@ -88,6 +101,19 @@ var i18n = {
       selectFirst: 'Select icons first', noIcons: 'No icons found',
       downloadAll: 'Download All SVG', iconDownload: 'Icon JSON download started!',
       exportFail: 'Icon export failed: ',
+      searchPlaceholder: 'Search icons...',
+      noSearchResult: 'No results',
+      colorMode: 'Color mode',
+      colorModeCC: 'currentColor',
+      colorModeCssVar: 'CSS variable',
+      colorModeCustom: 'Custom color',
+      cssVarPlaceholder: '--icon-color',
+      detailSvg: 'SVG',
+      detailReact: 'React',
+      detailCss: 'CSS',
+      detailCopy: 'Copy',
+      detailCopied: 'Copied',
+      filterCount: '/{total}',
     },
     contrast: {
       title: 'WCAG Contrast Checker', manual: 'Manual', matrix: 'Color Matrix',
@@ -134,6 +160,9 @@ function t(path) {
 function applyLang() {
   document.querySelectorAll('[data-i18n]').forEach(function(el) {
     el.textContent = t(el.dataset.i18n);
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(function(el) {
+    el.placeholder = t(el.dataset.i18nPlaceholder);
   });
   // Update dynamic text that depends on language
   if (extractedData) {
@@ -715,6 +744,159 @@ var iconMode = 'all';
 var exportIconsBtn = $('exportIconsBtn');
 var exportIconsAllBtn = $('exportIconsAllBtn');
 
+// ── Icon Search & Detail 상태 ──
+var iconSearchQuery = '';
+var iconFilteredData = [];
+var iconSelectedIdx = null;
+var iconColorMode = 'currentColor';
+var iconColorValue = 'currentColor';
+var iconDetailTab = 'svg';
+
+// ── SVG 색상 치환 ──
+function replaceSvgColor(svg, mode, value) {
+  var KEEP = /^(none|transparent|currentColor)$/i;
+  return svg
+    .replace(/fill="([^"]*)"/g, function(_, v) {
+      if (KEEP.test(v)) return 'fill="' + v + '"';
+      if (mode === 'currentColor') return 'fill="currentColor"';
+      if (mode === 'cssVar') return 'fill="var(' + value + ')"';
+      return 'fill="' + value + '"';
+    })
+    .replace(/stroke="([^"]*)"/g, function(_, v) {
+      if (KEEP.test(v)) return 'stroke="' + v + '"';
+      if (mode === 'currentColor') return 'stroke="currentColor"';
+      if (mode === 'cssVar') return 'stroke="var(' + value + ')"';
+      return 'stroke="' + value + '"';
+    });
+}
+
+// ── React 컴포넌트 생성 ──
+function buildReactComponent(icon, processedSvg) {
+  var withProps = processedSvg.replace(/<svg/, '<svg {...props}');
+  return 'import type { SVGProps } from "react";\n\nexport const '
+    + icon.pascal + ' = (props: SVGProps<SVGSVGElement>) => (\n  '
+    + withProps + '\n);';
+}
+
+// ── CSS 코드 생성 ──
+function buildCssOutput(icon, mode, value) {
+  var cls = '.' + icon.kebab;
+  if (mode === 'currentColor') {
+    return '/* currentColor — 부모 color 속성 상속 */\n'
+      + ':root {\n  --color-icon: #1e293b; /* light */\n}\n'
+      + '[data-theme="dark"] {\n  --color-icon: #f1f5f9; /* dark */\n}\n'
+      + '@media (prefers-color-scheme: dark) {\n  :root { --color-icon: #f1f5f9; }\n}\n\n'
+      + cls + ' {\n  color: var(--color-icon);\n}';
+  }
+  if (mode === 'cssVar') {
+    return '/* CSS 변수 모드 */\n'
+      + ':root {\n  ' + value + ': #1e293b; /* light */\n}\n'
+      + '[data-theme="dark"] {\n  ' + value + ': #f1f5f9; /* dark */\n}\n'
+      + '@media (prefers-color-scheme: dark) {\n  :root { ' + value + ': #f1f5f9; }\n}';
+  }
+  return '/* 커스텀 색상 */\n' + cls + ' {\n  color: ' + value + ';\n}';
+}
+
+// ── 검색 필터 ──
+function filterIcons(query) {
+  iconSearchQuery = query.trim().toLowerCase();
+  iconSelectedIdx = null;
+  $('iconDetailPanel').classList.add('hidden');
+  if (!iconSearchQuery) {
+    iconFilteredData = iconData.slice();
+  } else {
+    iconFilteredData = iconData.filter(function(icon) {
+      return icon.name.toLowerCase().indexOf(iconSearchQuery) !== -1
+          || icon.kebab.toLowerCase().indexOf(iconSearchQuery) !== -1;
+    });
+  }
+  renderIconGrid();
+  updateFilterCount();
+}
+
+// ── 검색 결과 카운트 ──
+function updateFilterCount() {
+  var countEl = $('iconFilterCount');
+  if (!countEl) return;
+  if (!iconSearchQuery) {
+    countEl.textContent = iconData.length + (lang === 'ko' ? '개' : ' icons');
+  } else {
+    countEl.textContent = iconFilteredData.length + '/' + iconData.length + (lang === 'ko' ? '개' : '');
+  }
+}
+
+// ── 아이콘 그리드 렌더링 ──
+function renderIconGrid() {
+  var list = $('iconList');
+  var data = iconFilteredData;
+  if (data.length === 0) {
+    var msg = iconSearchQuery ? t('icon.noSearchResult') : t('icon.noIcons');
+    list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12px;grid-column:1/-1;">' + msg + '</div>';
+    return;
+  }
+  list.innerHTML = data.map(function(icon, idx) {
+    var isSelected = iconSelectedIdx === idx;
+    return '<div class="icon-card' + (isSelected ? ' selected' : '') + '" data-idx="' + idx + '">'
+      + '<div class="icon-card-preview">' + cleanSvg(icon.svg) + '</div>'
+      + '<div class="icon-card-name">' + escapeHtml(icon.name) + '</div>'
+      + '<div class="icon-card-actions">'
+      + '<button class="btn-ghost icon-copy-btn" data-idx="' + idx + '" data-action="svg" style="height:24px;padding:0 6px;font-size:9px;">SVG</button>'
+      + '<button class="btn-ghost icon-copy-btn" data-idx="' + idx + '" data-action="react" style="height:24px;padding:0 6px;font-size:9px;">React</button>'
+      + '</div>'
+      + '</div>';
+  }).join('');
+}
+
+// ── 상세 패널 코드 업데이트 ──
+function updateDetailCode() {
+  if (iconSelectedIdx === null) return;
+  var icon = iconFilteredData[iconSelectedIdx];
+  if (!icon) return;
+
+  var processed = replaceSvgColor(cleanSvg(icon.svg), iconColorMode, iconColorValue);
+  var code = '';
+  if (iconDetailTab === 'svg') {
+    code = processed;
+  } else if (iconDetailTab === 'react') {
+    code = buildReactComponent(icon, processed);
+  } else {
+    code = buildCssOutput(icon, iconColorMode, iconColorValue);
+  }
+  $('iconDetailCode').textContent = code;
+
+  // 썸네일 색상 반영 (custom 모드)
+  if (iconColorMode === 'custom') {
+    var thumb = $('iconDetailThumb');
+    thumb.style.color = iconColorValue;
+  }
+}
+
+// ── 아이콘 선택 → 상세 패널 ──
+function selectIcon(idx) {
+  // toggle: 같은 아이콘 재클릭 시 닫기
+  if (iconSelectedIdx === idx) {
+    iconSelectedIdx = null;
+    $('iconDetailPanel').classList.add('hidden');
+    renderIconGrid();
+    return;
+  }
+  iconSelectedIdx = idx;
+  var icon = iconFilteredData[idx];
+  if (!icon) return;
+
+  renderIconGrid();
+  $('iconDetailName').textContent = icon.name;
+  var thumb = $('iconDetailThumb');
+  thumb.innerHTML = cleanSvg(icon.svg);
+  thumb.style.color = '';
+  $('iconDetailPanel').classList.remove('hidden');
+  iconDetailTab = 'svg';
+  document.querySelectorAll('.icon-detail-tab').forEach(function(tab) {
+    tab.classList.toggle('active', tab.dataset.detailTab === 'svg');
+  });
+  updateDetailCode();
+}
+
 // ── Icon mode toggle ──
 document.querySelectorAll('[data-icon-mode]').forEach(function(btn) {
   btn.addEventListener('click', function() {
@@ -759,24 +941,22 @@ exportIconsBtn.addEventListener('click', function() {
 
 function renderIconResults(data) {
   iconData = data;
+  iconFilteredData = data.slice();
+  iconSearchQuery = '';
+  iconSelectedIdx = null;
+
   $('iconCount').textContent = data.length;
-  var list = $('iconList');
-  if (data.length === 0) {
-    list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12px;grid-column:1/-1;">' + t('icon.noIcons') + '</div>';
-    $('iconResults').classList.remove('hidden');
-    return;
-  }
-  list.innerHTML = data.map(function(icon, idx) {
-    return '<div class="icon-card">'
-      + '<div class="icon-card-preview">' + cleanSvg(icon.svg) + '</div>'
-      + '<div class="icon-card-name">' + escapeHtml(icon.name) + '</div>'
-      + '<div class="icon-card-actions">'
-      + '<button class="btn-ghost icon-copy-btn" data-idx="' + idx + '" data-action="svg" style="height:24px;padding:0 6px;font-size:9px;">SVG</button>'
-      + '<button class="btn-ghost icon-copy-btn" data-idx="' + idx + '" data-action="react" style="height:24px;padding:0 6px;font-size:9px;">React</button>'
-      + '</div>'
-      + '</div>';
-  }).join('');
   $('iconResults').classList.remove('hidden');
+  $('iconDetailPanel').classList.add('hidden');
+
+  // 검색바 표시 (아이콘이 있을 때만)
+  var searchRow = $('iconSearchRow');
+  searchRow.classList.toggle('hidden', data.length === 0);
+  $('iconSearchInput').value = '';
+  $('iconSearchClear').classList.add('hidden');
+
+  updateFilterCount();
+  renderIconGrid();
 }
 
 // SVG 정리: xml 선언, 불필요 속성 제거, viewBox 보존
@@ -788,24 +968,85 @@ function cleanSvg(svg) {
     .trim();
 }
 
-// 이벤트 위임: 아이콘 복사 버튼
+// 이벤트 위임: 아이콘 카드 클릭 + 복사 버튼
 $('iconList').addEventListener('click', function(e) {
   var btn = e.target.closest('.icon-copy-btn');
-  if (!btn) return;
-  var idx = parseInt(btn.dataset.idx, 10);
-  var action = btn.dataset.action;
-  var icon = iconData[idx];
-  if (!icon) return;
-
-  if (action === 'svg') {
-    copyToClipboard(cleanSvg(icon.svg));
-    showToast(t('icon.copySvg'));
-  } else if (action === 'react') {
-    var svgClean = cleanSvg(icon.svg);
-    var react = 'import type { SVGProps } from "react";\n\nexport const ' + icon.pascal + ' = (props: SVGProps<SVGSVGElement>) => (\n  ' + svgClean.replace(/<svg/, '<svg {...props}') + '\n);';
-    copyToClipboard(react);
-    showToast(t('icon.copyReact'));
+  if (btn) {
+    var idx = parseInt(btn.dataset.idx, 10);
+    var action = btn.dataset.action;
+    var icon = iconFilteredData[idx];
+    if (!icon) return;
+    if (action === 'svg') {
+      var processed = replaceSvgColor(cleanSvg(icon.svg), iconColorMode, iconColorValue);
+      copyToClipboard(processed);
+      showToast(t('icon.copySvg'));
+    } else if (action === 'react') {
+      var processed2 = replaceSvgColor(cleanSvg(icon.svg), iconColorMode, iconColorValue);
+      copyToClipboard(buildReactComponent(icon, processed2));
+      showToast(t('icon.copyReact'));
+    }
+    return;
   }
+  var card = e.target.closest('.icon-card');
+  if (card) {
+    selectIcon(parseInt(card.dataset.idx, 10));
+  }
+});
+
+// ── 검색 이벤트 ──
+var iconSearchDebounceTimer = null;
+$('iconSearchInput').addEventListener('input', function() {
+  var q = this.value;
+  $('iconSearchClear').classList.toggle('hidden', q === '');
+  clearTimeout(iconSearchDebounceTimer);
+  iconSearchDebounceTimer = setTimeout(function() { filterIcons(q); }, 150);
+});
+$('iconSearchClear').addEventListener('click', function() {
+  $('iconSearchInput').value = '';
+  $('iconSearchClear').classList.add('hidden');
+  filterIcons('');
+  $('iconSearchInput').focus();
+});
+
+// ── 상세 패널 탭 ──
+document.addEventListener('click', function(e) {
+  var tab = e.target.closest('.icon-detail-tab');
+  if (!tab) return;
+  iconDetailTab = tab.dataset.detailTab;
+  document.querySelectorAll('.icon-detail-tab').forEach(function(t2) {
+    t2.classList.toggle('active', t2.dataset.detailTab === iconDetailTab);
+  });
+  updateDetailCode();
+});
+
+// ── 색상 모드 변경 ──
+$('iconColorModeSelect').addEventListener('change', function() {
+  iconColorMode = this.value;
+  $('iconColorVarInput').classList.toggle('hidden', iconColorMode !== 'cssVar');
+  $('iconColorPicker').classList.toggle('hidden', iconColorMode !== 'custom');
+  if (iconColorMode === 'currentColor') iconColorValue = 'currentColor';
+  if (iconColorMode === 'cssVar') iconColorValue = $('iconColorVarInput').value || '--icon-color';
+  if (iconColorMode === 'custom') iconColorValue = $('iconColorPicker').value;
+  updateDetailCode();
+});
+$('iconColorVarInput').addEventListener('input', function() {
+  iconColorValue = this.value || '--icon-color';
+  updateDetailCode();
+});
+$('iconColorPicker').addEventListener('input', function() {
+  iconColorValue = this.value;
+  updateDetailCode();
+});
+
+// ── 상세 패널 닫기 / 복사 ──
+$('iconDetailClose').addEventListener('click', function() {
+  iconSelectedIdx = null;
+  $('iconDetailPanel').classList.add('hidden');
+  renderIconGrid();
+});
+$('iconDetailCopyBtn').addEventListener('click', function() {
+  copyToClipboard($('iconDetailCode').textContent);
+  showToast(t('icon.detailCopied'));
 });
 
 // 전체 SVG 다운로드
