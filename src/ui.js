@@ -1,5 +1,6 @@
 'use strict';
 
+import JSZip from 'jszip';
 import { escapeHtml } from './converters/utils.js';
 import { buildVarMap, convertVariables, convertFlatVars } from './converters/variables.js';
 import { convertColorStyles } from './converters/color-styles.js';
@@ -10,7 +11,7 @@ import { highlightCSS } from './converters/highlight.js';
 // ── i18n ──
 var i18n = {
   ko: {
-    tabs: { extract: '추출', icon: '아이콘', contrast: '명도대비', theme: '테마', component: '컴포넌트' },
+    tabs: { extract: '추출', icon: '아이콘', contrast: '명도대비', theme: '테마', component: '컴포넌트', image: '이미지' },
     extract: {
       tokenType: '토큰 타입', btn: '토큰 추출하기', inspect: '🔍 검사', scope: '추출 범위',
       allPage: '전체 페이지', selection: '선택 레이어만', collections: '컬렉션',
@@ -32,7 +33,8 @@ var i18n = {
       noSel: '선택된 노드 없음', copySvg: 'SVG 복사됨', copyReact: 'React 컴포넌트 복사됨',
       selected: '개 선택됨', extracting: '추출 중...',
       selectFirst: '먼저 아이콘을 선택하세요', noIcons: '추출된 아이콘 없음',
-      downloadAll: '전체 SVG 다운로드', iconDownload: '아이콘 JSON 다운로드 시작!',
+      downloadSvg: 'SVG 파일', downloadSvgCode: 'SVG 코드', downloadReact: 'React',
+      downloadSvgDone: 'SVG ZIP 다운로드 시작!', downloadSvgCodeDone: 'SVG 코드 다운로드 시작!', downloadReactDone: 'React ZIP 다운로드 시작!',
       exportFail: '아이콘 추출 실패: ',
       searchPlaceholder: '아이콘 검색...',
       noSearchResult: '검색 결과 없음',
@@ -81,9 +83,25 @@ var i18n = {
       backToList: '← 목록으로', registryEmpty: '저장된 컴포넌트가 없습니다',
       exportAll: '전체 내보내기',
     },
+    image: {
+      format: '포맷', scale: '배율', scope: '범위',
+      allPage: '전체 페이지', selection: '선택 레이어',
+      detectBtn: '이미지 탐지하기',
+      idleTitle: '이미지 에셋 탐지',
+      idle: '위 버튼을 클릭하여 이미지 에셋을 탐지하세요.',
+      detecting: '이미지를 탐지하고 있습니다...',
+      empty: '이미지 에셋을 찾을 수 없습니다.',
+      emptyHint: 'IMAGE fill이 적용된 노드가 없거나 선택 범위에 포함되지 않았습니다.',
+      downloadAll: '전체 ZIP 다운로드',
+      downloadAllCount: '({n}개 · {m}파일)',
+      downloadOne: '다운로드',
+      retry: '다시 시도',
+      noSelection: '먼저 레이어를 선택하세요',
+      error: '이미지 추출 실패: ',
+    },
   },
   en: {
-    tabs: { extract: 'Extract', icon: 'Icons', contrast: 'Contrast', theme: 'Theme', component: 'Component' },
+    tabs: { extract: 'Extract', icon: 'Icons', contrast: 'Contrast', theme: 'Theme', component: 'Component', image: 'Images' },
     extract: {
       tokenType: 'Token Type', btn: 'Extract Tokens', inspect: '🔍 Inspect', scope: 'Scope',
       allPage: 'Entire Page', selection: 'Selection Only', collections: 'Collections',
@@ -105,7 +123,8 @@ var i18n = {
       noSel: 'No node selected', copySvg: 'SVG copied', copyReact: 'React component copied',
       selected: ' selected', extracting: 'Exporting...',
       selectFirst: 'Select icons first', noIcons: 'No icons found',
-      downloadAll: 'Download All SVG', iconDownload: 'Icon JSON download started!',
+      downloadSvg: 'SVG Files', downloadSvgCode: 'SVG Code', downloadReact: 'React',
+      downloadSvgDone: 'SVG ZIP downloaded!', downloadSvgCodeDone: 'SVG code downloaded!', downloadReactDone: 'React ZIP downloaded!',
       exportFail: 'Icon export failed: ',
       searchPlaceholder: 'Search icons...',
       noSearchResult: 'No results',
@@ -153,6 +172,22 @@ var i18n = {
       edit: 'Edit', update: 'Update', delete: 'Delete', cancel: 'Cancel', saveEdit: 'Save',
       backToList: '← Back', registryEmpty: 'No saved components',
       exportAll: 'Export All',
+    },
+    image: {
+      format: 'Format', scale: 'Scale', scope: 'Scope',
+      allPage: 'Entire Page', selection: 'Selection',
+      detectBtn: 'Detect Images',
+      idleTitle: 'Image Asset Export',
+      idle: 'Click the button above to detect image assets.',
+      detecting: 'Detecting image assets...',
+      empty: 'No image assets found.',
+      emptyHint: 'No nodes with IMAGE fill found in the current scope.',
+      downloadAll: 'Download All ZIP',
+      downloadAllCount: '({n} items · {m} files)',
+      downloadOne: 'Download',
+      retry: 'Retry',
+      noSelection: 'Select layers first',
+      error: 'Image export failed: ',
     },
   }
 };
@@ -698,12 +733,18 @@ window.onmessage = function(event) {
     if (generateCompBtn) { generateCompBtn.disabled = false; generateCompBtn.textContent = t('component.generate'); }
     var d = msg.data;
     if (d) {
-      var tsx = compState.styleMode === 'css-modules'
-        ? buildCSSModulesTSX(compToPascalCase((d.name || 'Component').split('/').pop()), compState.componentType, compState.useTs)
-        : buildStyledTSX(compToPascalCase((d.name || 'Component').split('/').pop()), compState.componentType, compState.useTs);
-      var css = compState.styleMode === 'css-modules'
-        ? buildCSSModulesCSS(d.styles || {}, compState.componentType)
-        : '';
+      var name = compToPascalCase((d.name || 'Component').split('/').pop());
+      var tsx, css;
+      if (compState.styleMode === 'html') {
+        tsx = d.html || '<div></div>';
+        css = '';
+      } else if (compState.styleMode === 'css-modules') {
+        tsx = buildCSSModulesTSX(name, compState.componentType, compState.useTs);
+        css = buildCSSModulesCSS(d.styles || {}, compState.componentType);
+      } else {
+        tsx = buildStyledTSX(name, compState.componentType, compState.useTs);
+        css = '';
+      }
       showGeneratedResult(tsx, css, compState.styleMode);
     } else {
       showToast(t('component.cannotGenerate'));
@@ -733,6 +774,20 @@ window.onmessage = function(event) {
   if (msg.type === 'registry-error') {
     showToast((lang === 'ko' ? '레지스트리 오류: ' : 'Registry error: ') + (msg.message || ''));
   }
+  // Image results
+  if (msg.type === 'extract-images-result') {
+    imageAssets = msg.data || [];
+    if (imageAssets.length === 0) {
+      setImgState('imgStateEmpty');
+    } else {
+      setImgState('imgStateList');
+      renderImageList(imageAssets);
+    }
+  }
+  if (msg.type === 'extract-images-error') {
+    $('imgErrorMsg').textContent = t('image.error') + (msg.message || '');
+    setImgState('imgStateError');
+  }
   // Component-specific selection handling (lastSelection already updated above)
   if (msg.type === 'selection-changed') {
     if (currentMainTab === 'icons') updateIconSelInfo();
@@ -751,6 +806,7 @@ var tabPanels = {
   a11y:      $('panel-a11y'),
   themes:    $('panel-themes'),
   component: $('panel-component'),
+  images:    $('panel-images'),
 };
 
 function switchMainTab(tab) {
@@ -812,12 +868,318 @@ function replaceSvgColor(svg, mode, value) {
     });
 }
 
+// ── XML/SVG 포맷터 ──
+
+// 태그 한 줄을 받아 속성이 2개 이상 & 80자 초과면 속성마다 줄 나눔
+function formatTagAttrs(tag, baseIndent) {
+  // 태그명과 속성 파싱: <tagName attr1="v1" attr2="v2" ...(/?)>
+  var m = tag.match(/^(<\/?\w[\w.-]*)(\s[^>]*)?(\/?>)$/);
+  if (!m) return baseIndent + tag;
+  var open = m[1];          // e.g. "<svg"
+  var attrStr = m[2] || ''; // e.g. ' xmlns="..." viewBox="..."'
+  var close = m[3];         // ">" or "/>"
+
+  // 속성 파싱 (값에 공백 포함 가능 → 따옴표 기준으로 분리)
+  var attrs = [];
+  var re = /\s+([\w:.-]+)(?:="([^"]*)")?/g;
+  var hit;
+  while ((hit = re.exec(attrStr)) !== null) {
+    attrs.push(hit[2] !== undefined
+      ? hit[1] + '="' + hit[2] + '"'
+      : hit[1]);
+  }
+
+  // 속성 1개 이하이거나 한 줄이 80자 이하면 그대로
+  var oneLiner = baseIndent + open + (attrStr || '') + close;
+  if (attrs.length <= 1 || oneLiner.length <= 80) return oneLiner;
+
+  // 속성마다 줄 나눔
+  var attrIndent = baseIndent + '  ';
+  return baseIndent + open + '\n'
+    + attrs.map(function(a) { return attrIndent + a; }).join('\n') + '\n'
+    + baseIndent + close;
+}
+
+function formatXml(xml) {
+  var pad = 0;
+  var lines = xml
+    .replace(/>\s*</g, '>\n<')
+    .split('\n')
+    .map(function(l) { return l.trim(); })
+    .filter(Boolean);
+  return lines.map(function(line) {
+    var isClosing   = /^<\//.test(line);
+    var isSelfClose = /\/>$/.test(line);
+    var isInline    = /^<[^/!][^>]*>[^<]+<\//.test(line);
+    if (isClosing) pad = Math.max(0, pad - 1);
+    var indent = '  '.repeat(pad);
+    var result = /^<[^?!]/.test(line) && !isClosing
+      ? formatTagAttrs(line, indent)
+      : indent + line;
+    if (!isClosing && !isSelfClose && !isInline && /^<[^?!]/.test(line)) pad++;
+    return result;
+  }).join('\n');
+}
+
+// icon의 전체 className 문자열 생성: "icon-glyph-android size-default"
+function iconClassNames(icon) {
+  var base = 'icon-' + icon.kebab;
+  var extras = (icon.variants || []).join(' ');
+  return extras ? base + ' ' + extras : base;
+}
+
+// SVG 하이픈 속성명 → JSX camelCase
+var JSX_ATTR = {
+  'fill-rule':'fillRule','clip-rule':'clipRule',
+  'stroke-width':'strokeWidth','stroke-linecap':'strokeLinecap',
+  'stroke-linejoin':'strokeLinejoin','stroke-dasharray':'strokeDasharray',
+  'stroke-dashoffset':'strokeDashoffset','stroke-miterlimit':'strokeMiterlimit',
+  'stop-color':'stopColor','stop-opacity':'stopOpacity',
+  'font-size':'fontSize','font-family':'fontFamily',
+  'text-anchor':'textAnchor','dominant-baseline':'dominantBaseline',
+  'xlink:href':'href','color-interpolation-filters':'colorInterpolationFilters',
+};
+
+// SVG에 React JSX props 주입 + 포맷팅
+// svg 태그는 수동 빌드(JSX 표현식 포함), children만 formatXml
+function prepareSvg(processedSvg, classNames) {
+  var cleaned = processedSvg
+    .replace(/\s*width="[^"]*"/, '')
+    .replace(/\s*height="[^"]*"/, '');
+
+  // 1. svg 태그 기존 XML 속성 추출
+  var svgTagMatch = cleaned.match(/<svg([^>]*)>/);
+  var svgAttrStr = svgTagMatch ? svgTagMatch[1] : '';
+  var xmlAttrs = [];
+  var attrRe = /\s+([\w:.-]+)(?:="([^"]*)")?/g, hit;
+  while ((hit = attrRe.exec(svgAttrStr)) !== null) {
+    xmlAttrs.push(hit[2] !== undefined ? hit[1] + '="' + hit[2] + '"' : hit[1]);
+  }
+
+  // 2. JSX <svg> 태그 빌드 (항상 속성 줄 나눔)
+  var jsxProps = [
+    'className={["' + classNames + '", size, color, className].filter(Boolean).join(" ")}',
+    '{...props}'
+  ].concat(xmlAttrs);
+  var svgOpen = '<svg\n' + jsxProps.map(function(p) { return '  ' + p; }).join('\n') + '\n>';
+
+  // 3. 내부 children: camelCase 속성 + 자기닫힘 + formatXml
+  var inner = cleaned.replace(/<svg[^>]*>/, '').replace(/<\/svg\s*>\s*$/, '').trim();
+  if (!inner) return svgOpen + '\n</svg>';
+
+  // 하이픈 속성명 → camelCase
+  inner = inner.replace(/\b(fill-rule|clip-rule|stroke-width|stroke-linecap|stroke-linejoin|stroke-dasharray|stroke-dashoffset|stroke-miterlimit|stop-color|stop-opacity|font-size|font-family|text-anchor|dominant-baseline)(?==)/g,
+    function(attr) { return JSX_ATTR[attr] || attr; });
+
+  // void 요소 자기닫힘 보장: <path ...> → <path ... />
+  // step 1: 단일 줄 void 요소 self-closing
+  inner = inner.replace(
+    /<(path|circle|ellipse|line|polyline|polygon|rect|use|stop|animate|animateTransform)(\b[^>]*)>/g,
+    function(m, tag, attrs) {
+      return attrs.endsWith('/') ? m : '<' + tag + attrs + ' />';
+    }
+  );
+
+  var formatted = formatXml(inner);
+
+  // step 2: formatXml 이후 속성이 여러 줄로 분리된 경우 — 단독 ">" 줄을 "/>" 로 교체
+  // 앞 줄이 void 태그 속성임을 추적
+  var VOID_TAGS = /^<(path|circle|ellipse|line|polyline|polygon|rect|use|stop|animate|animateTransform)\b/;
+  var inVoid = false;
+  formatted = formatted.split('\n').map(function(line) {
+    var t = line.trim();
+    if (VOID_TAGS.test(t)) { inVoid = true; }
+    if (inVoid) {
+      if (/\/>$/.test(t)) { inVoid = false; return line; }       // 이미 self-close
+      if (t === '>') { inVoid = false; return line.replace('>', '/>'); } // 단독 ">"
+      if (/>$/.test(t) && !/<\//.test(t)) { inVoid = false; return line.slice(0, line.lastIndexOf('>')) + '/>'; }
+    }
+    return line;
+  }).join('\n');
+
+  var formattedInner = formatted.split('\n').map(function(l) { return '  ' + l; }).join('\n');
+
+  return svgOpen + '\n' + formattedInner + '\n</svg>';
+}
+
+// React 컴포넌트 body (preview & file 공통)
+function buildReactBody(name, baseCls, variantClasses, formattedSvg, trailingNewline) {
+  var indentedSvg = formattedSvg.split('\n').map(function(l) { return '  ' + l; }).join('\n');
+  return 'import type { SVGProps } from "react";\n\n'
+    + 'interface ' + name + 'Props extends Omit<SVGProps<SVGSVGElement>, "color"> {\n'
+    + '  size?: string;\n'
+    + '  color?: string;\n'
+    + '}\n\n'
+    + 'export const ' + name + ' = ({ size, color, className, ...props }: ' + name + 'Props) => (\n'
+    + indentedSvg + '\n'
+    + ');' + (trailingNewline ? '\n' : '');
+}
+
 // ── React 컴포넌트 생성 ──
+// 모달 미리보기용
 function buildReactComponent(icon, processedSvg) {
-  var withProps = processedSvg.replace(/<svg/, '<svg {...props}');
-  return 'import type { SVGProps } from "react";\n\nexport const '
-    + icon.pascal + ' = (props: SVGProps<SVGSVGElement>) => (\n  '
-    + withProps + '\n);';
+  var name = 'Icon' + icon.pascal;
+  var cls = iconClassNames(icon);
+  return buildReactBody(name, 'icon-' + icon.kebab, icon.variants || [], prepareSvg(processedSvg, cls), false);
+}
+
+// ZIP 다운로드용 개별 React 파일 생성
+function buildReactFile(icon, processedSvg) {
+  var name = 'Icon' + icon.pascal;
+  var cls = iconClassNames(icon);
+  return buildReactBody(name, 'icon-' + icon.kebab, icon.variants || [], prepareSvg(processedSvg, cls), true);
+}
+
+// ZIP 전체 CSS 파일 생성
+function buildIconsCss(icons) {
+  var header = '/* PixelForge Icon CSS — ' + new Date().toISOString().slice(0, 10) + ' */\n'
+    + '/* Usage: <span class="icon icon-android"></span> */\n\n'
+    + '.icon {\n'
+    + '  display: inline-block;\n'
+    + '  width: var(--icon-size, 1em);\n'
+    + '  height: var(--icon-size, 1em);\n'
+    + '  background-color: currentColor;\n'
+    + '  mask-repeat: no-repeat;\n'
+    + '  mask-size: 100% 100%;\n'
+    + '  -webkit-mask-repeat: no-repeat;\n'
+    + '  -webkit-mask-size: 100% 100%;\n'
+    + '}\n\n';
+  var classes = icons.map(function(icon) {
+    var cls = 'icon-' + icon.kebab;
+    return '.' + cls + ' {\n'
+      + '  mask-image: url("../svg/icon-' + icon.kebab + '.svg");\n'
+      + '  -webkit-mask-image: url("../svg/icon-' + icon.kebab + '.svg");\n'
+      + '}';
+  }).join('\n\n');
+  return header + classes + '\n';
+}
+
+// ZIP 배럴 파일 (index.ts)
+function buildIndexFile(icons) {
+  return icons.map(function(icon) {
+    return 'export { Icon' + icon.pascal + ' } from "./Icon' + icon.pascal + '";';
+  }).join('\n') + '\n';
+}
+
+// SVG ZIP: svg/ + css/
+async function downloadSvgZip(icons) {
+  var zip = new JSZip();
+  var svgFolder = zip.folder('svg');
+  var cssFolder = zip.folder('css');
+  icons.forEach(function(icon) {
+    svgFolder.file('icon-' + icon.kebab + '.svg', cleanSvg(icon.svg));
+  });
+  cssFolder.file('icons.css', buildIconsCss(icons));
+  var blob = await zip.generateAsync({ type: 'blob' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = 'icons-svg-' + icons.length + '.zip';
+  a.click(); URL.revokeObjectURL(url);
+}
+
+// SVG 코드 ZIP: icons.ts (SVG 문자열 상수 export) + index.ts
+async function downloadSvgCodeZip(icons) {
+  var date = new Date().toISOString().slice(0, 10);
+  var items = icons.map(function(icon) {
+    var rawSvg = formatXml(cleanSvg(icon.svg));
+    var indented = rawSvg.split('\n').map(function(l) { return '      ' + l; }).join('\n');
+    var fullCls = iconClassNames(icon);
+    var variantBadges = (icon.variants || []).map(function(v) {
+      return '<span class="variant-badge">' + v + '</span>';
+    }).join('');
+    return '    <div class="icon-item" data-name="icon-' + icon.kebab + '" title="클릭하여 SVG 복사">\n'
+      + '      <div class="' + fullCls + ' icon-node">\n'
+      + indented + '\n'
+      + '      </div>\n'
+      + '      <span class="icon-label">icon-' + icon.kebab + '</span>\n'
+      + (variantBadges ? '      <div class="variant-badges">' + variantBadges + '</div>\n' : '')
+      + '    </div>';
+  }).join('\n');
+
+  var html = '<!DOCTYPE html>\n'
+    + '<html lang="ko">\n'
+    + '<head>\n'
+    + '  <meta charset="UTF-8">\n'
+    + '  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n'
+    + '  <title>PixelForge Icons — ' + icons.length + ' (' + date + ')</title>\n'
+    + '  <style>\n'
+    + '    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }\n'
+    + '    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f8fafc; color: #1e293b; padding: 32px; }\n'
+    + '    h1 { font-size: 18px; font-weight: 600; margin-bottom: 24px; color: #0f172a; }\n'
+    + '    h1 span { font-size: 13px; font-weight: 400; color: #64748b; margin-left: 8px; }\n'
+    + '    .icon-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 12px; }\n'
+    + '    .icon-item { display: flex; flex-direction: column; align-items: center; gap: 8px;\n'
+    + '      background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px 8px 12px;\n'
+    + '      cursor: pointer; transition: border-color .15s, background .15s, transform .1s; position: relative; }\n'
+    + '    .icon-item:hover { border-color: #6366f1; background: #f5f3ff; transform: translateY(-1px); }\n'
+    + '    .icon-item:active { transform: translateY(0); }\n'
+    + '    .icon-item.copied { border-color: #22c55e !important; background: #f0fdf4 !important; }\n'
+    + '    .icon-node { display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; color: #1e293b; pointer-events: none; }\n'
+    + '    .icon-node svg { width: 100%; height: 100%; }\n'
+    + '    .icon-label { font-size: 10px; color: #64748b; text-align: center; word-break: break-all; line-height: 1.4; pointer-events: none; }\n'
+    + '    .variant-badges { display: flex; flex-wrap: wrap; gap: 3px; justify-content: center; }\n'
+    + '    .variant-badge { font-size: 9px; background: #e0e7ff; color: #4338ca; border-radius: 3px; padding: 1px 4px; pointer-events: none; }\n'
+    + '    .copy-badge { position: absolute; top: 6px; right: 6px; font-size: 9px; background: #22c55e;\n'
+    + '      color: #fff; border-radius: 4px; padding: 1px 5px; opacity: 0; transition: opacity .2s; pointer-events: none; }\n'
+    + '    .icon-item.copied .copy-badge { opacity: 1; }\n'
+    + '    #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(8px);\n'
+    + '      background: #1e293b; color: #fff; font-size: 13px; padding: 8px 18px; border-radius: 8px;\n'
+    + '      opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none; white-space: nowrap; }\n'
+    + '    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }\n'
+    + '  </style>\n'
+    + '</head>\n'
+    + '<body>\n'
+    + '  <h1>PixelForge Icons <span>' + icons.length + ' icons · ' + date + '</span></h1>\n'
+    + '  <div class="icon-grid">\n'
+    + items + '\n'
+    + '  </div>\n'
+    + '  <div id="toast"></div>\n'
+    + '  <script>\n'
+    + '    var toast = document.getElementById("toast");\n'
+    + '    var toastTimer;\n'
+    + '    function showToast(msg) {\n'
+    + '      toast.textContent = msg;\n'
+    + '      toast.classList.add("show");\n'
+    + '      clearTimeout(toastTimer);\n'
+    + '      toastTimer = setTimeout(function() { toast.classList.remove("show"); }, 1800);\n'
+    + '    }\n'
+    + '    document.querySelector(".icon-grid").addEventListener("click", function(e) {\n'
+    + '      var item = e.target.closest(".icon-item");\n'
+    + '      if (!item) return;\n'
+    + '      var node = item.querySelector(".icon-node");\n'
+    + '      var svg = node ? node.innerHTML.trim() : "";\n'
+    + '      var name = item.dataset.name;\n'
+    + '      navigator.clipboard.writeText(svg).then(function() {\n'
+    + '        item.classList.add("copied");\n'
+    + '        setTimeout(function() { item.classList.remove("copied"); }, 1500);\n'
+    + '        showToast(name + " SVG 복사됨");\n'
+    + '      });\n'
+    + '    });\n'
+    + '  </script>\n'
+    + '</body>\n'
+    + '</html>\n';
+
+  var blob = new Blob([html], { type: 'text/html' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = 'icons-' + icons.length + '.html';
+  a.click(); URL.revokeObjectURL(url);
+}
+
+// React ZIP: react/ (tsx 개별 파일 + index.ts)
+async function downloadReactZip(icons) {
+  var zip = new JSZip();
+  var reactFolder = zip.folder('react');
+  icons.forEach(function(icon) {
+    var processed = replaceSvgColor(cleanSvg(icon.svg), iconColorMode, iconColorValue);
+    reactFolder.file('Icon' + icon.pascal + '.tsx', buildReactFile(icon, processed));
+  });
+  reactFolder.file('index.ts', buildIndexFile(icons));
+  var blob = await zip.generateAsync({ type: 'blob' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = 'icons-react-' + icons.length + '.zip';
+  a.click(); URL.revokeObjectURL(url);
 }
 
 // ── CSS 코드 생성 ──
@@ -1117,18 +1479,49 @@ $('iconDetailCopyBtn').addEventListener('click', function() {
   showToast(t('icon.detailCopied'));
 });
 
-// 전체 SVG 다운로드
-$('iconDownloadAllBtn').addEventListener('click', function() {
+// SVG ZIP 다운로드
+$('iconDownloadSvgBtn').addEventListener('click', function() {
   if (iconData.length === 0) { showToast(t('icon.noIcons')); return; }
-  var json = JSON.stringify(iconData.map(function(icon) {
-    return { name: icon.name, kebab: icon.kebab, pascal: icon.pascal, svg: cleanSvg(icon.svg) };
-  }), null, 2);
-  var blob = new Blob([json], { type: 'application/json' });
-  var url = URL.createObjectURL(blob);
-  var a = document.createElement('a');
-  a.href = url; a.download = 'icons_' + iconData.length + '.json';
-  a.click(); URL.revokeObjectURL(url);
-  showToast(t('icon.iconDownload'));
+  $('iconDownloadSvgBtn').disabled = true;
+  $('iconDownloadSvgBtn').textContent = t('icon.extracting');
+  downloadSvgZip(iconData).then(function() {
+    $('iconDownloadSvgBtn').disabled = false;
+    $('iconDownloadSvgBtn').textContent = t('icon.downloadSvg');
+    showToast(t('icon.downloadSvgDone'));
+  }).catch(function() {
+    $('iconDownloadSvgBtn').disabled = false;
+    $('iconDownloadSvgBtn').textContent = t('icon.downloadSvg');
+  });
+});
+
+// SVG 코드 다운로드
+$('iconDownloadSvgCodeBtn').addEventListener('click', function() {
+  if (iconData.length === 0) { showToast(t('icon.noIcons')); return; }
+  $('iconDownloadSvgCodeBtn').disabled = true;
+  $('iconDownloadSvgCodeBtn').textContent = t('icon.extracting');
+  downloadSvgCodeZip(iconData).then(function() {
+    $('iconDownloadSvgCodeBtn').disabled = false;
+    $('iconDownloadSvgCodeBtn').textContent = t('icon.downloadSvgCode');
+    showToast(t('icon.downloadSvgCodeDone'));
+  }).catch(function() {
+    $('iconDownloadSvgCodeBtn').disabled = false;
+    $('iconDownloadSvgCodeBtn').textContent = t('icon.downloadSvgCode');
+  });
+});
+
+// React ZIP 다운로드
+$('iconDownloadReactBtn').addEventListener('click', function() {
+  if (iconData.length === 0) { showToast(t('icon.noIcons')); return; }
+  $('iconDownloadReactBtn').disabled = true;
+  $('iconDownloadReactBtn').textContent = t('icon.extracting');
+  downloadReactZip(iconData).then(function() {
+    $('iconDownloadReactBtn').disabled = false;
+    $('iconDownloadReactBtn').textContent = t('icon.downloadReact');
+    showToast(t('icon.downloadReactDone'));
+  }).catch(function() {
+    $('iconDownloadReactBtn').disabled = false;
+    $('iconDownloadReactBtn').textContent = t('icon.downloadReact');
+  });
 });
 
 // ══════════════════════════════════════════════
@@ -1575,10 +1968,10 @@ var TYPE_KEYWORDS = {
   dialog:    ['dialog', 'modal', 'overlay', 'popup', 'sheet'],
   select:    ['select', 'dropdown', 'combobox', 'picker'],
   tabs:      ['tab', 'tabs', 'tabbar'],
-  tooltip:   ['tooltip', 'hint'],
+  tooltip:   ['tooltip', 'hint', 'popover-tip'],
   checkbox:  ['checkbox', 'check'],
   switch:    ['switch', 'toggle'],
-  accordion: ['accordion', 'collapse'],
+  accordion: ['accordion', 'collapse', 'expand'],
   popover:   ['popover', 'flyout'],
 };
 var RADIX_MAP = {
@@ -1609,6 +2002,16 @@ function getSemanticTag(nodeName) {
 }
 function compToPascalCase(str) {
   return str.replace(/[^a-zA-Z0-9]+(.)/g, function(_, c) { return c.toUpperCase(); }).replace(/^(.)/, function(c) { return c.toUpperCase(); });
+}
+function wrapJsxWithCSSModules(name, jsxBody, useTs) {
+  var pt = useTs ? 'interface ' + name + 'Props {\n  children?: React.ReactNode;\n}\n\n' : '';
+  var p = useTs ? '{ children }: ' + name + 'Props' : '{ children }';
+  return "import styles from './" + name + ".module.css';\n\n" + pt + "export const " + name + " = (" + p + ") => (\n" + jsxBody + "\n);";
+}
+function wrapJsxWithStyled(name, jsxBody, useTs) {
+  var pt = useTs ? 'interface ' + name + 'Props {\n  children?: React.ReactNode;\n}\n\n' : '';
+  var p = useTs ? '{ children }: ' + name + 'Props' : '{ children }';
+  return "import styled from 'styled-components';\n\n" + pt + "export const " + name + " = (" + p + ") => (\n" + jsxBody + "\n);";
 }
 function stylesToCSSProps(styles) {
   if (!styles) return '';
@@ -1671,6 +2074,8 @@ function showGeneratedResult(tsx, css, styleMode) {
   compState.generatedTsx = tsx; compState.generatedCss = css; compState.activeCodeTab = 'tsx';
   var cssTabBtn = $('compCssTabBtn');
   if (cssTabBtn) cssTabBtn.style.display = styleMode === 'css-modules' ? '' : 'none';
+  var tsxTabBtn = document.querySelector('[data-comp-code-tab="tsx"]');
+  if (tsxTabBtn) tsxTabBtn.textContent = styleMode === 'html' ? 'HTML' : 'TSX';
   document.querySelectorAll('[data-comp-code-tab]').forEach(function(btn) { btn.classList.toggle('active', btn.dataset.compCodeTab === 'tsx'); });
   $('compCode').value = tsx;
   $('compResult').classList.remove('hidden');
@@ -1891,6 +2296,278 @@ function copyToClipboard(text) {
   ta.focus(); ta.select();
   document.execCommand('copy');
   document.body.removeChild(ta);
+}
+
+// ══════════════════════════════════════════════
+// ── Images Tab ──
+// ══════════════════════════════════════════════
+var imageAssets = [];       // ImageAsset[]
+var imageFormat = 'PNG';
+var imageScales = [1, 2];   // 선택된 배율 배열
+var imageUseSelection = false;
+
+// 포맷 버튼
+document.querySelectorAll('.image-format-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    imageFormat = btn.dataset.fmt;
+    document.querySelectorAll('.image-format-btn').forEach(function(b) {
+      b.classList.toggle('active', b.dataset.fmt === imageFormat);
+    });
+  });
+});
+
+// 배율 체크박스 토글
+document.querySelectorAll('.image-scale-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var scale = parseInt(btn.dataset.scale, 10);
+    var isActive = btn.classList.contains('active');
+    if (isActive && imageScales.length === 1) return; // 최소 1개 유지
+    if (isActive) {
+      imageScales = imageScales.filter(function(s) { return s !== scale; });
+    } else {
+      imageScales.push(scale);
+      imageScales.sort();
+    }
+    btn.classList.toggle('active', !isActive);
+  });
+});
+
+// 범위 라디오
+document.querySelectorAll('input[name="imgScope"]').forEach(function(r) {
+  r.addEventListener('change', function() {
+    imageUseSelection = r.value === 'selection';
+  });
+});
+
+function setImgState(state) {
+  ['imgStateIdle','imgStateDetecting','imgStateEmpty','imgStateError','imgStateList'].forEach(function(id) {
+    $( id ).classList.add('hidden');
+  });
+  $(state).classList.remove('hidden');
+}
+
+function renderImageList(assets) {
+  var listEl = $('imgList');
+  if (!listEl) return;
+
+  // 노드별로 그룹핑 (같은 id의 여러 배율)
+  var grouped = {};
+  var order = [];
+  assets.forEach(function(a) {
+    if (!grouped[a.id]) { grouped[a.id] = []; order.push(a.id); }
+    grouped[a.id].push(a);
+  });
+
+  listEl.innerHTML = order.map(function(nodeId) {
+    var group = grouped[nodeId];
+    var first = group[0];
+    var thumbSrc = 'data:' + first.mimeType + ';base64,' + first.base64;
+    var fileNames = group.map(function(a) { return a.fileName; }).join(' · ');
+    return '<div class="image-item">'
+      + '<div class="image-thumb"><img src="' + thumbSrc + '" alt="' + escapeHtml(first.name) + '" /></div>'
+      + '<div class="image-info">'
+      + '<div class="image-name" title="' + escapeHtml(first.name) + '">' + escapeHtml(first.name) + '</div>'
+      + '<div class="image-size">' + first.width + ' × ' + first.height + ' px</div>'
+      + '<div class="image-files">' + escapeHtml(fileNames) + '</div>'
+      + '</div>'
+      + '<button class="image-dl-btn" data-node-id="' + nodeId + '">' + t('image.downloadOne') + '</button>'
+      + '</div>';
+  }).join('');
+
+  // 개별 다운로드 버튼
+  listEl.querySelectorAll('.image-dl-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      downloadSingleImage(btn.dataset.nodeId);
+    });
+  });
+
+  // 전체 다운로드 버튼 업데이트
+  var totalFiles = assets.length;
+  var nodeCount = order.length;
+  var allBtn = $('imgDownloadAllBtn');
+  if (allBtn) {
+    allBtn.disabled = totalFiles === 0;
+    $('imgDownloadAllCount').textContent = ' ' + t('image.downloadAllCount').replace('{n}', nodeCount).replace('{m}', totalFiles);
+  }
+}
+
+// ── ZIP 유틸 (Store-only) ──
+function strToBytes(str) {
+  var bytes = new Uint8Array(str.length);
+  for (var i = 0; i < str.length; i++) bytes[i] = str.charCodeAt(i) & 0xFF;
+  return bytes;
+}
+
+function uint32LE(n) {
+  return new Uint8Array([n & 0xFF, (n >> 8) & 0xFF, (n >> 16) & 0xFF, (n >> 24) & 0xFF]);
+}
+function uint16LE(n) {
+  return new Uint8Array([n & 0xFF, (n >> 8) & 0xFF]);
+}
+
+function concatBuffers(arrays) {
+  var total = arrays.reduce(function(s, a) { return s + a.length; }, 0);
+  var out = new Uint8Array(total);
+  var pos = 0;
+  arrays.forEach(function(a) { out.set(a, pos); pos += a.length; });
+  return out;
+}
+
+function crc32(data) {
+  var table = crc32.table;
+  if (!table) {
+    table = new Uint32Array(256);
+    for (var i = 0; i < 256; i++) {
+      var c = i;
+      for (var j = 0; j < 8; j++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+      table[i] = c;
+    }
+    crc32.table = table;
+  }
+  var crc = 0xFFFFFFFF;
+  for (var k = 0; k < data.length; k++) crc = table[(crc ^ data[k]) & 0xFF] ^ (crc >>> 8);
+  return (crc ^ 0xFFFFFFFF) >>> 0;
+}
+
+function buildStoreZip(files) {
+  // files: Array<{ name: string, data: Uint8Array }>
+  var localParts = [];
+  var centralParts = [];
+  var offsets = [];
+  var offset = 0;
+
+  files.forEach(function(file) {
+    var nameBytes = strToBytes(file.name);
+    var crc = crc32(file.data);
+    var size = file.data.length;
+
+    // Local file header
+    var local = concatBuffers([
+      new Uint8Array([0x50,0x4B,0x03,0x04]), // signature
+      uint16LE(20),    // version needed
+      uint16LE(0),     // general purpose bit flag
+      uint16LE(0),     // compression method (store)
+      uint16LE(0),     // last mod time
+      uint16LE(0),     // last mod date
+      uint32LE(crc),
+      uint32LE(size),
+      uint32LE(size),
+      uint16LE(nameBytes.length),
+      uint16LE(0),     // extra field length
+      nameBytes,
+      file.data,
+    ]);
+
+    offsets.push(offset);
+    offset += local.length;
+    localParts.push(local);
+
+    // Central directory entry
+    var central = concatBuffers([
+      new Uint8Array([0x50,0x4B,0x01,0x02]), // signature
+      uint16LE(20),    // version made by
+      uint16LE(20),    // version needed
+      uint16LE(0),     // general purpose bit flag
+      uint16LE(0),     // compression method
+      uint16LE(0),     // last mod time
+      uint16LE(0),     // last mod date
+      uint32LE(crc),
+      uint32LE(size),
+      uint32LE(size),
+      uint16LE(nameBytes.length),
+      uint16LE(0),     // extra field length
+      uint16LE(0),     // file comment length
+      uint16LE(0),     // disk number start
+      uint16LE(0),     // internal file attributes
+      uint32LE(0),     // external file attributes
+      uint32LE(offsets[offsets.length - 1]),
+      nameBytes,
+    ]);
+    centralParts.push(central);
+  });
+
+  var centralSize = centralParts.reduce(function(s, c) { return s + c.length; }, 0);
+  var eocd = concatBuffers([
+    new Uint8Array([0x50,0x4B,0x05,0x06]), // signature
+    uint16LE(0),                            // disk number
+    uint16LE(0),                            // disk with central dir
+    uint16LE(files.length),
+    uint16LE(files.length),
+    uint32LE(centralSize),
+    uint32LE(offset),
+    uint16LE(0),                            // comment length
+  ]);
+
+  return concatBuffers(localParts.concat(centralParts).concat([eocd]));
+}
+
+function base64ToUint8(b64) {
+  var bin = atob(b64);
+  var arr = new Uint8Array(bin.length);
+  for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return arr;
+}
+
+function downloadBlob(data, fileName, mime) {
+  var blob = new Blob([data], { type: mime });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = fileName;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function downloadSingleImage(nodeId) {
+  var group = imageAssets.filter(function(a) { return a.id === nodeId; });
+  if (group.length === 0) return;
+  if (group.length === 1) {
+    var a = group[0];
+    downloadBlob(base64ToUint8(a.base64), a.fileName, a.mimeType);
+  } else {
+    var files = group.map(function(a) { return { name: a.fileName, data: base64ToUint8(a.base64) }; });
+    var zip = buildStoreZip(files);
+    downloadBlob(zip, group[0].kebab + '.zip', 'application/zip');
+  }
+}
+
+function downloadAllImagesZip() {
+  if (imageAssets.length === 0) return;
+  var files = imageAssets.map(function(a) { return { name: a.fileName, data: base64ToUint8(a.base64) }; });
+  var zip = buildStoreZip(files);
+  var baseName = (extractedData && extractedData.meta && extractedData.meta.fileName) ? extractedData.meta.fileName : 'images';
+  downloadBlob(zip, baseName + '-images.zip', 'application/zip');
+}
+
+var detectImagesBtn = $('detectImagesBtn');
+var imgDownloadAllBtn = $('imgDownloadAllBtn');
+
+if (detectImagesBtn) {
+  detectImagesBtn.addEventListener('click', function() {
+    setImgState('imgStateDetecting');
+    parent.postMessage({
+      pluginMessage: {
+        type: 'extract-images',
+        options: { format: imageFormat, scales: imageScales, useSelection: imageUseSelection },
+      }
+    }, '*');
+  });
+}
+
+if (imgDownloadAllBtn) {
+  imgDownloadAllBtn.addEventListener('click', downloadAllImagesZip);
+}
+
+var imgRetryBtn = $('imgRetryBtn');
+if (imgRetryBtn) {
+  imgRetryBtn.addEventListener('click', function() {
+    setImgState('imgStateDetecting');
+    parent.postMessage({
+      pluginMessage: {
+        type: 'extract-images',
+        options: { format: imageFormat, scales: imageScales, useSelection: imageUseSelection },
+      }
+    }, '*');
+  });
 }
 
 // ── Init ──

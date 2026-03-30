@@ -53,6 +53,30 @@ interface IconData {
   height: number;
 }
 
+interface ImageData {
+  id: string;
+  name: string;
+  kebab: string;
+  nodeType: string;
+  width: number;
+  height: number;
+}
+
+interface ImageAsset extends ImageData {
+  format: 'PNG' | 'JPG';
+  scale: 1 | 2 | 3;
+  fileName: string;
+  base64: string;
+  mimeType: string;
+  byteSize: number;
+}
+
+interface ExtractImagesOptions {
+  format: 'PNG' | 'JPG';
+  scales: Array<1 | 2 | 3>;
+  useSelection: boolean;
+}
+
 interface ExtractOptions {
   collectionIds: string[];
   useSelection: boolean;
@@ -384,6 +408,8 @@ async function extractAll(options: ExtractOptions): Promise<ExtractedTokens> {
     const allComponents = figma.currentPage.findAll((n) => n.type === "COMPONENT") as ComponentNode[];
     icons = allComponents
       .filter((c) => {
+        // Icon=false → 아이콘이 없는 variant (버튼/배지 등) — 제외
+        if (/\bIcon=false\b/i.test(c.name)) return false;
         const parentName = c.parent && "name" in c.parent ? (c.parent as any).name as string : "";
         return /icon/i.test(c.name) || /icon/i.test(parentName);
       })
@@ -472,10 +498,51 @@ function inspectSelection() {
   };
 }
 
+// Figma variant 이름 파싱
+// "Glyph=android, Size=default" → { base: "android", variants: ["size-default"] }
+// "glyph/android"              → { base: "glyph/android", variants: [] }
+// Glyph=/Name= 키를 우선 기본 이름으로 사용, 없으면 첫 번째 segment fallback
+const ICON_ID_KEY = /^(glyph|name)$/i;
+
+function parseVariantName(name: string): { base: string; variants: string[] } {
+  const segments = name.split(/,\s*/);
+  let base = '';
+  let baseSegIdx = -1;
+
+  // 1st pass: Glyph= / Name= 키를 우선적으로 기본 이름으로 선택
+  segments.forEach((seg, i) => {
+    const m = seg.trim().match(/^(\w+)=(.+)$/);
+    if (m && ICON_ID_KEY.test(m[1]) && baseSegIdx === -1) {
+      base = m[2].trim();
+      baseSegIdx = i;
+    }
+  });
+
+  // fallback: 첫 번째 segment 값
+  if (baseSegIdx === -1) {
+    const m = segments[0]?.trim().match(/^(\w+)=(.+)$/);
+    if (m) { base = m[2].trim(); baseSegIdx = 0; }
+    else    { base = segments[0]?.trim() || name; baseSegIdx = 0; }
+  }
+
+  // 2nd pass: base segment 제외한 나머지를 variant로
+  const variants: string[] = [];
+  segments.forEach((seg, i) => {
+    if (i === baseSegIdx) return;
+    const m = seg.trim().match(/^(\w+)=(.+)$/);
+    if (m) {
+      variants.push((m[1] + '-' + m[2].trim()).toLowerCase().replace(/\s+/g, '-'));
+    }
+  });
+
+  return { base: base || name, variants };
+}
+
 function toKebabCase(name: string): string {
-  return name
+  const { base } = parseVariantName(name);
+  return base
     .replace(/([a-z])([A-Z])/g, '$1-$2')
-    .replace(/[\s_/]+/g, '-')
+    .replace(/[\s_/=,]+/g, '-')
     .replace(/[^a-zA-Z0-9-]/g, '')
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '')
@@ -483,12 +550,17 @@ function toKebabCase(name: string): string {
 }
 
 function toPascalCase(name: string): string {
-  return name
+  const { base } = parseVariantName(name);
+  return base
     .replace(/[^a-zA-Z0-9\s_/.\-]/g, '')
-    .split(/[\s_/.\-]+/)
+    .split(/[\s_/.\-]+|(?<=[a-z])(?=[A-Z])/)
     .filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join('');
+}
+
+function extractVariants(name: string): string[] {
+  return parseVariantName(name).variants;
 }
 
 function figmaColorToHex(c: { r: number; g: number; b: number }): string {
@@ -498,11 +570,118 @@ function figmaColorToHex(c: { r: number; g: number; b: number }): string {
   return '#' + [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('').toUpperCase();
 }
 
-async function exportIcons(): Promise<{ name: string; kebab: string; pascal: string; svg: string }[]> {
+function uint8ToBase64(bytes: Uint8Array): string {
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+
+function findImageNodes(useSelection: boolean): ImageData[] {
+  const EXPORTABLE = new Set(['RECTANGLE', 'FRAME', 'COMPONENT', 'INSTANCE', 'GROUP']);
+  const source: readonly SceneNode[] = useSelection && figma.currentPage.selection.length > 0
+    ? figma.currentPage.selection
+    : figma.currentPage.children;
+
+  const results: ImageData[] = [];
+  const seen = new Set<string>();
+
+  function traverse(node: SceneNode) {
+    if (!EXPORTABLE.has(node.type)) return;
+    if (seen.has(node.id)) return;
+
+    const fills = (node as any).fills;
+    const hasImageFill = Array.isArray(fills) &&
+      fills.some((p: any) => p.type === 'IMAGE' && p.visible !== false);
+
+    if (hasImageFill) {
+      seen.add(node.id);
+      results.push({
+        id: node.id,
+        name: node.name,
+        kebab: toKebabCase(node.name),
+        nodeType: node.type,
+        width: Math.round(node.width),
+        height: Math.round(node.height),
+      });
+    }
+
+    if ('children' in node) {
+      for (const child of (node as ChildrenMixin).children) traverse(child as SceneNode);
+    }
+  }
+
+  for (const node of source) traverse(node as SceneNode);
+  return results;
+}
+
+async function extractImages(options: ExtractImagesOptions): Promise<ImageAsset[]> {
+  const nodes = findImageNodes(options.useSelection);
+  const ext = options.format === 'PNG' ? 'png' : 'jpg';
+  const mime = options.format === 'PNG' ? 'image/png' : 'image/jpeg';
+  const results: ImageAsset[] = [];
+
+  for (const nodeData of nodes) {
+    const node = await figma.getNodeByIdAsync(nodeData.id) as SceneNode | null;
+    if (!node) continue;
+
+    for (const scale of options.scales) {
+      try {
+        const bytes = await (node as any).exportAsync({
+          format: options.format,
+          constraint: { type: 'SCALE', value: scale },
+        });
+        const base64 = uint8ToBase64(new Uint8Array(bytes));
+        results.push({
+          ...nodeData,
+          format: options.format,
+          scale,
+          fileName: `${nodeData.kebab}@${scale}x.${ext}`,
+          base64,
+          mimeType: mime,
+          byteSize: bytes.byteLength,
+        });
+      } catch (_) {
+        // 익스포트 불가 노드 skip
+      }
+    }
+  }
+  return results;
+}
+
+const EXPORTABLE_TYPES = new Set(['COMPONENT', 'INSTANCE', 'FRAME', 'GROUP', 'VECTOR', 'BOOLEAN_OPERATION']);
+const CONTAINER_TYPES = new Set(['FRAME', 'GROUP', 'COMPONENT_SET', 'SECTION']);
+
+// 컨테이너(Frame/Group/ComponentSet)면 자식 재귀 탐색, 아니면 노드 자체 수집
+function collectExportTargets(node: SceneNode, seen: Set<string>): SceneNode[] {
+  if (seen.has(node.id)) return [];
+  if (CONTAINER_TYPES.has(node.type)) {
+    if (!('children' in node)) return [];
+    const out: SceneNode[] = [];
+    for (const child of (node as ChildrenMixin).children) {
+      out.push(...collectExportTargets(child as SceneNode, seen));
+    }
+    return out;
+  }
+  if (EXPORTABLE_TYPES.has(node.type)) {
+    seen.add(node.id);
+    return [node];
+  }
+  return [];
+}
+
+async function exportIcons(): Promise<{ name: string; kebab: string; pascal: string; variants: string[]; svg: string }[]> {
   const sel = figma.currentPage.selection;
   if (sel.length === 0) return [];
-  const results: { name: string; kebab: string; pascal: string; svg: string }[] = [];
+
+  // 선택이 컨테이너(프레임 등)면 내부 자식들을 모두 수집
+  const seen = new Set<string>();
+  const targets: SceneNode[] = [];
   for (const node of sel) {
+    targets.push(...collectExportTargets(node, seen));
+  }
+
+  const results: { name: string; kebab: string; pascal: string; variants: string[]; svg: string }[] = [];
+  for (const node of targets) {
     try {
       const svgBytes = await (node as any).exportAsync({ format: 'SVG' });
       const bytes = new Uint8Array(svgBytes);
@@ -512,6 +691,7 @@ async function exportIcons(): Promise<{ name: string; kebab: string; pascal: str
         name: node.name,
         kebab: toKebabCase(node.name),
         pascal: toPascalCase(node.name),
+        variants: extractVariants(node.name),
         svg,
       });
     } catch (_) {
@@ -521,14 +701,14 @@ async function exportIcons(): Promise<{ name: string; kebab: string; pascal: str
   return results;
 }
 
-async function exportIconsAll(): Promise<{ name: string; kebab: string; pascal: string; svg: string }[]> {
+async function exportIconsAll(): Promise<{ name: string; kebab: string; pascal: string; variants: string[]; svg: string }[]> {
   const ICON_RE = /icon|ic[/\\]/i;
   const nodes = figma.currentPage.findAll((n) => {
     if (n.type !== 'COMPONENT' && n.type !== 'INSTANCE' && n.type !== 'FRAME' && n.type !== 'GROUP' && n.type !== 'VECTOR' && n.type !== 'BOOLEAN_OPERATION') return false;
     const parentName = n.parent && 'name' in n.parent ? (n.parent as any).name as string : '';
     return ICON_RE.test(n.name) || ICON_RE.test(parentName);
   });
-  const results: { name: string; kebab: string; pascal: string; svg: string }[] = [];
+  const results: { name: string; kebab: string; pascal: string; variants: string[]; svg: string }[] = [];
   const seen = new Set<string>();
   for (const node of nodes) {
     if (seen.has(node.name)) continue;
@@ -542,6 +722,7 @@ async function exportIconsAll(): Promise<{ name: string; kebab: string; pascal: 
         name: node.name,
         kebab: toKebabCase(node.name),
         pascal: toPascalCase(node.name),
+        variants: extractVariants(node.name),
         svg,
       });
     } catch (_) {
@@ -582,7 +763,7 @@ async function extractThemes(): Promise<Record<string, { name: string; value: st
   return result;
 }
 
-async function generateComponent(): Promise<{ name: string; html: string; react: string } | null> {
+async function generateComponent(): Promise<{ name: string; meta: NodeMeta; styles: Record<string, string> } | null> {
   const sel = figma.currentPage.selection;
   if (sel.length === 0) return null;
   const node = sel[0];
@@ -730,6 +911,8 @@ async function generateComponent(): Promise<{ name: string; html: string; react:
       figmaFileId: figma.root.id,
     } as NodeMeta,
     styles: getNodeStyles(node),
+    html: nodeToHtml(node, 0),
+    jsx: nodeToJsx(node, 0),
   };
 }
 
@@ -754,6 +937,16 @@ figma.ui.onmessage = (msg: { type: string; options?: ExtractOptions; width?: num
     extractAll(options)
       .then((data) => figma.ui.postMessage({ type: "extract-result", data }))
       .catch((e) => figma.ui.postMessage({ type: "extract-error", message: String(e) }));
+  }
+  if (msg.type === "extract-images") {
+    const options: ExtractImagesOptions = msg.options ?? {
+      format: 'PNG',
+      scales: [1, 2],
+      useSelection: false,
+    };
+    extractImages(options)
+      .then((data) => figma.ui.postMessage({ type: 'extract-images-result', data }))
+      .catch((e) => figma.ui.postMessage({ type: 'extract-images-error', message: String(e) }));
   }
   if (msg.type === "export-icons") {
     exportIcons()
