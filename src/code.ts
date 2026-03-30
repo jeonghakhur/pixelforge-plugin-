@@ -194,12 +194,39 @@ function mapVariable(v: Variable, varUsage: Map<string, number>): VariableData {
   };
 }
 
-function getSelectionInfo(): { count: number; names: string[]; nodeTypes: string[] } {
+interface NodeMeta {
+  nodeId: string;
+  nodeName: string;
+  nodeType: string;
+  masterId: string | null;
+  masterName: string | null;
+  figmaFileId: string;
+}
+
+function getSelectionInfo() {
   const sel = figma.currentPage.selection;
+  let meta: NodeMeta | null = null;
+
+  if (sel.length > 0) {
+    const node = sel[0];
+    const master = node.type === 'INSTANCE'
+      ? (node as InstanceNode).mainComponent
+      : null;
+    meta = {
+      nodeId: node.id,
+      nodeName: node.name,
+      nodeType: node.type,
+      masterId: master?.id ?? null,
+      masterName: master?.name ?? null,
+      figmaFileId: figma.root.id,
+    };
+  }
+
   return {
     count: sel.length,
     names: sel.map((n) => n.name),
     nodeTypes: sel.map((n) => n.type),
+    meta,
   };
 }
 
@@ -216,6 +243,14 @@ async function sendCollections() {
     fileName: figma.root.name,
     selection: getSelectionInfo(),
   });
+
+  // 마지막 아이콘 데이터 복원
+  try {
+    const cached = await figma.clientStorage.getAsync('lastIconData') as { data: unknown; savedAt: string } | undefined;
+    if (cached?.data) {
+      figma.ui.postMessage({ type: 'cached-icon-data', data: cached.data, savedAt: cached.savedAt });
+    }
+  } catch (_) {}
 }
 
 async function extractAll(options: ExtractOptions): Promise<ExtractedTokens> {
@@ -680,12 +715,22 @@ async function generateComponent(): Promise<{ name: string; html: string; react:
     return pad + '<div' + styleAttr + ' />';
   }
 
-  const html = nodeToHtml(node, 0);
-  const componentName = toPascalCase(node.name) || 'Component';
-  const jsx = nodeToJsx(node, 1);
-  const react = 'export const ' + componentName + ' = () => (\n' + jsx + '\n);';
+  const master = node.type === 'INSTANCE'
+    ? (node as InstanceNode).mainComponent
+    : null;
 
-  return { name: node.name, html, react };
+  return {
+    name: node.name,
+    meta: {
+      nodeId: node.id,
+      nodeName: node.name,
+      nodeType: node.type,
+      masterId: master?.id ?? null,
+      masterName: master?.name ?? null,
+      figmaFileId: figma.root.id,
+    } as NodeMeta,
+    styles: getNodeStyles(node),
+  };
 }
 
 figma.ui.onmessage = (msg: { type: string; options?: ExtractOptions; width?: number; height?: number }) => {
@@ -712,13 +757,24 @@ figma.ui.onmessage = (msg: { type: string; options?: ExtractOptions; width?: num
   }
   if (msg.type === "export-icons") {
     exportIcons()
-      .then((data) => figma.ui.postMessage({ type: "export-icons-result", data }))
+      .then(async (data) => {
+        figma.ui.postMessage({ type: "export-icons-result", data });
+        await figma.clientStorage.setAsync('lastIconData', { data, savedAt: new Date().toISOString() });
+      })
       .catch((e) => figma.ui.postMessage({ type: "export-icons-error", message: String(e) }));
   }
   if (msg.type === "export-icons-all") {
     exportIconsAll()
-      .then((data) => figma.ui.postMessage({ type: "export-icons-all-result", data }))
+      .then(async (data) => {
+        figma.ui.postMessage({ type: "export-icons-all-result", data });
+        await figma.clientStorage.setAsync('lastIconData', { data, savedAt: new Date().toISOString() });
+      })
       .catch((e) => figma.ui.postMessage({ type: "export-icons-all-error", message: String(e) }));
+  }
+  if (msg.type === "clear-icon-cache") {
+    figma.clientStorage.deleteAsync('lastIconData')
+      .then(() => figma.ui.postMessage({ type: 'clear-icon-cache-done' }))
+      .catch(() => figma.ui.postMessage({ type: 'clear-icon-cache-done' }));
   }
   if (msg.type === "extract-themes") {
     extractThemes()
@@ -729,6 +785,34 @@ figma.ui.onmessage = (msg: { type: string; options?: ExtractOptions; width?: num
     generateComponent()
       .then((data) => figma.ui.postMessage({ type: "generate-component-result", data }))
       .catch((e) => figma.ui.postMessage({ type: "generate-component-error", message: String(e) }));
+  }
+  if (msg.type === "registry-get") {
+    const key = `pf-registry-${figma.root.id}`;
+    figma.clientStorage.getAsync(key)
+      .then((data) => figma.ui.postMessage({ type: "registry-data", registry: data ?? {} }))
+      .catch((e) => figma.ui.postMessage({ type: "registry-error", message: String(e) }));
+  }
+  if (msg.type === "registry-save") {
+    const key = `pf-registry-${figma.root.id}`;
+    figma.clientStorage.getAsync(key)
+      .then((data: Record<string, unknown>) => {
+        const registry = (data as Record<string, unknown>) ?? {};
+        registry[(msg as any).entry.figmaMasterNodeId] = (msg as any).entry;
+        return figma.clientStorage.setAsync(key, registry);
+      })
+      .then(() => figma.ui.postMessage({ type: "registry-saved" }))
+      .catch((e) => figma.ui.postMessage({ type: "registry-error", message: String(e) }));
+  }
+  if (msg.type === "registry-delete") {
+    const key = `pf-registry-${figma.root.id}`;
+    figma.clientStorage.getAsync(key)
+      .then((data: Record<string, unknown>) => {
+        const registry = (data as Record<string, unknown>) ?? {};
+        delete registry[(msg as any).masterId];
+        return figma.clientStorage.setAsync(key, registry);
+      })
+      .then(() => figma.ui.postMessage({ type: "registry-deleted" }))
+      .catch((e) => figma.ui.postMessage({ type: "registry-error", message: String(e) }));
   }
   if (msg.type === "close") {
     figma.closePlugin();

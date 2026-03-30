@@ -68,12 +68,18 @@ var i18n = {
       extractFirst: '먼저 테마를 추출하세요', exportFail: '테마 추출 실패: ',
     },
     component: {
-      title: '컴포넌트 코드 생성', generate: '코드 생성', copy: '복사', save: 'JSON 저장',
+      title: '컴포넌트 코드 생성', generate: '코드 생성', copy: '복사', save: '코드 저장',
       noSel: '선택된 노드 없음', outputLang: '출력 언어:',
       selectFirst: '먼저 컴포넌트를 선택하세요', generating: '생성 중...',
       cannotGenerate: '선택된 노드에서 코드를 생성할 수 없습니다',
-      copied: ' 복사됨', downloadStart: 'JSON 다운로드 시작!',
+      copied: '복사됨', downloadStart: '다운로드 시작!',
       generateFail: '코드 생성 실패: ',
+      subGenerate: '코드 생성', subRegistry: '레지스트리',
+      typeLabel: '컴포넌트 타입', styleLabel: '스타일 방식',
+      saveBtn: '레지스트리 저장',
+      edit: '수정', update: '업데이트', delete: '삭제', cancel: '취소', saveEdit: '저장',
+      backToList: '← 목록으로', registryEmpty: '저장된 컴포넌트가 없습니다',
+      exportAll: '전체 내보내기',
     },
   },
   en: {
@@ -135,12 +141,18 @@ var i18n = {
       extractFirst: 'Extract theme first', exportFail: 'Theme export failed: ',
     },
     component: {
-      title: 'Component Code', generate: 'Generate Code', copy: 'Copy', save: 'Save JSON',
+      title: 'Component Code', generate: 'Generate Code', copy: 'Copy', save: 'Save Code',
       noSel: 'No node selected', outputLang: 'Output:',
       selectFirst: 'Select a component first', generating: 'Generating...',
       cannotGenerate: 'Cannot generate code from selected node',
-      copied: ' copied', downloadStart: 'JSON download started!',
+      copied: 'Copied', downloadStart: 'Download started!',
       generateFail: 'Code generation failed: ',
+      subGenerate: 'Generate', subRegistry: 'Registry',
+      typeLabel: 'Component Type', styleLabel: 'Style Mode',
+      saveBtn: 'Save to Registry',
+      edit: 'Edit', update: 'Update', delete: 'Delete', cancel: 'Cancel', saveEdit: 'Save',
+      backToList: '← Back', registryEmpty: 'No saved components',
+      exportAll: 'Export All',
     },
   }
 };
@@ -272,7 +284,7 @@ function renderSelectionInfo(sel) {
   selNames.innerHTML = items.join('');
 }
 
-var lastSelection = { count: 0, names: [], nodeTypes: [] };
+var lastSelection = { count: 0, names: [], nodeTypes: [], meta: null };
 
 // ── Scope radio change ──
 document.querySelectorAll('input[name="scope"]').forEach(function(r) {
@@ -614,7 +626,7 @@ window.onmessage = function(event) {
     updateExtractBtn();
   }
   if (msg.type === 'selection-changed') {
-    lastSelection = msg.selection || { count: 0, names: [], nodeTypes: [] };
+    lastSelection = msg.selection || { count: 0, names: [], nodeTypes: [], meta: null };
     renderSelectionInfo(lastSelection);
   }
   if (msg.type === 'inspect-result') {
@@ -640,6 +652,7 @@ window.onmessage = function(event) {
     exportIconsBtn.disabled = false;
     exportIconsBtn.textContent = t('icon.selBtn');
     renderIconResults(msg.data || []);
+    hideCacheBadge();
   }
   if (msg.type === 'export-icons-error') {
     exportIconsBtn.disabled = false;
@@ -650,11 +663,21 @@ window.onmessage = function(event) {
     exportIconsAllBtn.disabled = false;
     exportIconsAllBtn.textContent = t('icon.allBtn');
     renderIconResults(msg.data || []);
+    hideCacheBadge();
   }
   if (msg.type === 'export-icons-all-error') {
     exportIconsAllBtn.disabled = false;
     exportIconsAllBtn.textContent = t('icon.allBtn');
     showToast(t('icon.exportFail') + (msg.message || ''));
+  }
+  if (msg.type === 'cached-icon-data') {
+    renderIconResults(msg.data || []);
+    showCacheBadge(msg.savedAt);
+  }
+  if (msg.type === 'clear-icon-cache-done') {
+    hideCacheBadge();
+    renderIconResults([]);
+    $('iconResults').classList.add('hidden');
   }
   // Theme results
   if (msg.type === 'extract-themes-result') {
@@ -672,29 +695,48 @@ window.onmessage = function(event) {
   }
   // Component results
   if (msg.type === 'generate-component-result') {
-    generateCompBtn.disabled = false;
-    generateCompBtn.textContent = t('component.generate');
-    compData = msg.data;
-    if (compData) {
-      compActiveTab = 'html';
-      document.querySelectorAll('.comp-tab').forEach(function(ct) {
-        ct.classList.toggle('active', ct.dataset.compTab === 'html');
-      });
-      updateCompCode();
-      $('compResult').classList.remove('hidden');
+    if (generateCompBtn) { generateCompBtn.disabled = false; generateCompBtn.textContent = t('component.generate'); }
+    var d = msg.data;
+    if (d) {
+      var tsx = compState.styleMode === 'css-modules'
+        ? buildCSSModulesTSX(compToPascalCase((d.name || 'Component').split('/').pop()), compState.componentType, compState.useTs)
+        : buildStyledTSX(compToPascalCase((d.name || 'Component').split('/').pop()), compState.componentType, compState.useTs);
+      var css = compState.styleMode === 'css-modules'
+        ? buildCSSModulesCSS(d.styles || {}, compState.componentType)
+        : '';
+      showGeneratedResult(tsx, css, compState.styleMode);
     } else {
       showToast(t('component.cannotGenerate'));
     }
   }
   if (msg.type === 'generate-component-error') {
-    generateCompBtn.disabled = false;
-    generateCompBtn.textContent = t('component.generate');
+    if (generateCompBtn) { generateCompBtn.disabled = false; generateCompBtn.textContent = t('component.generate'); }
     showToast(t('component.generateFail') + (msg.message || ''));
   }
-  // Selection change also updates icon/component tab info
+  // Registry messages
+  if (msg.type === 'registry-data') {
+    compState.registry = msg.registry || {};
+    renderRegistryList();
+  }
+  if (msg.type === 'registry-saved') {
+    parent.postMessage({ pluginMessage: { type: 'registry-get' } }, '*');
+    showToast(lang === 'ko' ? '레지스트리에 저장됐습니다' : 'Saved to registry');
+    switchCompSubTab('registry');
+  }
+  if (msg.type === 'registry-deleted') {
+    parent.postMessage({ pluginMessage: { type: 'registry-get' } }, '*');
+    showToast(lang === 'ko' ? '삭제됐습니다' : 'Deleted');
+    $('compRegistryList').style.display = '';
+    $('compRegistryDetail').classList.add('hidden');
+    compState.currentEntry = null;
+  }
+  if (msg.type === 'registry-error') {
+    showToast((lang === 'ko' ? '레지스트리 오류: ' : 'Registry error: ') + (msg.message || ''));
+  }
+  // Component-specific selection handling (lastSelection already updated above)
   if (msg.type === 'selection-changed') {
     if (currentMainTab === 'icons') updateIconSelInfo();
-    if (currentMainTab === 'component') updateCompSelInfo();
+    if (currentMainTab === 'component') onCompSelectionChanged();
   }
 };
 
@@ -801,7 +843,7 @@ function buildCssOutput(icon, mode, value) {
 function filterIcons(query) {
   iconSearchQuery = query.trim().toLowerCase();
   iconSelectedIdx = null;
-  $('iconDetailPanel').classList.add('hidden');
+  $('iconDetailBackdrop').classList.add('hidden');
   if (!iconSearchQuery) {
     iconFilteredData = iconData.slice();
   } else {
@@ -876,7 +918,7 @@ function selectIcon(idx) {
   // toggle: 같은 아이콘 재클릭 시 닫기
   if (iconSelectedIdx === idx) {
     iconSelectedIdx = null;
-    $('iconDetailPanel').classList.add('hidden');
+    $('iconDetailBackdrop').classList.add('hidden');
     renderIconGrid();
     return;
   }
@@ -889,7 +931,7 @@ function selectIcon(idx) {
   var thumb = $('iconDetailThumb');
   thumb.innerHTML = cleanSvg(icon.svg);
   thumb.style.color = '';
-  $('iconDetailPanel').classList.remove('hidden');
+  $('iconDetailBackdrop').classList.remove('hidden');
   iconDetailTab = 'svg';
   document.querySelectorAll('.icon-detail-tab').forEach(function(tab) {
     tab.classList.toggle('active', tab.dataset.detailTab === 'svg');
@@ -939,6 +981,28 @@ exportIconsBtn.addEventListener('click', function() {
   parent.postMessage({ pluginMessage: { type: 'export-icons' } }, '*');
 });
 
+// ── 캐시 배지 ──
+function showCacheBadge(savedAt) {
+  var badge = $('iconCacheBadge');
+  var label = $('iconCacheSavedAt');
+  if (!badge || !label) return;
+  var date = new Date(savedAt);
+  var fmt = date.getFullYear() + '-'
+    + String(date.getMonth() + 1).padStart(2, '0') + '-'
+    + String(date.getDate()).padStart(2, '0') + ' '
+    + String(date.getHours()).padStart(2, '0') + ':'
+    + String(date.getMinutes()).padStart(2, '0');
+  label.textContent = (lang === 'ko' ? '캐시 · ' : 'cached · ') + fmt;
+  badge.classList.remove('hidden');
+}
+function hideCacheBadge() {
+  var badge = $('iconCacheBadge');
+  if (badge) badge.classList.add('hidden');
+}
+$('iconCacheClearBtn').addEventListener('click', function() {
+  parent.postMessage({ pluginMessage: { type: 'clear-icon-cache' } }, '*');
+});
+
 function renderIconResults(data) {
   iconData = data;
   iconFilteredData = data.slice();
@@ -947,7 +1011,7 @@ function renderIconResults(data) {
 
   $('iconCount').textContent = data.length;
   $('iconResults').classList.remove('hidden');
-  $('iconDetailPanel').classList.add('hidden');
+  $('iconDetailBackdrop').classList.add('hidden');
 
   // 검색바 표시 (아이콘이 있을 때만)
   var searchRow = $('iconSearchRow');
@@ -1039,10 +1103,14 @@ $('iconColorPicker').addEventListener('input', function() {
 });
 
 // ── 상세 패널 닫기 / 복사 ──
-$('iconDetailClose').addEventListener('click', function() {
+function closeIconModal() {
   iconSelectedIdx = null;
-  $('iconDetailPanel').classList.add('hidden');
+  $('iconDetailBackdrop').classList.add('hidden');
   renderIconGrid();
+}
+$('iconDetailClose').addEventListener('click', closeIconModal);
+$('iconDetailBackdrop').addEventListener('click', function(e) {
+  if (e.target === this) closeIconModal();
 });
 $('iconDetailCopyBtn').addEventListener('click', function() {
   copyToClipboard($('iconDetailCode').textContent);
@@ -1501,79 +1569,316 @@ if (themeCopyCssBtn) {
 // ══════════════════════════════════════════════
 // ── Component Tab ──
 // ══════════════════════════════════════════════
-var compData = null;
-var compActiveTab = 'html';
-var generateCompBtn = $('generateCompBtn');
 
-function updateCompSelInfo() {
-  var info = $('compSelInfo');
-  if (lastSelection.count > 0) {
-    var selLabel = lang === 'ko'
-      ? '선택: ' + lastSelection.names[0] + (lastSelection.count > 1 ? ' 외 ' + (lastSelection.count - 1) + '개 (첫 번째 노드 사용)' : '')
-      : 'Selected: ' + lastSelection.names[0] + (lastSelection.count > 1 ? ' + ' + (lastSelection.count - 1) + ' more (using first)' : '');
-    info.textContent = selLabel;
-    info.style.color = 'var(--primary)';
-    info.style.background = 'var(--primary-light)';
-    info.style.border = '1px solid var(--primary-border)';
-  } else {
-    info.textContent = t('component.noSel');
-    info.style.color = 'var(--text-muted)';
-    info.style.background = 'var(--bg)';
-    info.style.border = 'none';
+var TYPE_KEYWORDS = {
+  button:    ['button', 'btn', 'cta', 'action'],
+  dialog:    ['dialog', 'modal', 'overlay', 'popup', 'sheet'],
+  select:    ['select', 'dropdown', 'combobox', 'picker'],
+  tabs:      ['tab', 'tabs', 'tabbar'],
+  tooltip:   ['tooltip', 'hint'],
+  checkbox:  ['checkbox', 'check'],
+  switch:    ['switch', 'toggle'],
+  accordion: ['accordion', 'collapse'],
+  popover:   ['popover', 'flyout'],
+};
+var RADIX_MAP = {
+  button: null, dialog: '@radix-ui/react-dialog', select: '@radix-ui/react-select',
+  tabs: '@radix-ui/react-tabs', tooltip: '@radix-ui/react-tooltip',
+  checkbox: '@radix-ui/react-checkbox', switch: '@radix-ui/react-switch',
+  accordion: '@radix-ui/react-accordion', popover: '@radix-ui/react-popover', layout: null,
+};
+var SEMANTIC_TAGS = {
+  header: 'header', gnb: 'header', nav: 'nav', footer: 'footer', sidebar: 'aside',
+  card: 'article', item: 'article', section: 'section', panel: 'section',
+};
+
+function detectComponentType(nodeName) {
+  var lower = nodeName.toLowerCase();
+  var types = Object.keys(TYPE_KEYWORDS);
+  for (var i = 0; i < types.length; i++) {
+    var kws = TYPE_KEYWORDS[types[i]];
+    for (var j = 0; j < kws.length; j++) { if (lower.indexOf(kws[j]) !== -1) return types[i]; }
+  }
+  return 'layout';
+}
+function getSemanticTag(nodeName) {
+  var lower = nodeName.toLowerCase();
+  var keys = Object.keys(SEMANTIC_TAGS);
+  for (var i = 0; i < keys.length; i++) { if (lower.indexOf(keys[i]) !== -1) return SEMANTIC_TAGS[keys[i]]; }
+  return 'div';
+}
+function compToPascalCase(str) {
+  return str.replace(/[^a-zA-Z0-9]+(.)/g, function(_, c) { return c.toUpperCase(); }).replace(/^(.)/, function(c) { return c.toUpperCase(); });
+}
+function stylesToCSSProps(styles) {
+  if (!styles) return '';
+  return Object.keys(styles).map(function(k) { return '  ' + k + ': ' + styles[k] + ';'; }).join('\n');
+}
+function buildCSSModulesCSS(styles, type) {
+  var base = stylesToCSSProps(styles);
+  var focus = '\n\n.root:focus-visible {\n  outline: 2px solid var(--primary);\n  outline-offset: 2px;\n}';
+  if (type === 'dialog') return '.overlay {\n  position: fixed;\n  inset: 0;\n  background: rgba(0,0,0,0.5);\n  animation: overlayShow 150ms ease;\n}\n\n.content {\n' + base + '\n}\n\n.title {\n  font-size: 18px;\n  font-weight: 600;\n  margin-bottom: 16px;\n}\n\n.closeBtn {\n  position: absolute;\n  top: 16px;\n  right: 16px;\n  background: none;\n  border: none;\n  cursor: pointer;\n}\n\n.closeBtn:focus-visible {\n  outline: 2px solid var(--primary);\n  outline-offset: 2px;\n  border-radius: 4px;\n}\n\n@keyframes overlayShow {\n  from { opacity: 0; }\n  to   { opacity: 1; }\n}';
+  if (type === 'tabs') return '.root {\n  display: flex;\n  flex-direction: column;\n}\n\n.list {\n  display: flex;\n  border-bottom: 1px solid var(--border);\n  margin-bottom: 16px;\n}\n\n.trigger {\n  padding: 8px 16px;\n  background: none;\n  border: none;\n  border-bottom: 2px solid transparent;\n  cursor: pointer;\n  font-size: 14px;\n  color: var(--text-secondary);\n}\n\n.trigger[data-state=active] {\n  color: var(--primary);\n  border-bottom-color: var(--primary);\n}\n\n.trigger:focus-visible {\n  outline: 2px solid var(--primary);\n  outline-offset: 2px;\n}\n\n.content {\n  padding: 8px 0;\n}';
+  return '.root {\n' + base + '\n}\n\n.root:hover {\n  opacity: 0.9;\n}' + focus;
+}
+function buildCSSModulesTSX(name, type, useTs) {
+  var pt, p;
+  if (type === 'button') {
+    pt = useTs ? 'interface ' + name + 'Props {\n  children: React.ReactNode;\n  onClick?: () => void;\n  disabled?: boolean;\n}\n\n' : '';
+    p = useTs ? '{ children, onClick, disabled }: ' + name + 'Props' : '{ children, onClick, disabled }';
+    return "import styles from './" + name + ".module.css';\n\n" + pt + "export const " + name + " = (" + p + ") => (\n  <button className={styles.root} onClick={onClick} disabled={disabled} type=\"button\">\n    {children}\n  </button>\n);";
+  }
+  if (type === 'dialog') {
+    pt = useTs ? 'interface ' + name + 'Props {\n  open: boolean;\n  onClose: (open: boolean) => void;\n  title: string;\n  children: React.ReactNode;\n}\n\n' : '';
+    p = useTs ? '{ open, onClose, title, children }: ' + name + 'Props' : '{ open, onClose, title, children }';
+    return "import * as Dialog from '@radix-ui/react-dialog';\nimport styles from './" + name + ".module.css';\n\n" + pt + "export const " + name + " = (" + p + ") => (\n  <Dialog.Root open={open} onOpenChange={onClose}>\n    <Dialog.Portal>\n      <Dialog.Overlay className={styles.overlay} />\n      <Dialog.Content className={styles.content} aria-describedby={undefined}>\n        <Dialog.Title className={styles.title}>{title}</Dialog.Title>\n        {children}\n        <Dialog.Close asChild>\n          <button className={styles.closeBtn} aria-label=\"닫기\">×</button>\n        </Dialog.Close>\n      </Dialog.Content>\n    </Dialog.Portal>\n  </Dialog.Root>\n);";
+  }
+  if (type === 'tabs') {
+    pt = useTs ? 'interface ' + name + 'Props {\n  defaultValue?: string;\n}\n\n' : '';
+    p = useTs ? "{ defaultValue = 'tab1' }: " + name + 'Props' : "{ defaultValue = 'tab1' }";
+    return "import * as Tabs from '@radix-ui/react-tabs';\nimport styles from './" + name + ".module.css';\n\n" + pt + "export const " + name + " = (" + p + ") => (\n  <Tabs.Root className={styles.root} defaultValue={defaultValue}>\n    <Tabs.List className={styles.list} aria-label=\"탭 목록\">\n      <Tabs.Trigger className={styles.trigger} value=\"tab1\">탭 1</Tabs.Trigger>\n      <Tabs.Trigger className={styles.trigger} value=\"tab2\">탭 2</Tabs.Trigger>\n    </Tabs.List>\n    <Tabs.Content className={styles.content} value=\"tab1\">내용 1</Tabs.Content>\n    <Tabs.Content className={styles.content} value=\"tab2\">내용 2</Tabs.Content>\n  </Tabs.Root>\n);";
+  }
+  var tag = getSemanticTag(name);
+  pt = useTs ? 'interface ' + name + 'Props {\n  children: React.ReactNode;\n}\n\n' : '';
+  p = useTs ? '{ children }: ' + name + 'Props' : '{ children }';
+  return "import styles from './" + name + ".module.css';\n\n" + pt + "export const " + name + " = (" + p + ") => (\n  <" + tag + " className={styles.root}>\n    {children}\n  </" + tag + ">\n);";
+}
+function buildStyledTSX(name, type, useTs) {
+  var pt, p;
+  if (type === 'dialog') {
+    pt = useTs ? 'interface ' + name + 'Props {\n  open: boolean;\n  onClose: (open: boolean) => void;\n  title: string;\n  children: React.ReactNode;\n}\n\n' : '';
+    p = useTs ? '{ open, onClose, title, children }: ' + name + 'Props' : '{ open, onClose, title, children }';
+    return "import * as Dialog from '@radix-ui/react-dialog';\nimport styled, { keyframes } from 'styled-components';\n\nconst overlayShow = keyframes`\n  from { opacity: 0; }\n  to   { opacity: 1; }\n`;\nconst Overlay = styled(Dialog.Overlay)`\n  position: fixed; inset: 0; background: rgba(0,0,0,0.5);\n  animation: ${overlayShow} 150ms ease;\n`;\nconst Content = styled(Dialog.Content)`\n  position: fixed; top: 50%; left: 50%;\n  transform: translate(-50%,-50%);\n  background: var(--color-surface); border-radius: var(--radius-md); padding: 24px;\n`;\nconst Title = styled(Dialog.Title)`\n  font-size: 18px; font-weight: 600; margin-bottom: 16px;\n`;\n\n" + pt + "export const " + name + " = (" + p + ") => (\n  <Dialog.Root open={open} onOpenChange={onClose}>\n    <Dialog.Portal>\n      <Overlay />\n      <Content aria-describedby={undefined}>\n        <Title>{title}</Title>\n        {children}\n      </Content>\n    </Dialog.Portal>\n  </Dialog.Root>\n);";
+  }
+  if (type === 'button') {
+    pt = useTs ? 'interface ' + name + 'Props {\n  children: React.ReactNode;\n  onClick?: () => void;\n  disabled?: boolean;\n}\n\n' : '';
+    p = useTs ? '{ children, onClick, disabled }: ' + name + 'Props' : '{ children, onClick, disabled }';
+    return "import styled from 'styled-components';\n\nconst StyledButton = styled.button`\n  display: inline-flex; align-items: center; justify-content: center;\n  padding: 8px 16px; background: var(--color-brand-primary);\n  color: var(--color-white); border: none; border-radius: var(--radius-sm);\n  font-size: 14px; font-weight: 500; cursor: pointer;\n  &:hover { opacity: 0.9; }\n  &:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }\n  &:disabled { opacity: 0.5; cursor: not-allowed; }\n`;\n\n" + pt + "export const " + name + " = (" + p + ") => (\n  <StyledButton onClick={onClick} disabled={disabled} type=\"button\">\n    {children}\n  </StyledButton>\n);";
+  }
+  var tag = getSemanticTag(name);
+  pt = useTs ? 'interface ' + name + 'Props {\n  children: React.ReactNode;\n}\n\n' : '';
+  p = useTs ? '{ children }: ' + name + 'Props' : '{ children }';
+  return "import styled from 'styled-components';\n\nconst Wrapper = styled." + tag + "`\n  /* 스타일을 여기에 추가하세요 */\n`;\n\n" + pt + "export const " + name + " = (" + p + ") => (\n  <Wrapper>{children}</Wrapper>\n);";
+}
+
+var compState = {
+  meta: null, componentType: 'layout', styleMode: 'css-modules', useTs: true,
+  generatedTsx: '', generatedCss: '', registry: {}, currentEntry: null,
+  activeCodeTab: 'tsx', activeDetailTab: 'tsx', editMode: false,
+};
+
+function showGeneratedResult(tsx, css, styleMode) {
+  compState.generatedTsx = tsx; compState.generatedCss = css; compState.activeCodeTab = 'tsx';
+  var cssTabBtn = $('compCssTabBtn');
+  if (cssTabBtn) cssTabBtn.style.display = styleMode === 'css-modules' ? '' : 'none';
+  document.querySelectorAll('[data-comp-code-tab]').forEach(function(btn) { btn.classList.toggle('active', btn.dataset.compCodeTab === 'tsx'); });
+  $('compCode').value = tsx;
+  $('compResult').classList.remove('hidden');
+  if (compState.meta) {
+    var parts = compState.meta.nodeName.split('/');
+    $('compNameInput').value = compToPascalCase(parts[parts.length - 1]);
   }
 }
 
-// ── Component language toggle ──
-var compLang = 'react';
-document.querySelectorAll('[data-comp-lang]').forEach(function(btn) {
-  btn.addEventListener('click', function() {
-    compLang = btn.dataset.compLang;
-    document.querySelectorAll('[data-comp-lang]').forEach(function(b) {
-      b.classList.toggle('active', b.dataset.compLang === compLang);
-    });
-  });
-});
+function switchCompSubTab(sub) {
+  document.querySelectorAll('.comp-subtab').forEach(function(btn) { btn.classList.toggle('active', btn.dataset.compSub === sub); });
+  $('compGenerateView').style.display = sub === 'generate' ? '' : 'none';
+  $('compRegistryView').style.display = sub === 'registry' ? '' : 'none';
+  if (sub === 'registry') renderRegistryList();
+}
+document.querySelectorAll('.comp-subtab').forEach(function(btn) { btn.addEventListener('click', function() { switchCompSubTab(btn.dataset.compSub); }); });
 
-generateCompBtn.addEventListener('click', function() {
-  if (lastSelection.count === 0) { showToast(t('component.selectFirst')); return; }
-  generateCompBtn.disabled = true;
-  generateCompBtn.textContent = t('component.generating');
-  parent.postMessage({ pluginMessage: { type: 'generate-component' } }, '*');
-});
-
-// Component sub-tab switching
-document.querySelectorAll('.comp-tab').forEach(function(t) {
-  t.addEventListener('click', function() {
-    compActiveTab = t.dataset.compTab;
-    document.querySelectorAll('.comp-tab').forEach(function(ct) {
-      ct.classList.toggle('active', ct.dataset.compTab === compActiveTab);
-    });
-    updateCompCode();
-  });
-});
-
-function updateCompCode() {
-  if (!compData) return;
-  $('compCode').value = compActiveTab === 'html' ? compData.html : compData.react;
+function updateCompSelInfo() {
+  var info = $('compSelInfo');
+  if (!info) return;
+  if (lastSelection.count > 0 && lastSelection.meta) {
+    info.textContent = (lang === 'ko' ? '선택: ' : 'Selected: ') + lastSelection.meta.nodeName;
+    info.style.color = 'var(--primary)'; info.style.background = 'var(--primary-light)'; info.style.border = '1px solid var(--primary-border)';
+  } else {
+    info.textContent = t('component.noSel'); info.style.color = 'var(--text-muted)'; info.style.background = 'var(--bg)'; info.style.border = 'none';
+  }
 }
 
-$('compCopyBtn').addEventListener('click', function() {
-  if (!compData) return;
-  var text = compActiveTab === 'html' ? compData.html : compData.react;
-  copyToClipboard(text);
-  showToast((compActiveTab === 'html' ? 'HTML' : 'React') + t('component.copied'));
+function onCompSelectionChanged() {
+  var meta = (lastSelection && lastSelection.meta) || null;
+  compState.meta = meta;
+  updateCompSelInfo();
+  if (!meta) return;
+  var detected = detectComponentType(meta.nodeName);
+  compState.componentType = detected;
+  var ts = $('compTypeSelect'); if (ts) ts.value = detected;
+  updateTypeHint(detected);
+  var key = meta.masterId || meta.nodeId;
+  var entry = compState.registry[key];
+  if (entry) { compState.currentEntry = entry; switchCompSubTab('registry'); showRegistryDetail(entry); }
+}
+
+function updateTypeHint(type) {
+  var hint = $('compTypeHint'); if (!hint) return;
+  var pkg = RADIX_MAP[type];
+  hint.textContent = pkg ? 'Radix UI: ' + pkg : (type === 'layout' ? (lang === 'ko' ? '시맨틱 HTML 태그' : 'Semantic HTML') : 'Native element');
+}
+
+var _typeSelect = $('compTypeSelect');
+if (_typeSelect) _typeSelect.addEventListener('change', function() { compState.componentType = _typeSelect.value; updateTypeHint(_typeSelect.value); });
+
+document.querySelectorAll('.comp-style-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    compState.styleMode = btn.dataset.compStyle;
+    document.querySelectorAll('.comp-style-btn').forEach(function(b) { b.classList.toggle('active', b.dataset.compStyle === compState.styleMode); });
+  });
 });
 
-$('compDownloadBtn').addEventListener('click', function() {
-  if (!compData) return;
-  var json = JSON.stringify(compData, null, 2);
-  var blob = new Blob([json], { type: 'application/json' });
-  var url = URL.createObjectURL(blob);
-  var a = document.createElement('a');
-  a.href = url; a.download = (compData.name || 'component') + '.json';
-  a.click(); URL.revokeObjectURL(url);
+var _compTsCheck = $('compTsCheck');
+if (_compTsCheck) { _compTsCheck.checked = true; _compTsCheck.addEventListener('change', function() { compState.useTs = _compTsCheck.checked; }); }
+
+var generateCompBtn = $('generateCompBtn');
+if (generateCompBtn) {
+  generateCompBtn.addEventListener('click', function() {
+    if (lastSelection.count === 0) { showToast(t('component.selectFirst')); return; }
+    generateCompBtn.disabled = true; generateCompBtn.textContent = t('component.generating');
+    parent.postMessage({ pluginMessage: { type: 'generate-component' } }, '*');
+  });
+}
+
+document.querySelectorAll('[data-comp-code-tab]').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    compState.activeCodeTab = btn.dataset.compCodeTab;
+    document.querySelectorAll('[data-comp-code-tab]').forEach(function(b) { b.classList.toggle('active', b.dataset.compCodeTab === compState.activeCodeTab); });
+    $('compCode').value = compState.activeCodeTab === 'tsx' ? compState.generatedTsx : compState.generatedCss;
+  });
+});
+
+var _compCopyBtn = $('compCopyBtn');
+if (_compCopyBtn) _compCopyBtn.addEventListener('click', function() {
+  copyToClipboard(compState.activeCodeTab === 'tsx' ? compState.generatedTsx : compState.generatedCss);
+  showToast(t('component.copied'));
+});
+
+var _compSaveBtn = $('compSaveBtn');
+if (_compSaveBtn) {
+  _compSaveBtn.addEventListener('click', function() {
+    var ni = $('compNameInput'); var nameVal = (ni && ni.value || '').trim();
+    if (!nameVal) { showToast(lang === 'ko' ? '컴포넌트명을 입력하세요' : 'Enter component name'); return; }
+    if (!compState.meta) { showToast(t('component.selectFirst')); return; }
+    var key = compState.meta.masterId || compState.meta.nodeId;
+    var entry = { name: nameVal, figmaNodeName: compState.meta.nodeName, figmaMasterNodeId: key,
+      componentType: compState.componentType, radixPackage: RADIX_MAP[compState.componentType] || null,
+      styleMode: compState.styleMode, useTs: compState.useTs,
+      code: { tsx: compState.generatedTsx, css: compState.generatedCss },
+      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+    parent.postMessage({ pluginMessage: { type: 'registry-save', entry: entry } }, '*');
+  });
+}
+
+function renderRegistryList() {
+  var items = $('compRegistryItems'); var empty = $('compRegistryEmpty'); var count = $('compRegistryCount');
+  if (!items) return;
+  var query = ($('compSearchInput') ? $('compSearchInput').value : '').toLowerCase();
+  var all = Object.keys(compState.registry).map(function(k) { return compState.registry[k]; });
+  var entries = all.filter(function(e) { return !query || e.name.toLowerCase().indexOf(query) !== -1; });
+  items.innerHTML = '';
+  if (entries.length === 0) { if (empty) empty.style.display = ''; }
+  else {
+    if (empty) empty.style.display = 'none';
+    entries.forEach(function(entry) {
+      var updatedAt = entry.updatedAt ? new Date(entry.updatedAt).toLocaleDateString() : '-';
+      var item = document.createElement('div'); item.className = 'comp-registry-item';
+      item.innerHTML = '<div class="comp-registry-item-info"><div class="comp-registry-item-name">' + entry.name + '</div><div class="comp-registry-item-meta">' + (entry.componentType || 'layout') + ' · ' + (entry.styleMode === 'css-modules' ? 'CSS Modules' : 'Styled') + ' · ' + updatedAt + '</div></div><div class="comp-registry-item-actions"><button class="comp-registry-del-btn">' + (lang === 'ko' ? '삭제' : 'Del') + '</button></div>';
+      item.querySelector('.comp-registry-item-info').addEventListener('click', function() { showRegistryDetail(entry); });
+      item.querySelector('.comp-registry-del-btn').addEventListener('click', function(e) {
+        e.stopPropagation();
+        if (confirm(lang === 'ko' ? entry.name + '을 삭제할까요?' : 'Delete ' + entry.name + '?'))
+          parent.postMessage({ pluginMessage: { type: 'registry-delete', masterId: entry.figmaMasterNodeId } }, '*');
+      });
+      items.appendChild(item);
+    });
+  }
+  if (count) count.textContent = lang === 'ko' ? '총 ' + entries.length + '개' : entries.length + ' items';
+}
+
+var _compSearchInput = $('compSearchInput');
+if (_compSearchInput) _compSearchInput.addEventListener('input', function() { renderRegistryList(); });
+
+function showRegistryDetail(entry) {
+  compState.currentEntry = entry; compState.activeDetailTab = 'tsx'; compState.editMode = false;
+  $('compRegistryList').style.display = 'none'; $('compRegistryDetail').classList.remove('hidden');
+  $('compDetailName').textContent = entry.name;
+  $('compDetailMeta').textContent = (entry.componentType || 'layout') + ' · ' + (entry.styleMode === 'css-modules' ? 'CSS Modules' : 'Styled') + ' · ' + (entry.updatedAt ? new Date(entry.updatedAt).toLocaleDateString() : '-');
+  var cssBtn = $('compDetailCssTabBtn'); if (cssBtn) cssBtn.style.display = entry.styleMode === 'css-modules' ? '' : 'none';
+  document.querySelectorAll('[data-comp-detail-tab]').forEach(function(btn) { btn.classList.toggle('active', btn.dataset.compDetailTab === 'tsx'); });
+  $('compDetailCode').value = entry.code.tsx; $('compDetailCode').readOnly = true;
+  $('compDetailSaveEditBtn').style.display = 'none'; $('compDetailCancelEditBtn').style.display = 'none'; $('compDetailEditBtn').style.display = '';
+}
+
+document.querySelectorAll('[data-comp-detail-tab]').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    compState.activeDetailTab = btn.dataset.compDetailTab;
+    document.querySelectorAll('[data-comp-detail-tab]').forEach(function(b) { b.classList.toggle('active', b.dataset.compDetailTab === compState.activeDetailTab); });
+    if (compState.currentEntry) $('compDetailCode').value = compState.activeDetailTab === 'tsx' ? compState.currentEntry.code.tsx : compState.currentEntry.code.css;
+  });
+});
+
+var _detailCopyBtn = $('compDetailCopyBtn');
+if (_detailCopyBtn) _detailCopyBtn.addEventListener('click', function() {
+  if (!compState.currentEntry) return;
+  copyToClipboard(compState.activeDetailTab === 'tsx' ? compState.currentEntry.code.tsx : compState.currentEntry.code.css);
+  showToast(t('component.copied'));
+});
+
+var _detailEditBtn = $('compDetailEditBtn');
+if (_detailEditBtn) _detailEditBtn.addEventListener('click', function() {
+  $('compDetailCode').readOnly = false; $('compDetailCode').focus();
+  $('compDetailSaveEditBtn').style.display = ''; $('compDetailCancelEditBtn').style.display = ''; $('compDetailEditBtn').style.display = 'none';
+});
+
+var _detailSaveEditBtn = $('compDetailSaveEditBtn');
+if (_detailSaveEditBtn) _detailSaveEditBtn.addEventListener('click', function() {
+  if (!compState.currentEntry) return;
+  var edited = $('compDetailCode').value;
+  if (compState.activeDetailTab === 'tsx') compState.currentEntry.code.tsx = edited; else compState.currentEntry.code.css = edited;
+  compState.currentEntry.updatedAt = new Date().toISOString();
+  parent.postMessage({ pluginMessage: { type: 'registry-save', entry: compState.currentEntry } }, '*');
+  $('compDetailCode').readOnly = true; $('compDetailSaveEditBtn').style.display = 'none'; $('compDetailCancelEditBtn').style.display = 'none'; $('compDetailEditBtn').style.display = '';
+});
+
+var _detailCancelBtn = $('compDetailCancelEditBtn');
+if (_detailCancelBtn) _detailCancelBtn.addEventListener('click', function() {
+  if (!compState.currentEntry) return;
+  $('compDetailCode').value = compState.activeDetailTab === 'tsx' ? compState.currentEntry.code.tsx : compState.currentEntry.code.css;
+  $('compDetailCode').readOnly = true; $('compDetailSaveEditBtn').style.display = 'none'; $('compDetailCancelEditBtn').style.display = 'none'; $('compDetailEditBtn').style.display = '';
+});
+
+var _detailUpdateBtn = $('compDetailUpdateBtn');
+if (_detailUpdateBtn) _detailUpdateBtn.addEventListener('click', function() {
+  if (!compState.currentEntry) return;
+  if (!confirm(lang === 'ko' ? '현재 Figma 데이터로 코드를 다시 생성하고 덮어씁니다. 계속할까요?' : 'Regenerate from Figma and overwrite. Continue?')) return;
+  switchCompSubTab('generate');
+  if (generateCompBtn) generateCompBtn.click();
+});
+
+var _detailDeleteBtn = $('compDetailDeleteBtn');
+if (_detailDeleteBtn) _detailDeleteBtn.addEventListener('click', function() {
+  if (!compState.currentEntry) return;
+  if (!confirm(lang === 'ko' ? compState.currentEntry.name + '을 삭제할까요?' : 'Delete ' + compState.currentEntry.name + '?')) return;
+  parent.postMessage({ pluginMessage: { type: 'registry-delete', masterId: compState.currentEntry.figmaMasterNodeId } }, '*');
+});
+
+var _detailBackBtn = $('compDetailBackBtn');
+if (_detailBackBtn) _detailBackBtn.addEventListener('click', function() {
+  $('compRegistryList').style.display = ''; $('compRegistryDetail').classList.add('hidden');
+  compState.currentEntry = null; renderRegistryList();
+});
+
+var _exportAllBtn = $('compExportAllBtn');
+if (_exportAllBtn) _exportAllBtn.addEventListener('click', function() {
+  var blob = new Blob([JSON.stringify(compState.registry, null, 2)], { type: 'application/json' });
+  var url = URL.createObjectURL(blob); var a = document.createElement('a');
+  a.href = url; a.download = 'component-registry.json'; a.click(); URL.revokeObjectURL(url);
   showToast(t('component.downloadStart'));
 });
+
+parent.postMessage({ pluginMessage: { type: 'registry-get' } }, '*');
 
 // ══════════════════════════════════════════════
 // ── Clipboard helper ──

@@ -595,9 +595,21 @@
   .icon-filter-count { font-size:11px; color:var(--text-muted); white-space:nowrap; flex-shrink:0; }
 
   /* ── Icon Detail Panel ── */
+  /* ── Icon Detail Modal ── */
+  .icon-detail-backdrop {
+    position:fixed; inset:0; background:rgba(0,0,0,0.45);
+    z-index:1000; display:flex; align-items:center; justify-content:center;
+  }
+  .icon-detail-backdrop.hidden { display:none; }
   .icon-detail-panel {
     background:var(--surface); border:1px solid var(--border);
-    border-radius:var(--radius); margin-top:8px; overflow:hidden;
+    border-radius:10px; overflow:hidden; width:460px; max-width:calc(100vw - 32px);
+    box-shadow:0 8px 32px rgba(0,0,0,0.24);
+    animation:modalIn 0.15s ease;
+  }
+  @keyframes modalIn {
+    from { opacity:0; transform:scale(0.95) translateY(4px); }
+    to   { opacity:1; transform:scale(1) translateY(0); }
   }
   .icon-detail-header {
     display:flex; align-items:center; justify-content:space-between;
@@ -661,7 +673,7 @@
     padding:8px 36px 8px 10px; font-size:10px;
     font-family:'SF Mono','Fira Code',monospace; line-height:1.6;
     color:var(--text-primary); white-space:pre-wrap; word-break:break-all;
-    max-height:160px; overflow-y:auto; margin:0;
+    max-height:240px; overflow-y:auto; margin:0;
   }
   .icon-detail-copy {
     position:absolute; top:5px; right:5px; font-size:10px;
@@ -748,11 +760,11 @@
 
   /* ── Component ── */
   .comp-tab {
-    padding: 6px 14px;
+    padding: 4px 12px;
     background: var(--bg);
     border: 1px solid var(--border);
     border-radius: 6px;
-    font-size: 12px;
+    font-size: 11px;
     color: var(--text-secondary);
     cursor: pointer;
     transition: all 0.15s;
@@ -762,6 +774,69 @@
     color: #fff;
     border-color: var(--primary);
   }
+  .comp-subtabs {
+    display: flex;
+    gap: 4px;
+    padding: 8px 12px 0;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .comp-subtab {
+    padding: 5px 14px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-bottom: -1px;
+  }
+  .comp-subtab.active { color: var(--primary); border-bottom-color: var(--primary); }
+  .comp-subtab:hover:not(.active) { color: var(--text-primary); }
+  .comp-style-btn {
+    padding: 5px 14px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-pill);
+    font-size: 11px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .comp-style-btn.active {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+  }
+  .comp-registry-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .comp-registry-item:hover { border-color: var(--primary); }
+  .comp-registry-item-info { flex: 1; overflow: hidden; }
+  .comp-registry-item-name { font-size: 12px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .comp-registry-item-meta { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+  .comp-registry-item-actions { display: flex; gap: 4px; flex-shrink: 0; margin-left: 8px; }
+  .comp-registry-del-btn {
+    padding: 3px 8px;
+    background: none;
+    border: 1px solid var(--danger);
+    border-radius: 4px;
+    font-size: 10px;
+    color: var(--danger);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .comp-registry-del-btn:hover { background: var(--danger-light); }
 
   /* ── Scrollbar ── */
   ::-webkit-scrollbar { width: 5px; }
@@ -1052,42 +1127,17 @@
       </div>
 
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-        <div class="section-label" style="margin-bottom:0;padding:0 2px;">추출 결과 (<span id="iconCount">0</span>개)</div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <div class="section-label" style="margin-bottom:0;padding:0 2px;">추출 결과 (<span id="iconCount">0</span>개)</div>
+          <span id="iconCacheBadge" class="hidden" style="font-size:10px;color:var(--text-muted);display:flex;align-items:center;gap:4px;">
+            <span id="iconCacheSavedAt"></span>
+            <button id="iconCacheClearBtn" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:13px;padding:0 2px;line-height:1;" title="캐시 삭제">×</button>
+          </span>
+        </div>
         <button class="btn-ghost" id="iconDownloadAllBtn" style="height:28px;padding:0 10px;font-size:11px;" data-i18n="icon.downloadAll">전체 SVG 다운로드</button>
       </div>
       <div id="iconList" class="icon-grid"></div>
 
-      <!-- 상세 패널 -->
-      <div id="iconDetailPanel" class="icon-detail-panel hidden">
-        <div class="icon-detail-header">
-          <div class="icon-detail-header-left">
-            <div class="icon-detail-thumb" id="iconDetailThumb"></div>
-            <span class="icon-detail-name" id="iconDetailName"></span>
-          </div>
-          <button class="icon-detail-close" id="iconDetailClose">×</button>
-        </div>
-        <div class="icon-color-controls">
-          <span class="icon-color-label" data-i18n="icon.colorMode">색상 모드</span>
-          <div class="icon-color-row">
-            <select id="iconColorModeSelect" class="icon-color-select">
-              <option value="currentColor" data-i18n="icon.colorModeCC">currentColor</option>
-              <option value="cssVar" data-i18n="icon.colorModeCssVar">CSS 변수</option>
-              <option value="custom" data-i18n="icon.colorModeCustom">커스텀 색상</option>
-            </select>
-            <input id="iconColorVarInput" type="text" class="icon-color-var-input hidden" placeholder="--icon-color" data-i18n-placeholder="icon.cssVarPlaceholder" />
-            <input id="iconColorPicker" type="color" class="icon-color-picker hidden" value="#3B82F6" />
-          </div>
-        </div>
-        <div class="icon-detail-tabs">
-          <button class="icon-detail-tab active" data-detail-tab="svg" data-i18n="icon.detailSvg">SVG</button>
-          <button class="icon-detail-tab" data-detail-tab="react" data-i18n="icon.detailReact">React</button>
-          <button class="icon-detail-tab" data-detail-tab="css" data-i18n="icon.detailCss">CSS</button>
-        </div>
-        <div class="icon-detail-code-wrap">
-          <pre class="icon-detail-code" id="iconDetailCode"></pre>
-          <button class="icon-detail-copy" id="iconDetailCopyBtn" data-i18n="icon.detailCopy">복사</button>
-        </div>
-      </div>
     </div>
   </div>
 </div>
@@ -1231,55 +1281,160 @@
 
 <!-- ── Component Panel ── -->
 <div class="tab-panel" id="panel-component" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
-  <div class="tab-body">
+
+  <!-- 서브탭 -->
+  <div class="comp-subtabs">
+    <button class="comp-subtab active" data-comp-sub="generate" data-i18n="component.subGenerate">코드 생성</button>
+    <button class="comp-subtab" data-comp-sub="registry" data-i18n="component.subRegistry">레지스트리</button>
+  </div>
+
+  <!-- ── 생성 뷰 ── -->
+  <div id="compGenerateView" class="tab-body" style="overflow-y:auto;">
+
+    <!-- 선택 정보 -->
+    <div id="compSelInfo" style="font-size:12px;color:var(--text-muted);margin-bottom:10px;padding:6px 10px;background:var(--bg);border-radius:6px;" data-i18n="component.noSel">선택된 노드 없음</div>
+
     <div class="section-card">
-      <div class="section-label" data-i18n="component.title">컴포넌트 코드 생성</div>
-      <div style="margin-bottom:12px;font-size:12px;color:var(--text-secondary);line-height:1.8;">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-          <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--primary);color:#fff;font-size:10px;font-weight:700;flex-shrink:0;">1</span>
-          Figma에서 컴포넌트 선택
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-          <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--primary);color:#fff;font-size:10px;font-weight:700;flex-shrink:0;">2</span>
-          출력 형식 선택 후 코드 생성
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--primary);color:#fff;font-size:10px;font-weight:700;flex-shrink:0;">3</span>
-          생성된 코드 복사 또는 JSON 저장
+      <!-- 컴포넌트 타입 -->
+      <div style="margin-bottom:10px;">
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;" data-i18n="component.typeLabel">컴포넌트 타입</div>
+        <select id="compTypeSelect" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text-primary);font-size:12px;cursor:pointer;outline:none;">
+          <option value="layout">Layout (div/section)</option>
+          <option value="button">Button</option>
+          <option value="dialog">Dialog / Modal</option>
+          <option value="tabs">Tabs</option>
+          <option value="select">Select / Dropdown</option>
+          <option value="tooltip">Tooltip</option>
+          <option value="checkbox">Checkbox</option>
+          <option value="switch">Switch / Toggle</option>
+          <option value="accordion">Accordion</option>
+          <option value="popover">Popover</option>
+        </select>
+        <div id="compTypeHint" style="font-size:10px;color:var(--text-muted);margin-top:3px;"></div>
+      </div>
+
+      <!-- 스타일 방식 -->
+      <div style="margin-bottom:10px;">
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;" data-i18n="component.styleLabel">스타일 방식</div>
+        <div style="display:flex;gap:4px;">
+          <button class="comp-style-btn active" data-comp-style="css-modules">CSS Modules</button>
+          <button class="comp-style-btn" data-comp-style="styled">Styled-Components</button>
         </div>
       </div>
-      <div id="compSelInfo" style="font-size:12px;color:var(--text-muted);margin-bottom:10px;padding:6px 10px;background:var(--bg);border-radius:6px;">선택된 노드 없음</div>
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-        <span style="font-size:11px;color:var(--text-muted);">출력 언어:</span>
-        <div style="display:flex;gap:4px;">
-          <button class="comp-tab" id="compLangHtml" data-comp-lang="html">HTML</button>
-          <button class="comp-tab active" id="compLangReact" data-comp-lang="react">React</button>
-        </div>
-        <label style="display:flex;align-items:center;gap:4px;margin-left:auto;cursor:pointer;">
-          <input type="checkbox" id="compTsCheck" style="accent-color:var(--primary);width:14px;height:14px;cursor:pointer;">
+
+      <!-- TypeScript -->
+      <div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:12px;">
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
+          <input type="checkbox" id="compTsCheck" checked style="accent-color:var(--primary);width:14px;height:14px;cursor:pointer;">
           <span style="font-size:11px;color:var(--text-secondary);">TypeScript</span>
         </label>
       </div>
+
       <button class="btn-primary" id="generateCompBtn" style="width:100%;height:40px;" data-i18n="component.generate">코드 생성</button>
     </div>
+
+    <!-- 결과 영역 -->
     <div id="compResult" class="hidden">
-      <div style="display:flex;gap:4px;margin-bottom:8px;">
-        <button class="comp-tab active" data-comp-tab="html">HTML</button>
-        <button class="comp-tab" data-comp-tab="react">React</button>
+      <div style="display:flex;gap:4px;margin-bottom:6px;">
+        <button class="comp-tab active" data-comp-code-tab="tsx">TSX</button>
+        <button class="comp-tab" id="compCssTabBtn" data-comp-code-tab="css">CSS</button>
       </div>
       <div style="position:relative;">
-        <textarea id="compCode" readonly style="width:100%;height:300px;font-family:'SF Mono','Fira Code',monospace;font-size:11px;line-height:1.6;padding:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:#111111;color:#E2E8F0;resize:vertical;"></textarea>
-        <div style="position:absolute;top:8px;right:8px;display:flex;gap:4px;">
-          <button class="btn-ghost" id="compCopyBtn" style="height:28px;padding:0 10px;font-size:11px;" data-i18n="component.copy">복사</button>
-          <button class="btn-ghost" id="compDownloadBtn" style="height:28px;padding:0 10px;font-size:11px;" data-i18n="component.save">JSON 저장</button>
-        </div>
+        <textarea id="compCode" readonly style="width:100%;height:220px;font-family:'SF Mono','Fira Code',monospace;font-size:11px;line-height:1.6;padding:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:#111111;color:#E2E8F0;resize:vertical;"></textarea>
+        <button class="btn-ghost" id="compCopyBtn" style="position:absolute;top:8px;right:8px;height:26px;padding:0 10px;font-size:11px;" data-i18n="component.copy">복사</button>
+      </div>
+
+      <!-- 저장 폼 -->
+      <div style="display:flex;gap:6px;margin-top:8px;align-items:center;">
+        <input type="text" id="compNameInput" placeholder="컴포넌트명 (예: PrimaryButton)" style="flex:1;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text-primary);font-size:12px;outline:none;" />
+        <button class="btn-primary" id="compSaveBtn" style="height:34px;padding:0 14px;font-size:12px;white-space:nowrap;" data-i18n="component.saveBtn">레지스트리 저장</button>
       </div>
     </div>
   </div>
+
+  <!-- ── 레지스트리 뷰 ── -->
+  <div id="compRegistryView" class="tab-body" style="display:none;overflow-y:auto;">
+
+    <!-- 저장된 항목 상세 (불러왔을 때) -->
+    <div id="compRegistryDetail" class="hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div>
+          <div id="compDetailName" style="font-size:13px;font-weight:600;color:var(--text-primary);"></div>
+          <div id="compDetailMeta" style="font-size:11px;color:var(--text-muted);margin-top:2px;"></div>
+        </div>
+        <div style="display:flex;gap:4px;">
+          <button class="btn-ghost" id="compDetailEditBtn" style="height:28px;padding:0 10px;font-size:11px;" data-i18n="component.edit">수정</button>
+          <button class="btn-ghost" id="compDetailUpdateBtn" style="height:28px;padding:0 10px;font-size:11px;" data-i18n="component.update">업데이트</button>
+          <button class="btn-ghost" id="compDetailDeleteBtn" style="height:28px;padding:0 10px;font-size:11px;color:var(--danger);border-color:var(--danger);" data-i18n="component.delete">삭제</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:4px;margin-bottom:6px;">
+        <button class="comp-tab active" data-comp-detail-tab="tsx">TSX</button>
+        <button class="comp-tab" id="compDetailCssTabBtn" data-comp-detail-tab="css">CSS</button>
+      </div>
+      <div style="position:relative;">
+        <textarea id="compDetailCode" style="width:100%;height:240px;font-family:'SF Mono','Fira Code',monospace;font-size:11px;line-height:1.6;padding:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:#111111;color:#E2E8F0;resize:vertical;" readonly></textarea>
+        <div style="position:absolute;top:8px;right:8px;display:flex;gap:4px;">
+          <button class="btn-ghost" id="compDetailCopyBtn" style="height:26px;padding:0 10px;font-size:11px;" data-i18n="component.copy">복사</button>
+          <button class="btn-ghost" id="compDetailSaveEditBtn" style="height:26px;padding:0 10px;font-size:11px;display:none;" data-i18n="component.saveEdit">저장</button>
+          <button class="btn-ghost" id="compDetailCancelEditBtn" style="height:26px;padding:0 10px;font-size:11px;display:none;" data-i18n="component.cancel">취소</button>
+        </div>
+      </div>
+      <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">
+        <button class="btn-ghost" id="compDetailBackBtn" style="height:28px;padding:0 10px;font-size:11px;" data-i18n="component.backToList">← 목록으로</button>
+      </div>
+    </div>
+
+    <!-- 목록 -->
+    <div id="compRegistryList">
+      <input type="text" id="compSearchInput" placeholder="검색..." style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text-primary);font-size:12px;outline:none;margin-bottom:8px;" />
+      <div id="compRegistryItems" style="display:flex;flex-direction:column;gap:4px;"></div>
+      <div id="compRegistryEmpty" style="text-align:center;padding:32px 0;color:var(--text-muted);font-size:12px;" data-i18n="component.registryEmpty">저장된 컴포넌트가 없습니다</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:8px;border-top:1px solid var(--border);">
+        <div id="compRegistryCount" style="font-size:11px;color:var(--text-muted);"></div>
+        <button class="btn-ghost" id="compExportAllBtn" style="height:28px;padding:0 10px;font-size:11px;" data-i18n="component.exportAll">전체 내보내기</button>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <!-- ── Toast ── -->
 <div class="toast" id="toast"></div>
+
+<!-- ── Icon Detail Modal ── -->
+<div id="iconDetailBackdrop" class="icon-detail-backdrop hidden">
+  <div id="iconDetailPanel" class="icon-detail-panel">
+    <div class="icon-detail-header">
+      <div class="icon-detail-header-left">
+        <div class="icon-detail-thumb" id="iconDetailThumb"></div>
+        <span class="icon-detail-name" id="iconDetailName"></span>
+      </div>
+      <button class="icon-detail-close" id="iconDetailClose">×</button>
+    </div>
+    <div class="icon-color-controls">
+      <span class="icon-color-label" data-i18n="icon.colorMode">색상 모드</span>
+      <div class="icon-color-row">
+        <select id="iconColorModeSelect" class="icon-color-select">
+          <option value="currentColor" data-i18n="icon.colorModeCC">currentColor</option>
+          <option value="cssVar" data-i18n="icon.colorModeCssVar">CSS 변수</option>
+          <option value="custom" data-i18n="icon.colorModeCustom">커스텀 색상</option>
+        </select>
+        <input id="iconColorVarInput" type="text" class="icon-color-var-input hidden" placeholder="--icon-color" data-i18n-placeholder="icon.cssVarPlaceholder" />
+        <input id="iconColorPicker" type="color" class="icon-color-picker hidden" value="#3B82F6" />
+      </div>
+    </div>
+    <div class="icon-detail-tabs">
+      <button class="icon-detail-tab active" data-detail-tab="svg" data-i18n="icon.detailSvg">SVG</button>
+      <button class="icon-detail-tab" data-detail-tab="react" data-i18n="icon.detailReact">React</button>
+      <button class="icon-detail-tab" data-detail-tab="css" data-i18n="icon.detailCss">CSS</button>
+    </div>
+    <div class="icon-detail-code-wrap">
+      <pre class="icon-detail-code" id="iconDetailCode"></pre>
+      <button class="icon-detail-copy" id="iconDetailCopyBtn" data-i18n="icon.detailCopy">복사</button>
+    </div>
+  </div>
+</div>
 
 <!-- UI_SCRIPT_PLACEHOLDER -->
 </body>
