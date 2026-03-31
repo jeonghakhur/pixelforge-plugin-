@@ -494,6 +494,7 @@ document.querySelectorAll('input[name="scope"]').forEach(function (r) {
   r.addEventListener('change', function () {
     renderSelectionInfo(lastSelection);
     updateExtractBtn();
+    syncIconMode();
   });
 });
 
@@ -1120,7 +1121,10 @@ function switchMainTab(tab) {
     }
   });
   // Update selection info for relevant tabs
-  if (tab === 'icons') updateIconSelInfo();
+  if (tab === 'icons') {
+    syncIconMode();
+    updateIconSelInfo();
+  }
   if (tab === 'component') updateCompSelInfo();
 }
 
@@ -1909,17 +1913,12 @@ function selectIcon(idx) {
   updateDetailCode();
 }
 
-// ── Icon mode toggle ──
-document.querySelectorAll('[data-icon-mode]').forEach(function (btn) {
-  btn.addEventListener('click', function () {
-    iconMode = btn.dataset.iconMode;
-    document.querySelectorAll('[data-icon-mode]').forEach(function (b) {
-      b.classList.toggle('active', b.dataset.iconMode === iconMode);
-    });
-    $('iconModeAll').style.display = iconMode === 'all' ? 'block' : 'none';
-    $('iconModeSelection').style.display = iconMode === 'selection' ? 'block' : 'none';
-  });
-});
+// ── Icon mode sync with global scope ──
+function syncIconMode() {
+  iconMode = getScope();
+  $('iconModeAll').style.display = iconMode === 'all' ? 'block' : 'none';
+  $('iconModeSelection').style.display = iconMode === 'selection' ? 'block' : 'none';
+}
 
 function updateIconSelInfo() {
   var info = $('iconSelInfo');

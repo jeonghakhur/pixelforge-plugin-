@@ -119,6 +119,46 @@
         flex-shrink: 0;
       }
 
+      /* ── Scope Radio (Global) ── */
+      .scope-toggle {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-shrink: 0;
+      }
+      .scope-radio-item {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        cursor: pointer;
+        font-size: 11px;
+        color: var(--text-muted);
+        line-height: 1;
+      }
+      .scope-radio-item input[type="radio"] {
+        accent-color: var(--primary);
+        width: 13px;
+        height: 13px;
+        cursor: pointer;
+        margin: 0;
+      }
+      .scope-radio-item:has(input:checked) {
+        color: var(--text-primary);
+        font-weight: 600;
+      }
+
+      /* ── Global Selection Info Bar ── */
+      .global-sel-info {
+        padding: 6px 16px;
+        background: var(--primary-light);
+        border-bottom: 1px solid var(--primary-border);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .global-sel-info.hidden { display: none; }
+
       /* ── Lang Toggle ── */
       .lang-toggle {
         display: flex;
@@ -1723,6 +1763,16 @@
       <div class="header-sep"></div>
       <span class="file-name" id="headerFile" data-i18n-loading>로딩 중...</span>
       <div class="header-right">
+        <div class="scope-toggle">
+          <label class="scope-radio-item">
+            <input type="radio" name="scope" value="all" checked />
+            전체
+          </label>
+          <label class="scope-radio-item">
+            <input type="radio" name="scope" value="selection" />
+            선택
+          </label>
+        </div>
         <button class="back-btn" id="backBtn" data-i18n="extract.back">← 뒤로</button>
         <div class="lang-toggle">
           <button class="lang-btn active" data-lang="ko">KO</button>
@@ -1739,6 +1789,12 @@
       <button class="main-tab" data-tab="themes" data-i18n="tabs.theme">테마</button>
       <button class="main-tab" data-tab="component" data-i18n="tabs.component">컴포넌트</button>
       <button class="main-tab" data-tab="images" data-i18n="tabs.image">이미지</button>
+    </div>
+
+    <!-- ── Global Selection Info Bar ── -->
+    <div class="global-sel-info hidden" id="selectionInfo">
+      <span class="sel-count" id="selCount"></span>
+      <div class="sel-names" id="selNames"></div>
     </div>
 
     <!-- ── Extract Panel ── -->
@@ -1950,25 +2006,6 @@
             </div>
           </div>
 
-          <!-- 추출 범위 -->
-          <div class="section-card">
-            <div class="section-label" data-i18n="extract.scope">추출 범위</div>
-            <div class="radio-group">
-              <label class="radio-item">
-                <input type="radio" name="scope" value="all" checked />
-                <span class="radio-label" data-i18n="extract.allPage">전체 페이지</span>
-              </label>
-              <label class="radio-item">
-                <input type="radio" name="scope" value="selection" />
-                <span class="radio-label" data-i18n="extract.selection">선택 레이어만</span>
-              </label>
-            </div>
-            <div class="selection-info hidden" id="selectionInfo">
-              <div class="sel-count" id="selCount">0개 선택됨</div>
-              <div class="sel-names" id="selNames"></div>
-            </div>
-          </div>
-
           <!-- 컬렉션 -->
           <div class="section-card" id="colSection">
             <div class="section-label" data-i18n="extract.collections">컬렉션</div>
@@ -2137,17 +2174,6 @@
       <div class="tab-body">
         <div class="section-card">
           <div class="section-label" data-i18n="icon.title">아이콘 SVG 추출</div>
-          <div style="display: flex; justify-content: center; margin-bottom: 12px">
-            <div class="icon-mode-toggle">
-              <button class="icon-mode-btn active" data-icon-mode="all" data-i18n="icon.allMode">
-                전체 추출
-              </button>
-              <button class="icon-mode-btn" data-icon-mode="selection" data-i18n="icon.selMode">
-                선택 추출
-              </button>
-            </div>
-          </div>
-
           <!-- 전체 추출 모드 -->
           <div id="iconModeAll">
             <div
