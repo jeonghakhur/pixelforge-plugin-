@@ -5,6 +5,7 @@ interface VariableData {
   valuesByMode: Record<string, unknown>;
   collectionId: string;
   usageCount: number;
+  source?: 'variable' | 'visual';
 }
 
 interface VariableCollectionData {
@@ -44,6 +45,12 @@ interface EffectStyleData {
   usageCount: number;
 }
 
+interface FontData {
+  family: string;
+  cssVar: string;
+  styles: string[];
+}
+
 interface IconData {
   id: string;
   name: string;
@@ -80,7 +87,19 @@ interface ExtractImagesOptions {
 interface ExtractOptions {
   collectionIds: string[];
   useSelection: boolean;
-  tokenTypes: Array<'variables' | 'colors' | 'texts' | 'effects' | 'spacing' | 'radius' | 'icons'>;
+  tokenTypes: Array<
+    | 'variables'
+    | 'colors'
+    | 'texts'
+    | 'textStyles'
+    | 'headings'
+    | 'fonts'
+    | 'effects'
+    | 'spacing'
+    | 'radius'
+    | 'icons'
+  >;
+  useVisualParser?: boolean;
 }
 
 interface ExtractedTokens {
@@ -93,6 +112,9 @@ interface ExtractedTokens {
   styles: {
     colors: ColorStyleData[];
     texts: TextStyleData[];
+    textStyles: TextStyleData[];
+    headings: TextStyleData[];
+    fonts: FontData[];
     effects: EffectStyleData[];
   };
   icons: IconData[];
@@ -206,6 +228,131 @@ function fontWeightFromStyle(style: string): number {
 
 const SPACING_RE = /\b(spacing|space|gap|padding|margin|gutter|inset|distance)\b/i;
 const RADIUS_RE = /\b(radius|corner|rounded|border.?radius)\b/i;
+const HEADING_RE = /\b(heading|display|title|h[1-6])\b/i;
+const VISUAL_VALUE_RE = /(\d+(?:\.\d+)?)\s*(px|rem)/i;
+
+interface VisualTokenRaw {
+  value: number;
+  rawText: string;
+  tokenName: string;
+}
+
+function findSpacingFrames(): (FrameNode | GroupNode | SectionNode)[] {
+  return figma.currentPage.findAll(
+    (n) =>
+      (n.type === 'FRAME' || n.type === 'GROUP' || n.type === 'SECTION') && SPACING_RE.test(n.name)
+  ) as (FrameNode | GroupNode | SectionNode)[];
+}
+
+function parseSpacingFromFrame(frame: FrameNode | GroupNode | SectionNode): VisualTokenRaw[] {
+  const results: VisualTokenRaw[] = [];
+
+  function traverse(node: SceneNode, depth: number): void {
+    if (depth > 3) return;
+    if (node.type === 'TEXT') {
+      const trimmed = node.characters.trim();
+      const tokenName = node.name !== node.characters ? node.name : trimmed;
+      if (trimmed === '0') {
+        results.push({ value: 0, rawText: '0', tokenName });
+      } else {
+        const match = VISUAL_VALUE_RE.exec(trimmed);
+        if (match) {
+          const numVal = parseFloat(match[1]);
+          const unit = match[2].toLowerCase();
+          const pxValue = unit === 'rem' ? Math.round(numVal * 16) : numVal;
+          results.push({ value: pxValue, rawText: trimmed, tokenName });
+        }
+      }
+    }
+    if ('children' in node) {
+      for (const child of (node as ChildrenMixin).children) {
+        traverse(child, depth + 1);
+      }
+    }
+  }
+
+  if ('children' in frame) {
+    for (const child of (frame as ChildrenMixin).children) {
+      traverse(child, 0);
+    }
+  }
+  return results;
+}
+
+function extractVisualSpacing(): VariableData[] {
+  try {
+    const frames = findSpacingFrames();
+    if (frames.length === 0) return [];
+
+    const rawTokens: VisualTokenRaw[] = [];
+    for (const frame of frames) {
+      rawTokens.push(...parseSpacingFromFrame(frame));
+    }
+
+    const seen = new Set<number>();
+    const deduped = rawTokens.filter((t) => {
+      if (seen.has(t.value)) return false;
+      seen.add(t.value);
+      return true;
+    });
+    deduped.sort((a, b) => a.value - b.value);
+
+    return deduped.map(
+      (t, i): VariableData => ({
+        id: `visual-spacing-${i}`,
+        name: t.tokenName === t.rawText ? `spacing-${i}` : t.tokenName,
+        resolvedType: 'FLOAT',
+        valuesByMode: { visual: t.value },
+        collectionId: 'visual',
+        usageCount: 0,
+        source: 'visual',
+      })
+    );
+  } catch (e) {
+    console.error('[visual-frame-parser] extractVisualSpacing failed:', e);
+    return [];
+  }
+}
+
+function mapTextStyle(s: TextStyle, styleUsage: Map<string, number>): TextStyleData {
+  return {
+    id: s.id,
+    name: s.name,
+    description: s.description,
+    fontName: s.fontName,
+    fontSize: s.fontSize,
+    fontWeight: (s as any).fontWeight ?? fontWeightFromStyle(s.fontName.style),
+    letterSpacing: s.letterSpacing,
+    lineHeight: s.lineHeight,
+    textCase: s.textCase,
+    textDecoration: s.textDecoration,
+    usageCount: styleUsage.get(s.id) ?? 0,
+  };
+}
+
+function collectFonts(textStyles: TextStyleData[]): FontData[] {
+  const familyMap = new Map<string, Set<string>>();
+  for (const s of textStyles) {
+    const family = s.fontName.family;
+    if (!family.trim()) continue;
+    if (!familyMap.has(family)) familyMap.set(family, new Set());
+    familyMap.get(family)!.add(s.fontName.style);
+  }
+  return Array.from(familyMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(
+      ([family, stylesSet]): FontData => ({
+        family,
+        cssVar:
+          '--font-' +
+          family
+            .toLowerCase()
+            .replace(/\s+/g, '-')
+            .replace(/[^a-z0-9-]/g, ''),
+        styles: Array.from(stylesSet).sort(),
+      })
+    );
+}
 
 function mapVariable(v: Variable, varUsage: Map<string, number>): VariableData {
   return {
@@ -236,13 +383,14 @@ interface NodeMeta {
   figmaFileId: string;
 }
 
-function getSelectionInfo() {
+async function getSelectionInfo() {
   const sel = figma.currentPage.selection;
   let meta: NodeMeta | null = null;
 
   if (sel.length > 0) {
     const node = sel[0];
-    const master = node.type === 'INSTANCE' ? (node as InstanceNode).mainComponent : null;
+    const master =
+      node.type === 'INSTANCE' ? await (node as InstanceNode).getMainComponentAsync() : null;
     meta = {
       nodeId: node.id,
       nodeName: node.name,
@@ -272,7 +420,7 @@ async function sendCollections() {
     type: 'init-data',
     collections,
     fileName: figma.root.name,
-    selection: getSelectionInfo(),
+    selection: await getSelectionInfo(),
   });
 
   // 마지막 아이콘 데이터 복원
@@ -312,7 +460,9 @@ async function extractAll(options: ExtractOptions): Promise<ExtractedTokens> {
   const types = options.tokenTypes;
 
   const needsVars = types.some((t) => ['variables', 'spacing', 'radius'].includes(t));
-  const needsStyles = types.some((t) => ['colors', 'texts', 'effects'].includes(t));
+  const needsStyles = types.some((t) =>
+    ['colors', 'texts', 'textStyles', 'headings', 'fonts', 'effects'].includes(t)
+  );
 
   // Pre-fetch
   const allVariables = needsVars ? await figma.variables.getLocalVariablesAsync() : [];
@@ -386,6 +536,10 @@ async function extractAll(options: ExtractOptions): Promise<ExtractedTokens> {
       })
       .map((v) => mapVariable(v, varUsage))
       .filter((v) => !isSelectionMode || v.usageCount > 0);
+
+    if (spacing.length === 0 && options.useVisualParser) {
+      spacing = extractVisualSpacing();
+    }
   }
 
   // Radius — FLOAT vars matching radius patterns
@@ -415,24 +569,34 @@ async function extractAll(options: ExtractOptions): Promise<ExtractedTokens> {
       .filter((s) => !isSelectionMode || s.usageCount > 0);
   }
 
-  // Text Styles
+  // Text Styles (backward compat)
   let texts: TextStyleData[] = [];
   if (types.includes('texts')) {
     texts = (await figma.getLocalTextStylesAsync())
-      .map((s) => ({
-        id: s.id,
-        name: s.name,
-        description: s.description,
-        fontName: s.fontName,
-        fontSize: s.fontSize,
-        fontWeight: (s as any).fontWeight ?? fontWeightFromStyle(s.fontName.style),
-        letterSpacing: s.letterSpacing,
-        lineHeight: s.lineHeight,
-        textCase: s.textCase,
-        textDecoration: s.textDecoration,
-        usageCount: styleUsage.get(s.id) ?? 0,
-      }))
+      .map((s) => mapTextStyle(s, styleUsage))
       .filter((s) => !isSelectionMode || s.usageCount > 0);
+  }
+
+  // Text Styles — split (textStyles / headings / fonts)
+  let textStyles: TextStyleData[] = [];
+  let headings: TextStyleData[] = [];
+  let fonts: FontData[] = [];
+
+  const needsTextSplit = types.some((t) => ['textStyles', 'headings', 'fonts'].includes(t));
+  if (needsTextSplit) {
+    const allTexts = (await figma.getLocalTextStylesAsync())
+      .map((s) => mapTextStyle(s, styleUsage))
+      .filter((s) => !isSelectionMode || s.usageCount > 0);
+
+    if (types.includes('textStyles')) {
+      textStyles = allTexts.filter((s) => !HEADING_RE.test(s.name));
+    }
+    if (types.includes('headings')) {
+      headings = allTexts.filter((s) => HEADING_RE.test(s.name));
+    }
+    if (types.includes('fonts')) {
+      fonts = collectFonts(allTexts);
+    }
   }
 
   // Effect Styles (shadows + blurs)
@@ -476,7 +640,7 @@ async function extractAll(options: ExtractOptions): Promise<ExtractedTokens> {
     variables: variableResult,
     spacing,
     radius,
-    styles: { colors, texts, effects },
+    styles: { colors, texts, textStyles, headings, fonts, effects },
     icons,
     meta: {
       figmaFileKey: figma.fileKey ?? '',
@@ -492,7 +656,9 @@ async function extractAll(options: ExtractOptions): Promise<ExtractedTokens> {
 sendCollections().catch((e) => figma.ui.postMessage({ type: 'extract-error', message: String(e) }));
 
 figma.on('selectionchange', () => {
-  figma.ui.postMessage({ type: 'selection-changed', selection: getSelectionInfo() });
+  getSelectionInfo().then((selection) => {
+    figma.ui.postMessage({ type: 'selection-changed', selection });
+  });
 });
 
 function inspectSelection() {
@@ -628,6 +794,53 @@ function figmaColorToHex(c: { r: number; g: number; b: number }): string {
       .join('')
       .toUpperCase()
   );
+}
+
+// ─── Component 생성 공유 유틸 ────────────────────────────────────────────────
+
+function toCssVarName(name: string): string {
+  return (
+    '--' +
+    name
+      .replace(/([a-z])([A-Z])/g, '$1-$2')
+      .replace(/\//g, '-')
+      .replace(/[^a-zA-Z0-9-]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '')
+      .toLowerCase()
+  );
+}
+
+/**
+ * 노드 트리를 순회하며 fillStyleId/strokeStyleId → PaintStyle.color를 colorMap에 추가.
+ * inspectSelection의 serializeNode 패턴을 참고: depth 제한 + 에러 격리
+ */
+async function scanNodeStyleIds(
+  n: SceneNode,
+  colorMap: Map<string, string>,
+  depth = 0
+): Promise<void> {
+  if (depth > 8) return;
+  try {
+    for (const prop of ['fillStyleId', 'strokeStyleId'] as const) {
+      const styleId = (n as any)[prop];
+      if (styleId && typeof styleId === 'string') {
+        const style = await figma.getStyleByIdAsync(styleId);
+        if (style?.type === 'PAINT') {
+          const paint = (style as PaintStyle).paints[0];
+          if (paint?.type === 'SOLID') {
+            const hex = figmaColorToHex((paint as SolidPaint).color);
+            if (!colorMap.has(hex)) colorMap.set(hex, toCssVarName(style.name));
+          }
+        }
+      }
+    }
+  } catch (_) {}
+  if ('children' in n) {
+    for (const child of (n as ChildrenMixin).children) {
+      await scanNodeStyleIds(child as SceneNode, colorMap, depth + 1);
+    }
+  }
 }
 
 function uint8ToBase64(bytes: Uint8Array): string {
@@ -887,11 +1100,20 @@ interface GenerateComponentResult {
 async function generateComponent(): Promise<GenerateComponentResult | null> {
   const sel = figma.currentPage.selection;
   if (sel.length === 0) return null;
-  const node = sel[0];
+  const node = sel[0] as SceneNode;
 
-  // Build color → CSS variable map
-  const allVars = await figma.variables.getLocalVariablesAsync();
+  // ── Step 1: INSTANCE master 먼저 해석 (텍스트 fallback에 사용) ──────────────
+  const master =
+    node.type === 'INSTANCE' ? await (node as InstanceNode).getMainComponentAsync() : null;
+
+  // ── Step 2: Color 맵 구축 ─────────────────────────────────────────────────
+  // colorMap: hex → CSS var (fill 색상 역방향 조회)
+  // varIdMap: Variable ID → CSS var (boundVariables 직접 해석)
   const colorMap = new Map<string, string>();
+  const varIdMap = new Map<string, string>();
+
+  // 2-a. Local Variables
+  const allVars = await figma.variables.getLocalVariablesAsync();
   for (const v of allVars) {
     if (v.resolvedType !== 'COLOR') continue;
     const firstMode = Object.keys(v.valuesByMode)[0];
@@ -899,40 +1121,93 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
     const val = v.valuesByMode[firstMode];
     if (val && typeof val === 'object' && 'r' in (val as unknown as Record<string, unknown>)) {
       const hex = figmaColorToHex(val as { r: number; g: number; b: number });
-      if (!colorMap.has(hex)) {
-        const cssName =
-          '--' +
-          v.name
-            .replace(/([a-z])([A-Z])/g, '$1-$2')
-            .replace(/\//g, '-')
-            .replace(/[^a-zA-Z0-9-]/g, '-')
-            .replace(/-+/g, '-')
-            .replace(/^-|-$/g, '')
-            .toLowerCase();
-        colorMap.set(hex, cssName);
-      }
+      const cssName = toCssVarName(v.name);
+      if (!colorMap.has(hex)) colorMap.set(hex, cssName);
+      varIdMap.set(v.id, cssName);
     }
   }
 
+  // 2-b. Color Styles
+  const paintStyles = await figma.getLocalPaintStylesAsync();
+  for (const style of paintStyles) {
+    const paint = (style.paints as ReadonlyArray<Paint>)[0];
+    if (paint?.type === 'SOLID') {
+      const hex = figmaColorToHex((paint as SolidPaint).color);
+      if (!colorMap.has(hex)) colorMap.set(hex, toCssVarName(style.name));
+    }
+  }
+
+  // 2-c. 노드 트리 내 fillStyleId/strokeStyleId 스캔 (inspectSelection 패턴 참고)
+  await scanNodeStyleIds(node, colorMap);
+
+  // ── Step 3: 색상 해석 헬퍼 ───────────────────────────────────────────────
   function resolveColor(c: { r: number; g: number; b: number }): string {
     const hex = figmaColorToHex(c);
-    const varName = colorMap.get(hex);
-    return varName ? 'var(' + varName + ')' : hex.toLowerCase();
+    return colorMap.has(hex) ? 'var(' + colorMap.get(hex) + ')' : hex.toLowerCase();
   }
 
-  function getNodeStyles(n: SceneNode): Record<string, string> {
-    const s: Record<string, string> = {};
-    if ('fills' in n) {
-      const fills = (n as any).fills;
-      if (Array.isArray(fills)) {
-        const solid = fills.find((f: any) => f.type === 'SOLID' && f.visible !== false);
-        if (solid) s['background-color'] = resolveColor(solid.color);
+  // boundVariables에서 CSS var 이름 직접 추출
+  function resolveBoundColor(n: SceneNode, prop: 'fills' | 'strokes'): string | null {
+    try {
+      const bv = (n as any).boundVariables;
+      if (!bv) return null;
+      const binding = Array.isArray(bv[prop]) ? bv[prop][0] : bv[prop];
+      if (binding?.id && varIdMap.has(binding.id)) {
+        return 'var(' + varIdMap.get(binding.id) + ')';
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  // ── Step 4: INSTANCE 텍스트 fallback 맵 구축 ─────────────────────────────
+  // inspectSelection의 serializeNode 패턴:
+  // INSTANCE 내 TEXT.characters가 빈 경우 master component 위치 기반으로 보완
+  const masterTextMap = new Map<string, string>();
+  if (master) {
+    function collectMasterTexts(n: SceneNode): void {
+      if (n.type === 'TEXT') {
+        const chars = ((n as any).characters ?? '').trim();
+        if (chars) masterTextMap.set(Math.round(n.x) + ',' + Math.round(n.y), chars);
+      } else if ('children' in n) {
+        (n as ChildrenMixin).children.forEach((c) => collectMasterTexts(c as SceneNode));
       }
     }
+    collectMasterTexts(master as unknown as SceneNode);
+  }
+
+  // TEXT 노드에서 안전하게 텍스트 추출 (optional chaining + master fallback)
+  function safeGetText(n: SceneNode): string {
+    const chars = ((n as any).characters ?? '').trim();
+    if (chars) return chars;
+    if (masterTextMap.size > 0) {
+      return (masterTextMap.get(Math.round(n.x) + ',' + Math.round(n.y)) ?? '').trim();
+    }
+    return '';
+  }
+
+  // ── Step 5: 노드 → CSS 스타일 변환 ──────────────────────────────────────
+  function getNodeStyles(n: SceneNode): Record<string, string> {
+    const s: Record<string, string> = {};
+
+    // fill: boundVariables 우선 → colorMap → raw hex
+    if ('fills' in n) {
+      const bound = resolveBoundColor(n, 'fills');
+      if (bound) {
+        s['background-color'] = bound;
+      } else {
+        const fills = (n as any).fills;
+        if (Array.isArray(fills)) {
+          const solid = fills.find((f: any) => f.type === 'SOLID' && f.visible !== false);
+          if (solid) s['background-color'] = resolveColor(solid.color);
+        }
+      }
+    }
+
     if ('cornerRadius' in n) {
       const cr = (n as any).cornerRadius;
-      if (typeof cr === 'number' && cr > 0) s['border-radius'] = cr + 'px';
+      if (typeof cr === 'number' && cr > 0) s['border-radius'] = Math.round(cr) + 'px';
     }
+
     if ('layoutMode' in n) {
       const f = n as FrameNode;
       if (f.layoutMode === 'HORIZONTAL') {
@@ -950,84 +1225,109 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
         s['padding'] = pt + 'px ' + pr + 'px ' + pb + 'px ' + pl + 'px';
       }
     }
-    // Stroke → border
+
+    // stroke: boundVariables 우선
     if ('strokes' in n) {
-      const strokes = (n as any).strokes;
-      if (Array.isArray(strokes)) {
-        const solid = strokes.find((f: any) => f.type === 'SOLID' && f.visible !== false);
-        if (solid) {
-          const strokeWeight = 'strokeWeight' in n ? (n as any).strokeWeight : 1;
-          s['border'] = strokeWeight + 'px solid ' + resolveColor(solid.color);
+      const bound = resolveBoundColor(n, 'strokes');
+      const strokeWeight = 'strokeWeight' in n ? Math.round((n as any).strokeWeight) || 1 : 1;
+      if (bound) {
+        s['border'] = strokeWeight + 'px solid ' + bound;
+      } else {
+        const strokes = (n as any).strokes;
+        if (Array.isArray(strokes)) {
+          const solid = strokes.find((f: any) => f.type === 'SOLID' && f.visible !== false);
+          if (solid) s['border'] = strokeWeight + 'px solid ' + resolveColor(solid.color);
         }
       }
     }
-    // Opacity
+
     if ('opacity' in n) {
       const op = (n as any).opacity;
       if (typeof op === 'number' && op < 1) {
         s['opacity'] = String(Math.round(op * 100) / 100);
       }
     }
-    if ('width' in n && 'height' in n) {
-      s['width'] = Math.round(n.width) + 'px';
-      s['height'] = Math.round(n.height) + 'px';
-    }
+
     return s;
   }
 
+  // ── Step 6: HTML / JSX 변환 (에러 격리 + 안전한 텍스트) ──────────────────
   function nodeToHtml(n: SceneNode, indent: number): string {
-    const pad = '  '.repeat(indent);
-    if (n.type === 'TEXT') {
-      const text = (n as TextNode).characters
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
-      return pad + '<span>' + text + '</span>';
+    try {
+      const pad = '  '.repeat(indent);
+      if (n.type === 'TEXT') {
+        const text = safeGetText(n);
+        if (!text) return '';
+        return (
+          pad +
+          '<span>' +
+          text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') +
+          '</span>'
+        );
+      }
+      const styles = getNodeStyles(n);
+      const entries = Object.entries(styles);
+      const styleAttr =
+        entries.length > 0
+          ? ' style="' + entries.map(([k, v]) => k + ': ' + v).join('; ') + '"'
+          : '';
+      if ('children' in n && (n as ChildrenMixin).children.length > 0) {
+        const kids = (n as ChildrenMixin).children
+          .filter((c) => (c as SceneNode).visible !== false)
+          .map((c) => nodeToHtml(c as SceneNode, indent + 1))
+          .filter(Boolean)
+          .join('\n');
+        if (!kids) return pad + '<div' + styleAttr + '></div>';
+        return pad + '<div' + styleAttr + '>\n' + kids + '\n' + pad + '</div>';
+      }
+      return pad + '<div' + styleAttr + '></div>';
+    } catch (_) {
+      return '';
     }
-    const styles = getNodeStyles(n);
-    const entries = Object.entries(styles);
-    const styleAttr =
-      entries.length > 0 ? ' style="' + entries.map(([k, v]) => k + ': ' + v).join('; ') + '"' : '';
-    if ('children' in n && (n as ChildrenMixin).children.length > 0) {
-      const kids = (n as ChildrenMixin).children
-        .filter((c) => (c as SceneNode).visible !== false)
-        .map((c) => nodeToHtml(c as SceneNode, indent + 1))
-        .join('\n');
-      return pad + '<div' + styleAttr + '>\n' + kids + '\n' + pad + '</div>';
-    }
-    return pad + '<div' + styleAttr + '></div>';
   }
 
   function nodeToJsx(n: SceneNode, indent: number): string {
-    const pad = '  '.repeat(indent);
-    if (n.type === 'TEXT') {
-      const text = (n as TextNode).characters;
-      return pad + '<span>' + text + '</span>';
+    try {
+      const pad = '  '.repeat(indent);
+      if (n.type === 'TEXT') {
+        const text = safeGetText(n);
+        if (!text) return '';
+        return pad + '<span>' + text.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+      }
+      const styles = getNodeStyles(n);
+      const entries = Object.entries(styles);
+      let styleAttr = '';
+      if (entries.length > 0) {
+        const obj = entries
+          .map(([k, v]) => {
+            const camelKey = k.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
+            return camelKey + ": '" + v + "'";
+          })
+          .join(', ');
+        styleAttr = ' style={{' + obj + '}}';
+      }
+      if ('children' in n && (n as ChildrenMixin).children.length > 0) {
+        const kids = (n as ChildrenMixin).children
+          .filter((c) => (c as SceneNode).visible !== false)
+          .map((c) => nodeToJsx(c as SceneNode, indent + 1))
+          .filter(Boolean)
+          .join('\n');
+        if (!kids) return pad + '<div' + styleAttr + ' />';
+        return pad + '<div' + styleAttr + '>\n' + kids + '\n' + pad + '</div>';
+      }
+      return pad + '<div' + styleAttr + ' />';
+    } catch (_) {
+      return '';
     }
-    const styles = getNodeStyles(n);
-    const entries = Object.entries(styles);
-    let styleAttr = '';
-    if (entries.length > 0) {
-      const obj = entries
-        .map(([k, v]) => {
-          const camelKey = k.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
-          return camelKey + ": '" + v + "'";
-        })
-        .join(', ');
-      styleAttr = ' style={{' + obj + '}}';
-    }
-    if ('children' in n && (n as ChildrenMixin).children.length > 0) {
-      const kids = (n as ChildrenMixin).children
-        .filter((c) => (c as SceneNode).visible !== false)
-        .map((c) => nodeToJsx(c as SceneNode, indent + 1))
-        .join('\n');
-      return pad + '<div' + styleAttr + '>\n' + kids + '\n' + pad + '</div>';
-    }
-    return pad + '<div' + styleAttr + ' />';
   }
 
+  // ── Step 7: 컴포넌트 타입 자동 감지 ──────────────────────────────────────
   function detectComponentType(n: SceneNode): ComponentType {
-    const name = n.name.toLowerCase();
+    const name = n.name
+      .toLowerCase()
+      .split('/')
+      .map((s) => s.trim())
+      .join(' ');
     const patterns: Array<[string[], ComponentType]> = [
       [['dialog', 'modal', 'confirm', 'alert', 'popup'], 'dialog'],
       [['button', 'btn', 'cta', 'action'], 'button'],
@@ -1046,28 +1346,26 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
     const children = (n as ChildrenMixin).children as SceneNode[];
     const textNodes = children.filter((c) => c.type === 'TEXT');
     const frameNodes = children.filter((c) => c.type === 'FRAME' || c.type === 'RECTANGLE');
-    // button: 1~2 children, 1 text, has solid fill
     if (children.length <= 2 && textNodes.length === 1 && 'fills' in n) {
       const fills = (n as any).fills;
       if (Array.isArray(fills) && fills.some((f: any) => f.type === 'SOLID')) return 'button';
     }
-    // tabs: horizontal layout with 2+ frame children
     if ('layoutMode' in n && (n as FrameNode).layoutMode === 'HORIZONTAL' && frameNodes.length >= 2)
       return 'tabs';
-    // checkbox: small rect (≤24px) + text
     const smallRect = frameNodes.find((f) => f.width <= 24 && f.height <= 24);
     if (smallRect && textNodes.length >= 1) return 'checkbox';
-    // dialog: has overlay-like child (wide or semi-transparent)
     const hasOverlay = frameNodes.some((f) => f.width > n.width * 0.8 || (f as any).opacity < 0.5);
     if (hasOverlay) return 'dialog';
     return 'layout';
   }
 
+  // ── Step 8: 텍스트 추출 (safe access + master fallback) ──────────────────
   function extractTexts(n: SceneNode): ExtractedTexts {
     const collected: Array<{ text: string; y: number; x: number }> = [];
-    function collect(node: SceneNode) {
+    function collect(node: SceneNode): void {
       if (node.type === 'TEXT') {
-        collected.push({ text: (node as TextNode).characters, y: node.y, x: node.x });
+        const text = safeGetText(node);
+        if (text) collected.push({ text, y: node.y, x: node.x });
       } else if ('children' in node) {
         (node as ChildrenMixin).children.forEach((c) => collect(c as SceneNode));
       }
@@ -1084,6 +1382,7 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
     return { title: all[0] || '', description: all[1] || '', actions, all };
   }
 
+  // ── Step 9: 자식 스타일 수집 ─────────────────────────────────────────────
   function getChildStyles(n: SceneNode): Record<string, Record<string, string>> {
     const result: Record<string, Record<string, string>> = {};
     if (!('children' in n)) return result;
@@ -1094,7 +1393,12 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
     return result;
   }
 
-  const master = node.type === 'INSTANCE' ? (node as InstanceNode).mainComponent : null;
+  // ── Step 10: 결과 조립 ───────────────────────────────────────────────────
+  const rootStyles = getNodeStyles(node);
+  if ('width' in node && 'height' in node) {
+    rootStyles['width'] = Math.round(node.width) + 'px';
+    rootStyles['height'] = Math.round(node.height) + 'px';
+  }
 
   return {
     name: node.name,
@@ -1106,7 +1410,7 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
       masterName: master?.name ?? null,
       figmaFileId: figma.root.id,
     } as NodeMeta,
-    styles: getNodeStyles(node),
+    styles: rootStyles,
     html: nodeToHtml(node, 0),
     jsx: nodeToJsx(node, 0),
     detectedType: detectComponentType(node),
@@ -1136,7 +1440,7 @@ figma.ui.onmessage = (msg: {
     const options: ExtractOptions = msg.options ?? {
       collectionIds: [],
       useSelection: false,
-      tokenTypes: ['variables', 'spacing', 'radius', 'colors', 'texts', 'effects', 'icons'],
+      tokenTypes: ['variables', 'spacing', 'radius', 'colors', 'texts', 'effects'],
     };
     extractAll(options)
       .then(async (data) => {

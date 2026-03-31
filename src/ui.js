@@ -4,7 +4,7 @@ import JSZip from 'jszip';
 import { escapeHtml } from './converters/utils.js';
 import { buildVarMap, convertVariables, convertFlatVars } from './converters/variables.js';
 import { convertColorStyles } from './converters/color-styles.js';
-import { convertTextStyles } from './converters/typography.js';
+import { convertTextStyles, convertFonts } from './converters/typography.js';
 import { convertEffectStyles } from './converters/effects.js';
 import { highlightCSS } from './converters/highlight.js';
 
@@ -56,6 +56,10 @@ var i18n = {
       filterCacheTitle: '이전 추출 결과',
       filterCacheView: '결과 보기',
       filterCacheDelete: '삭제',
+      visualParserLabel: '시각 프레임 파싱 (Variables 없는 파일용)',
+      textStylesCard: '본문 스타일',
+      headingsCard: '헤딩',
+      fontsCard: '폰트',
     },
     icon: {
       title: '아이콘 SVG 추출',
@@ -86,7 +90,6 @@ var i18n = {
       cssVarPlaceholder: '--icon-color',
       detailSvg: 'SVG',
       detailReact: 'React',
-      detailCss: 'CSS',
       detailCopy: '복사',
       detailCopied: '복사됨',
       filterCount: '/{total}개',
@@ -217,6 +220,10 @@ var i18n = {
       filterCacheTitle: 'Previous Extraction',
       filterCacheView: 'View Results',
       filterCacheDelete: 'Delete',
+      visualParserLabel: 'Visual frame parsing (for pre-Variables files)',
+      textStylesCard: 'Text Styles',
+      headingsCard: 'Headings',
+      fontsCard: 'Fonts',
     },
     icon: {
       title: 'Icon SVG Export',
@@ -247,7 +254,6 @@ var i18n = {
       cssVarPlaceholder: '--icon-color',
       detailSvg: 'SVG',
       detailReact: 'React',
-      detailCss: 'CSS',
       detailCopy: 'Copy',
       detailCopied: 'Copied',
       filterCount: '/{total}',
@@ -551,10 +557,12 @@ extractBtn.addEventListener('click', function () {
     return;
   }
   showView('loading');
+  var useVisualParser = $('useVisualParserToggle') ? $('useVisualParserToggle').checked : false;
   var options = {
     collectionIds: getSelectedCollectionIds(),
     useSelection: getScope() === 'selection',
     tokenTypes: types,
+    useVisualParser: useVisualParser,
   };
   parent.postMessage({ pluginMessage: { type: 'extract', options: options } }, '*');
 });
@@ -671,6 +679,15 @@ function generateCSS(data, unit, types) {
   if (all || types.has('texts')) {
     body += convertTextStyles(data.styles ? data.styles.texts : [], unit);
   }
+  if (all || types.has('textStyles')) {
+    body += convertTextStyles(data.styles ? data.styles.textStyles || [] : [], unit);
+  }
+  if (all || types.has('headings')) {
+    body += convertTextStyles(data.styles ? data.styles.headings || [] : [], unit);
+  }
+  if (all || types.has('fonts')) {
+    body += convertFonts(data.styles ? data.styles.fonts || [] : []);
+  }
 
   return header + body;
 }
@@ -688,6 +705,9 @@ function getFilteredData() {
     styles: {
       colors: types.has('colors') ? (d.styles ? d.styles.colors : []) : [],
       texts: types.has('texts') ? (d.styles ? d.styles.texts : []) : [],
+      textStyles: types.has('textStyles') ? (d.styles ? d.styles.textStyles || [] : []) : [],
+      headings: types.has('headings') ? (d.styles ? d.styles.headings || [] : []) : [],
+      fonts: types.has('fonts') ? (d.styles ? d.styles.fonts || [] : []) : [],
       effects: types.has('effects') ? (d.styles ? d.styles.effects : []) : [],
     },
     icons: types.has('icons') ? d.icons : [],
@@ -814,7 +834,9 @@ function renderResult(data) {
   var spacingCount = spacing ? spacing.length : 0;
   var radiusCount = radius ? radius.length : 0;
   var colorCount = styles ? styles.colors.length : 0;
-  var textCount = styles ? styles.texts.length : 0;
+  var textStylesCount = styles ? (styles.textStyles || []).length : 0;
+  var headingsCount = styles ? (styles.headings || []).length : 0;
+  var fontsCount = styles ? (styles.fonts || []).length : 0;
   var effectCount = styles ? styles.effects.length : 0;
   var iconCount = icons ? icons.length : 0;
 
@@ -822,18 +844,19 @@ function renderResult(data) {
   $('statSpacingNum').textContent = spacingCount;
   $('statRadiusNum').textContent = radiusCount;
   $('statColorNum').textContent = colorCount;
-  $('statTextNum').textContent = textCount;
+  $('statTextStylesNum').textContent = textStylesCount;
+  $('statHeadingsNum').textContent = headingsCount;
+  $('statFontsNum').textContent = fontsCount;
   $('statEffectNum').textContent = effectCount;
-  $('statIconsNum').textContent = iconCount;
-
   [
     ['statVar', varCount],
     ['statSpacing', spacingCount],
     ['statRadius', radiusCount],
     ['statColor', colorCount],
-    ['statText', textCount],
+    ['statTextStyles', textStylesCount],
+    ['statHeadings', headingsCount],
+    ['statFonts', fontsCount],
     ['statEffect', effectCount],
-    ['statIcons', iconCount],
   ].forEach(function (p) {
     $(p[0]).classList.toggle('inactive', p[1] === 0);
   });
@@ -851,7 +874,9 @@ function renderResult(data) {
     spacing: spacingCount,
     radius: radiusCount,
     colors: colorCount,
-    texts: textCount,
+    textStyles: textStylesCount,
+    headings: headingsCount,
+    fonts: fontsCount,
     effects: effectCount,
     icons: iconCount,
   };
@@ -1333,11 +1358,11 @@ function prepareSvg(processedSvg, classNames) {
     })
     .join(' ');
   var jsxProps = [
-    'width={16}',
-    'height={16}',
-    'className={[' +
+    'width={typeof size === "number" ? size : 16}',
+    'height={typeof size === "number" ? size : 16}',
+    'className={["icon", ' +
       JSON.stringify(baseCls) +
-      ', size && "size-" + size, className].filter(Boolean).join(" ")}',
+      ', typeof size === "string" && "size-" + size, className].filter(Boolean).join(" ")}',
     'style={color ? { color } : undefined}',
     '{...props}',
   ].concat(xmlAttrs);
@@ -1382,13 +1407,14 @@ function prepareSvg(processedSvg, classNames) {
 // iconSizes: []                   → size?: string (fallback)
 function buildReactBody(name, baseCls, variantClasses, formattedSvg, iconSizes, trailingNewline) {
   var sizeType =
-    iconSizes && iconSizes.length > 0
+    'number | ' +
+    (iconSizes && iconSizes.length > 0
       ? iconSizes
           .map(function (s) {
             return '"' + s + '"';
           })
           .join(' | ')
-      : 'string';
+      : 'string');
   var indentedSvg = formattedSvg
     .split('\n')
     .map(function (l) {
@@ -1528,13 +1554,14 @@ function buildIconRegistryFile(icons, iconSizes) {
     .join(' | ');
 
   var iconSizeType =
-    iconSizes && iconSizes.length > 0
+    'number | ' +
+    (iconSizes && iconSizes.length > 0
       ? iconSizes
           .map(function (s) {
             return '"' + s + '"';
           })
           .join(' | ')
-      : 'string';
+      : 'string');
 
   // 하이픈 포함 키는 반드시 따옴표로 감쌈
   var mapEntries = uniq
@@ -1555,7 +1582,7 @@ function buildIconRegistryFile(icons, iconSizes) {
     ';\n\n' +
     'interface IconProps extends Omit<SVGProps<SVGSVGElement>, "color"> {\n' +
     '  name: IconName;\n' +
-    '  size?: IconSize;\n' +
+    '  size?: number | IconSize;\n' +
     '  color?: string;\n' +
     '}\n\n' +
     'const ICON_MAP: Record<IconName, ComponentType<Omit<IconProps, "name">>> = {\n' +
@@ -1767,35 +1794,6 @@ async function downloadReactZip(icons) {
 }
 
 // ── CSS 코드 생성 ──
-function buildCssOutput(icon, mode, value) {
-  var cls = '.' + icon.kebab;
-  if (mode === 'currentColor') {
-    return (
-      '/* currentColor — 부모 color 속성 상속 */\n' +
-      ':root {\n  --color-icon: #1e293b; /* light */\n}\n' +
-      '[data-theme="dark"] {\n  --color-icon: #f1f5f9; /* dark */\n}\n' +
-      '@media (prefers-color-scheme: dark) {\n  :root { --color-icon: #f1f5f9; }\n}\n\n' +
-      cls +
-      ' {\n  color: var(--color-icon);\n}'
-    );
-  }
-  if (mode === 'cssVar') {
-    return (
-      '/* CSS 변수 모드 */\n' +
-      ':root {\n  ' +
-      value +
-      ': #1e293b; /* light */\n}\n' +
-      '[data-theme="dark"] {\n  ' +
-      value +
-      ': #f1f5f9; /* dark */\n}\n' +
-      '@media (prefers-color-scheme: dark) {\n  :root { ' +
-      value +
-      ': #f1f5f9; }\n}'
-    );
-  }
-  return '/* 커스텀 색상 */\n' + cls + ' {\n  color: ' + value + ';\n}';
-}
-
 // ── 검색 필터 ──
 function filterIcons(query) {
   iconSearchQuery = query.trim().toLowerCase();
@@ -1875,14 +1873,7 @@ function updateDetailCode() {
   if (!icon) return;
 
   var processed = replaceSvgColor(cleanSvg(icon.svg), iconColorMode, iconColorValue);
-  var code;
-  if (iconDetailTab === 'svg') {
-    code = processed;
-  } else if (iconDetailTab === 'react') {
-    code = buildReactComponent(icon, processed);
-  } else {
-    code = buildCssOutput(icon, iconColorMode, iconColorValue);
-  }
+  var code = iconDetailTab === 'react' ? buildReactComponent(icon, processed) : processed;
   $('iconDetailCode').textContent = code;
 
   // 썸네일 색상 반영 (custom 모드)
@@ -1908,7 +1899,7 @@ function selectIcon(idx) {
   renderIconGrid();
   $('iconDetailName').textContent = icon.name;
   var thumb = $('iconDetailThumb');
-  thumb.innerHTML = cleanSvg(icon.svg);
+  thumb.innerHTML = replaceSvgColor(cleanSvg(icon.svg), 'currentColor', 'currentColor');
   thumb.style.color = '';
   $('iconDetailBackdrop').classList.remove('hidden');
   iconDetailTab = 'svg';
@@ -2556,12 +2547,6 @@ function renderMatrix() {
     if (ratio >= 3) return 'matrix-aa-large';
     return 'matrix-fail';
   }
-  function getLevel(ratio) {
-    if (ratio >= 7) return 'AAA';
-    if (ratio >= 4.5) return 'AA';
-    if (ratio >= 3) return 'AA Large';
-    return 'FAIL';
-  }
   function levelChecks(ratio) {
     var aaa = ratio >= 7 ? '✓' : '✗';
     var aa = ratio >= 4.5 ? '✓' : '✗';
@@ -2911,38 +2896,6 @@ function compToPascalCase(str) {
     .replace(/^(.)/, function (c) {
       return c.toUpperCase();
     });
-}
-function wrapJsxWithCSSModules(name, jsxBody, useTs) {
-  var pt = useTs ? 'interface ' + name + 'Props {\n  children?: React.ReactNode;\n}\n\n' : '';
-  var p = useTs ? '{ children }: ' + name + 'Props' : '{ children }';
-  return (
-    "import styles from './" +
-    name +
-    ".module.css';\n\n" +
-    pt +
-    'export const ' +
-    name +
-    ' = (' +
-    p +
-    ') => (\n' +
-    jsxBody +
-    '\n);'
-  );
-}
-function wrapJsxWithStyled(name, jsxBody, useTs) {
-  var pt = useTs ? 'interface ' + name + 'Props {\n  children?: React.ReactNode;\n}\n\n' : '';
-  var p = useTs ? '{ children }: ' + name + 'Props' : '{ children }';
-  return (
-    "import styled from 'styled-components';\n\n" +
-    pt +
-    'export const ' +
-    name +
-    ' = (' +
-    p +
-    ') => (\n' +
-    jsxBody +
-    '\n);'
-  );
 }
 // ─── Radix UI 코드 생성 함수 (shadcn/ui 컨셉) ───────────────────────────────
 
@@ -3294,6 +3247,30 @@ function buildRadixCSS(d) {
   if (type === 'switch') {
     return ".root {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n}\n\n.switch {\n  width: 42px;\n  height: 24px;\n  border-radius: 12px;\n  background: var(--border);\n  position: relative;\n  cursor: pointer;\n  border: none;\n}\n\n.switch[data-state='checked'] {\n  background: var(--color-primary, #2d7ff9);\n}\n\n.thumb {\n  display: block;\n  width: 18px;\n  height: 18px;\n  border-radius: 50%;\n  background: #fff;\n  position: absolute;\n  top: 3px;\n  left: 3px;\n  transition: transform 150ms;\n}\n\n.thumb[data-state='checked'] {\n  transform: translateX(18px);\n}";
   }
+  if (type === 'select') {
+    return (
+      '.trigger {\n' +
+      rootCss +
+      '\n  display: inline-flex;\n  align-items: center;\n  justify-content: space-between;\n  padding: 8px 12px;\n  gap: 8px;\n  cursor: pointer;\n}\n\n.content {\n  background: var(--color-surface, #fff);\n  border: 1px solid var(--border);\n  border-radius: 6px;\n  padding: 4px;\n  box-shadow: 0 4px 12px rgba(0,0,0,0.15);\n}\n\n.item {\n  padding: 8px 12px;\n  cursor: pointer;\n  border-radius: 4px;\n}\n\n.item[data-highlighted] {\n  background: var(--color-primary-light);\n  outline: none;\n}'
+    );
+  }
+  if (type === 'tooltip') {
+    return '.content {\n  background: #1a1a1a;\n  color: #fff;\n  padding: 6px 10px;\n  border-radius: 4px;\n  font-size: 12px;\n  animation: fadeIn 150ms ease;\n}\n\n@keyframes fadeIn {\n  from { opacity: 0; transform: translateY(2px); }\n  to   { opacity: 1; transform: translateY(0); }\n}';
+  }
+  if (type === 'accordion') {
+    return (
+      '.root {\n' +
+      rootCss +
+      "\n}\n\n.item {\n  border-bottom: 1px solid var(--border);\n}\n\n.trigger {\n  width: 100%;\n  padding: 16px;\n  background: none;\n  border: none;\n  text-align: left;\n  cursor: pointer;\n  font-size: 14px;\n  font-weight: 500;\n  display: flex;\n  justify-content: space-between;\n}\n\n.trigger[data-state='open'] {\n  color: var(--color-primary, #2d7ff9);\n}\n\n.content {\n  padding: 0 16px 16px;\n  font-size: 14px;\n  color: var(--text-secondary);\n}"
+    );
+  }
+  if (type === 'popover') {
+    return (
+      '.content {\n' +
+      rootCss +
+      '\n  border-radius: 8px;\n  box-shadow: 0 4px 16px rgba(0,0,0,0.15);\n  padding: 16px;\n}\n\n.closeBtn {\n  position: absolute;\n  top: 8px;\n  right: 8px;\n  background: none;\n  border: none;\n  cursor: pointer;\n  font-size: 16px;\n}'
+    );
+  }
   return '.root {\n' + rootCss + '\n}';
 }
 function buildRadixStyled(d, name, useTs) {
@@ -3350,6 +3327,188 @@ function buildRadixStyled(d, name, useTs) {
       "'}\n  </StyledButton>\n);"
     );
   }
+  if (type === 'tabs') {
+    var labels =
+      d.texts && d.texts.all
+        ? d.texts.all.filter(function (t) {
+            return t.length < 30;
+          })
+        : [];
+    if (labels.length < 2) labels = ['Tab 1', 'Tab 2'];
+    var triggers = labels
+      .map(function (l, i) {
+        return '      <Tabs.Trigger value="tab' + (i + 1) + '">' + l + '</Tabs.Trigger>';
+      })
+      .join('\n');
+    var contents = labels
+      .map(function (l, i) {
+        return (
+          '    <Tabs.Content value="tab' +
+          (i + 1) +
+          '">\n      {/* ' +
+          l +
+          ' 내용 */}\n    </Tabs.Content>'
+        );
+      })
+      .join('\n');
+    var ptTabs = useTs ? 'interface ' + name + 'Props {\n  defaultValue?: string;\n}\n\n' : '';
+    var pTabs = useTs
+      ? "{ defaultValue = '" + labels[0] + "' }: " + name + 'Props'
+      : "{ defaultValue = '" + labels[0] + "' }";
+    return (
+      "import * as Tabs from '@radix-ui/react-tabs';\nimport styled from 'styled-components';\n\nconst Root = styled(Tabs.Root)`\n" +
+      stylesToCSSProps(d.styles) +
+      '\n`;\nconst List = styled(Tabs.List)`\n  display: flex;\n  border-bottom: 1px solid var(--border);\n`;\nconst Trigger = styled(Tabs.Trigger)`\n  padding: 8px 16px; background: none; border: none;\n  border-bottom: 2px solid transparent; cursor: pointer;\n  &[data-state="active"] { border-bottom-color: var(--color-primary, #2d7ff9); font-weight: 600; }\n`;\nconst Content = styled(Tabs.Content)`\n  padding: 16px 0;\n`;\n\n' +
+      ptTabs +
+      'export const ' +
+      name +
+      ' = (' +
+      pTabs +
+      ') => (\n  <Root defaultValue={defaultValue}>\n    <List>\n' +
+      triggers +
+      '\n    </List>\n' +
+      contents +
+      '\n  </Root>\n);'
+    );
+  }
+  if (type === 'checkbox') {
+    var labelCb = (d.texts && d.texts.title) || name;
+    var ptCb = useTs
+      ? 'interface ' +
+        name +
+        'Props {\n  checked?: boolean;\n  onCheckedChange?: (checked: boolean) => void;\n}\n\n'
+      : '';
+    var pCb = useTs
+      ? '{ checked, onCheckedChange }: ' + name + 'Props'
+      : '{ checked, onCheckedChange }';
+    return (
+      "import * as Checkbox from '@radix-ui/react-checkbox';\nimport styled from 'styled-components';\n\nconst Root = styled.div`\n  display: flex; align-items: center; gap: 8px; cursor: pointer;\n`;\nconst StyledCheckbox = styled(Checkbox.Root)`\n  width: 18px; height: 18px; border: 2px solid var(--border);\n  border-radius: 3px; background: var(--color-surface);\n  &[data-state=\"checked\"] { background: var(--color-primary, #2d7ff9); border-color: var(--color-primary, #2d7ff9); }\n`;\nconst Indicator = styled(Checkbox.Indicator)`\n  display: flex; align-items: center; justify-content: center; color: #fff;\n`;\n\n" +
+      ptCb +
+      'export const ' +
+      name +
+      ' = (' +
+      pCb +
+      ') => (\n  <Root>\n    <StyledCheckbox checked={checked} onCheckedChange={onCheckedChange}>\n      <Indicator>✓</Indicator>\n    </StyledCheckbox>\n    <label>' +
+      labelCb +
+      '</label>\n  </Root>\n);'
+    );
+  }
+  if (type === 'switch') {
+    var labelSw = (d.texts && d.texts.title) || name;
+    var ptSw = useTs
+      ? 'interface ' +
+        name +
+        'Props {\n  checked?: boolean;\n  onCheckedChange?: (checked: boolean) => void;\n}\n\n'
+      : '';
+    var pSw = useTs
+      ? '{ checked, onCheckedChange }: ' + name + 'Props'
+      : '{ checked, onCheckedChange }';
+    return (
+      'import * as Switch from \'@radix-ui/react-switch\';\nimport styled from \'styled-components\';\n\nconst Root = styled.div`\n  display: flex; align-items: center; gap: 8px;\n`;\nconst StyledSwitch = styled(Switch.Root)`\n  width: 42px; height: 24px; border-radius: 12px;\n  background: var(--border); border: none; cursor: pointer; position: relative;\n  &[data-state="checked"] { background: var(--color-primary, #2d7ff9); }\n`;\nconst Thumb = styled(Switch.Thumb)`\n  display: block; width: 18px; height: 18px; border-radius: 50%;\n  background: #fff; position: absolute; top: 3px; left: 3px;\n  transition: transform 150ms;\n  &[data-state="checked"] { transform: translateX(18px); }\n`;\n\n' +
+      ptSw +
+      'export const ' +
+      name +
+      ' = (' +
+      pSw +
+      ') => (\n  <Root>\n    <StyledSwitch checked={checked} onCheckedChange={onCheckedChange}>\n      <Thumb />\n    </StyledSwitch>\n    <span>' +
+      labelSw +
+      '</span>\n  </Root>\n);'
+    );
+  }
+  if (type === 'select') {
+    var ptSel = useTs
+      ? 'interface ' +
+        name +
+        'Props {\n  value?: string;\n  onValueChange?: (value: string) => void;\n  placeholder?: string;\n}\n\n'
+      : '';
+    var pSel = useTs
+      ? '{ value, onValueChange, placeholder = "선택..." }: ' + name + 'Props'
+      : '{ value, onValueChange, placeholder = "선택..." }';
+    return (
+      "import * as Select from '@radix-ui/react-select';\nimport styled from 'styled-components';\n\nconst Trigger = styled(Select.Trigger)`\n" +
+      stylesToCSSProps(d.styles) +
+      '\n  display: inline-flex; align-items: center; justify-content: space-between;\n  padding: 8px 12px; gap: 8px; cursor: pointer;\n`;\nconst Content = styled(Select.Content)`\n  background: var(--color-surface); border: 1px solid var(--border);\n  border-radius: 6px; padding: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);\n`;\nconst Item = styled(Select.Item)`\n  padding: 8px 12px; cursor: pointer; border-radius: 4px;\n  &[data-highlighted] { background: var(--color-primary-light); outline: none; }\n`;\n\n' +
+      ptSel +
+      'export const ' +
+      name +
+      ' = (' +
+      pSel +
+      ') => (\n  <Select.Root value={value} onValueChange={onValueChange}>\n    <Trigger>\n      <Select.Value placeholder={placeholder} />\n      <Select.Icon>▾</Select.Icon>\n    </Trigger>\n    <Select.Portal>\n      <Content>\n        <Select.Viewport>\n          <Item value="option1"><Select.ItemText>옵션 1</Select.ItemText></Item>\n          <Item value="option2"><Select.ItemText>옵션 2</Select.ItemText></Item>\n        </Select.Viewport>\n      </Content>\n    </Select.Portal>\n  </Select.Root>\n);'
+    );
+  }
+  if (type === 'tooltip') {
+    var labelTt = (d.texts && d.texts.title) || '툴팁 내용';
+    var ptTt = useTs
+      ? 'interface ' + name + 'Props {\n  children: React.ReactNode;\n  content?: string;\n}\n\n'
+      : '';
+    var pTt = useTs
+      ? '{ children, content = "' + labelTt + '" }: ' + name + 'Props'
+      : '{ children, content = "' + labelTt + '" }';
+    return (
+      "import * as Tooltip from '@radix-ui/react-tooltip';\nimport styled from 'styled-components';\n\nconst Content = styled(Tooltip.Content)`\n  background: #1a1a1a; color: #fff; padding: 6px 10px;\n  border-radius: 4px; font-size: 12px;\n  animation: fadeIn 150ms ease;\n`;\n\n" +
+      ptTt +
+      'export const ' +
+      name +
+      ' = (' +
+      pTt +
+      ') => (\n  <Tooltip.Provider>\n    <Tooltip.Root>\n      <Tooltip.Trigger asChild>{children}</Tooltip.Trigger>\n      <Tooltip.Portal>\n        <Content sideOffset={4}>{content}<Tooltip.Arrow /></Content>\n      </Tooltip.Portal>\n    </Tooltip.Root>\n  </Tooltip.Provider>\n);'
+    );
+  }
+  if (type === 'accordion') {
+    var accLabels =
+      d.texts && d.texts.all
+        ? d.texts.all.filter(function (t) {
+            return t.length < 40;
+          })
+        : [];
+    if (accLabels.length < 2) accLabels = ['섹션 1', '섹션 2'];
+    var items = accLabels
+      .map(function (l, i) {
+        return (
+          '  <Item value="item' +
+          (i + 1) +
+          '">\n    <Header><Trigger>' +
+          l +
+          '</Trigger></Header>\n    <Content>{/* ' +
+          l +
+          ' 내용 */}</Content>\n  </Item>'
+        );
+      })
+      .join('\n');
+    var ptAcc = useTs ? 'interface ' + name + 'Props {\n  defaultValue?: string;\n}\n\n' : '';
+    var pAcc = useTs ? '{ defaultValue }: ' + name + 'Props' : '{ defaultValue }';
+    return (
+      "import * as Accordion from '@radix-ui/react-accordion';\nimport styled from 'styled-components';\n\nconst Root = styled(Accordion.Root)`\n" +
+      stylesToCSSProps(d.styles) +
+      '\n`;\nconst Item = styled(Accordion.Item)`\n  border-bottom: 1px solid var(--border);\n`;\nconst Header = styled(Accordion.Header)`\n  margin: 0;\n`;\nconst Trigger = styled(Accordion.Trigger)`\n  width: 100%; padding: 16px; background: none; border: none;\n  text-align: left; cursor: pointer; font-size: 14px; font-weight: 500;\n  display: flex; justify-content: space-between;\n  &[data-state="open"]::after { content: "▲"; }\n  &[data-state="closed"]::after { content: "▼"; }\n`;\nconst Content = styled(Accordion.Content)`\n  padding: 0 16px 16px;\n`;\n\n' +
+      ptAcc +
+      'export const ' +
+      name +
+      ' = (' +
+      pAcc +
+      ') => (\n  <Root type="single" collapsible defaultValue={defaultValue}>\n' +
+      items +
+      '\n  </Root>\n);'
+    );
+  }
+  if (type === 'popover') {
+    var labelPop = (d.texts && d.texts.title) || '열기';
+    var ptPop = useTs ? 'interface ' + name + 'Props {\n  triggerLabel?: string;\n}\n\n' : '';
+    var pPop = useTs
+      ? '{ triggerLabel = "' + labelPop + '" }: ' + name + 'Props'
+      : '{ triggerLabel = "' + labelPop + '" }';
+    return (
+      "import * as Popover from '@radix-ui/react-popover';\nimport styled from 'styled-components';\n\nconst Content = styled(Popover.Content)`\n" +
+      stylesToCSSProps(d.styles) +
+      '\n  border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.15);\n`;\n\n' +
+      ptPop +
+      'export const ' +
+      name +
+      ' = (' +
+      pPop +
+      ') => (\n  <Popover.Root>\n    <Popover.Trigger asChild>\n      <button>{triggerLabel}</button>\n    </Popover.Trigger>\n    <Popover.Portal>\n      <Content sideOffset={4}>\n        {/* 팝오버 내용 */}\n        <Popover.Close aria-label="닫기">×</Popover.Close>\n        <Popover.Arrow />\n      </Content>\n    </Popover.Portal>\n  </Popover.Root>\n);'
+    );
+  }
   var tag = getSemanticTag(name);
   var pt3 = useTs ? 'interface ' + name + 'Props {\n  children?: React.ReactNode;\n}\n\n' : '';
   var p3 = useTs ? '{ children }: ' + name + 'Props' : '{ children }';
@@ -3377,153 +3536,6 @@ function stylesToCSSProps(styles) {
       return '  ' + k + ': ' + styles[k] + ';';
     })
     .join('\n');
-}
-function buildCSSModulesCSS(styles, type) {
-  var base = stylesToCSSProps(styles);
-  var focus =
-    '\n\n.root:focus-visible {\n  outline: 2px solid var(--primary);\n  outline-offset: 2px;\n}';
-  if (type === 'dialog')
-    return (
-      '.overlay {\n  position: fixed;\n  inset: 0;\n  background: rgba(0,0,0,0.5);\n  animation: overlayShow 150ms ease;\n}\n\n.content {\n' +
-      base +
-      '\n}\n\n.title {\n  font-size: 18px;\n  font-weight: 600;\n  margin-bottom: 16px;\n}\n\n.closeBtn {\n  position: absolute;\n  top: 16px;\n  right: 16px;\n  background: none;\n  border: none;\n  cursor: pointer;\n}\n\n.closeBtn:focus-visible {\n  outline: 2px solid var(--primary);\n  outline-offset: 2px;\n  border-radius: 4px;\n}\n\n@keyframes overlayShow {\n  from { opacity: 0; }\n  to   { opacity: 1; }\n}'
-    );
-  if (type === 'tabs')
-    return '.root {\n  display: flex;\n  flex-direction: column;\n}\n\n.list {\n  display: flex;\n  border-bottom: 1px solid var(--border);\n  margin-bottom: 16px;\n}\n\n.trigger {\n  padding: 8px 16px;\n  background: none;\n  border: none;\n  border-bottom: 2px solid transparent;\n  cursor: pointer;\n  font-size: 14px;\n  color: var(--text-secondary);\n}\n\n.trigger[data-state=active] {\n  color: var(--primary);\n  border-bottom-color: var(--primary);\n}\n\n.trigger:focus-visible {\n  outline: 2px solid var(--primary);\n  outline-offset: 2px;\n}\n\n.content {\n  padding: 8px 0;\n}';
-  return '.root {\n' + base + '\n}\n\n.root:hover {\n  opacity: 0.9;\n}' + focus;
-}
-function buildCSSModulesTSX(name, type, useTs) {
-  var pt, p;
-  if (type === 'button') {
-    pt = useTs
-      ? 'interface ' +
-        name +
-        'Props {\n  children: React.ReactNode;\n  onClick?: () => void;\n  disabled?: boolean;\n}\n\n'
-      : '';
-    p = useTs
-      ? '{ children, onClick, disabled }: ' + name + 'Props'
-      : '{ children, onClick, disabled }';
-    return (
-      "import styles from './" +
-      name +
-      ".module.css';\n\n" +
-      pt +
-      'export const ' +
-      name +
-      ' = (' +
-      p +
-      ') => (\n  <button className={styles.root} onClick={onClick} disabled={disabled} type="button">\n    {children}\n  </button>\n);'
-    );
-  }
-  if (type === 'dialog') {
-    pt = useTs
-      ? 'interface ' +
-        name +
-        'Props {\n  open: boolean;\n  onClose: (open: boolean) => void;\n  title: string;\n  children: React.ReactNode;\n}\n\n'
-      : '';
-    p = useTs
-      ? '{ open, onClose, title, children }: ' + name + 'Props'
-      : '{ open, onClose, title, children }';
-    return (
-      "import * as Dialog from '@radix-ui/react-dialog';\nimport styles from './" +
-      name +
-      ".module.css';\n\n" +
-      pt +
-      'export const ' +
-      name +
-      ' = (' +
-      p +
-      ') => (\n  <Dialog.Root open={open} onOpenChange={onClose}>\n    <Dialog.Portal>\n      <Dialog.Overlay className={styles.overlay} />\n      <Dialog.Content className={styles.content} aria-describedby={undefined}>\n        <Dialog.Title className={styles.title}>{title}</Dialog.Title>\n        {children}\n        <Dialog.Close asChild>\n          <button className={styles.closeBtn} aria-label="닫기">×</button>\n        </Dialog.Close>\n      </Dialog.Content>\n    </Dialog.Portal>\n  </Dialog.Root>\n);'
-    );
-  }
-  if (type === 'tabs') {
-    pt = useTs ? 'interface ' + name + 'Props {\n  defaultValue?: string;\n}\n\n' : '';
-    p = useTs ? "{ defaultValue = 'tab1' }: " + name + 'Props' : "{ defaultValue = 'tab1' }";
-    return (
-      "import * as Tabs from '@radix-ui/react-tabs';\nimport styles from './" +
-      name +
-      ".module.css';\n\n" +
-      pt +
-      'export const ' +
-      name +
-      ' = (' +
-      p +
-      ') => (\n  <Tabs.Root className={styles.root} defaultValue={defaultValue}>\n    <Tabs.List className={styles.list} aria-label="탭 목록">\n      <Tabs.Trigger className={styles.trigger} value="tab1">탭 1</Tabs.Trigger>\n      <Tabs.Trigger className={styles.trigger} value="tab2">탭 2</Tabs.Trigger>\n    </Tabs.List>\n    <Tabs.Content className={styles.content} value="tab1">내용 1</Tabs.Content>\n    <Tabs.Content className={styles.content} value="tab2">내용 2</Tabs.Content>\n  </Tabs.Root>\n);'
-    );
-  }
-  var tag = getSemanticTag(name);
-  pt = useTs ? 'interface ' + name + 'Props {\n  children: React.ReactNode;\n}\n\n' : '';
-  p = useTs ? '{ children }: ' + name + 'Props' : '{ children }';
-  return (
-    "import styles from './" +
-    name +
-    ".module.css';\n\n" +
-    pt +
-    'export const ' +
-    name +
-    ' = (' +
-    p +
-    ') => (\n  <' +
-    tag +
-    ' className={styles.root}>\n    {children}\n  </' +
-    tag +
-    '>\n);'
-  );
-}
-function buildStyledTSX(name, type, useTs) {
-  var pt, p;
-  if (type === 'dialog') {
-    pt = useTs
-      ? 'interface ' +
-        name +
-        'Props {\n  open: boolean;\n  onClose: (open: boolean) => void;\n  title: string;\n  children: React.ReactNode;\n}\n\n'
-      : '';
-    p = useTs
-      ? '{ open, onClose, title, children }: ' + name + 'Props'
-      : '{ open, onClose, title, children }';
-    return (
-      "import * as Dialog from '@radix-ui/react-dialog';\nimport styled, { keyframes } from 'styled-components';\n\nconst overlayShow = keyframes`\n  from { opacity: 0; }\n  to   { opacity: 1; }\n`;\nconst Overlay = styled(Dialog.Overlay)`\n  position: fixed; inset: 0; background: rgba(0,0,0,0.5);\n  animation: ${overlayShow} 150ms ease;\n`;\nconst Content = styled(Dialog.Content)`\n  position: fixed; top: 50%; left: 50%;\n  transform: translate(-50%,-50%);\n  background: var(--color-surface); border-radius: var(--radius-md); padding: 24px;\n`;\nconst Title = styled(Dialog.Title)`\n  font-size: 18px; font-weight: 600; margin-bottom: 16px;\n`;\n\n" +
-      pt +
-      'export const ' +
-      name +
-      ' = (' +
-      p +
-      ') => (\n  <Dialog.Root open={open} onOpenChange={onClose}>\n    <Dialog.Portal>\n      <Overlay />\n      <Content aria-describedby={undefined}>\n        <Title>{title}</Title>\n        {children}\n      </Content>\n    </Dialog.Portal>\n  </Dialog.Root>\n);'
-    );
-  }
-  if (type === 'button') {
-    pt = useTs
-      ? 'interface ' +
-        name +
-        'Props {\n  children: React.ReactNode;\n  onClick?: () => void;\n  disabled?: boolean;\n}\n\n'
-      : '';
-    p = useTs
-      ? '{ children, onClick, disabled }: ' + name + 'Props'
-      : '{ children, onClick, disabled }';
-    return (
-      "import styled from 'styled-components';\n\nconst StyledButton = styled.button`\n  display: inline-flex; align-items: center; justify-content: center;\n  padding: 8px 16px; background: var(--color-brand-primary);\n  color: var(--color-white); border: none; border-radius: var(--radius-sm);\n  font-size: 14px; font-weight: 500; cursor: pointer;\n  &:hover { opacity: 0.9; }\n  &:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }\n  &:disabled { opacity: 0.5; cursor: not-allowed; }\n`;\n\n" +
-      pt +
-      'export const ' +
-      name +
-      ' = (' +
-      p +
-      ') => (\n  <StyledButton onClick={onClick} disabled={disabled} type="button">\n    {children}\n  </StyledButton>\n);'
-    );
-  }
-  var tag = getSemanticTag(name);
-  pt = useTs ? 'interface ' + name + 'Props {\n  children: React.ReactNode;\n}\n\n' : '';
-  p = useTs ? '{ children }: ' + name + 'Props' : '{ children }';
-  return (
-    "import styled from 'styled-components';\n\nconst Wrapper = styled." +
-    tag +
-    '`\n  /* 스타일을 여기에 추가하세요 */\n`;\n\n' +
-    pt +
-    'export const ' +
-    name +
-    ' = (' +
-    p +
-    ') => (\n  <Wrapper>{children}</Wrapper>\n);'
-  );
 }
 
 var compState = {

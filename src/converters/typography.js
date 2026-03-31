@@ -48,3 +48,13 @@ export function convertTextStyles(texts, unit) {
   out += '\n';
   return out;
 }
+
+export function convertFonts(fonts) {
+  if (!fonts || fonts.length === 0) return '';
+  var out = '/* === Font Families === */\n:root {\n';
+  fonts.forEach(function (f) {
+    out += '  ' + f.cssVar + ': "' + f.family + '";\n';
+  });
+  out += '}\n\n';
+  return out;
+}

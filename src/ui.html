@@ -55,13 +55,14 @@
         gap: 10px;
       }
       .brand-logo {
-        width: 28px;
-        height: 28px;
-        border-radius: 7px;
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
         background: var(--primary);
         color: #fff;
-        font-size: 11px;
+        font-size: 13px;
         font-weight: 800;
+        letter-spacing: 0.5px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -1126,7 +1127,7 @@
         border: 1px solid var(--border);
         border-radius: 10px;
         overflow: hidden;
-        width: 460px;
+        width: 560px;
         max-width: calc(100vw - 32px);
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.24);
         animation: modalIn 0.15s ease;
@@ -1289,7 +1290,7 @@
         color: var(--text-primary);
         white-space: pre-wrap;
         word-break: break-all;
-        max-height: 240px;
+        max-height: 320px;
         overflow-y: auto;
         margin: 0;
       }
@@ -1828,7 +1829,7 @@
           <div class="section-card">
             <div class="section-label" data-i18n="extract.tokenType">토큰 타입</div>
             <div class="token-grid">
-              <div class="token-card active" data-type="variables">
+              <div class="token-card" data-type="variables">
                 <div class="token-card-icon">
                   <svg
                     width="16"
@@ -1846,7 +1847,7 @@
                 <span class="token-card-label">Variables</span>
               </div>
 
-              <div class="token-card active" data-type="colors">
+              <div class="token-card" data-type="colors">
                 <div class="token-card-icon">
                   <svg
                     width="16"
@@ -1863,7 +1864,7 @@
                 <span class="token-card-label">Color Styles</span>
               </div>
 
-              <div class="token-card active" data-type="spacing">
+              <div class="token-card" data-type="spacing">
                 <div class="token-card-icon">
                   <svg
                     width="16"
@@ -1881,24 +1882,7 @@
                 <span class="token-card-label">Spacing</span>
               </div>
 
-              <div class="token-card active" data-type="texts">
-                <div class="token-card-icon">
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 16 16"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    stroke-linecap="round"
-                  >
-                    <path d="M3 4h10M8 4v8M5 12h6" />
-                  </svg>
-                </div>
-                <span class="token-card-label">Text Styles</span>
-              </div>
-
-              <div class="token-card active" data-type="radius">
+              <div class="token-card" data-type="radius">
                 <div class="token-card-icon">
                   <svg
                     width="16"
@@ -1915,7 +1899,7 @@
                 <span class="token-card-label">Radius</span>
               </div>
 
-              <div class="token-card active" data-type="effects">
+              <div class="token-card" data-type="effects">
                 <div class="token-card-icon">
                   <svg
                     width="16"
@@ -1933,23 +1917,31 @@
                 <span class="token-card-label">Effect Styles</span>
               </div>
 
-              <div class="token-card active full-width" data-type="icons">
+              <div class="token-card" data-type="textStyles">
                 <div class="token-card-icon">
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 16 16"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                  >
-                    <rect x="2" y="2" width="5" height="5" rx="1.5" />
-                    <rect x="9" y="2" width="5" height="5" rx="1.5" />
-                    <rect x="2" y="9" width="5" height="5" rx="1.5" />
-                    <rect x="9" y="9" width="5" height="5" rx="1.5" />
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M2 4h12M2 8h8M2 12h10" stroke-linecap="round"/>
                   </svg>
                 </div>
-                <span class="token-card-label">Icons</span>
+                <span class="token-card-label" data-i18n="extract.textStylesCard">본문 스타일</span>
+              </div>
+
+              <div class="token-card" data-type="headings">
+                <div class="token-card-icon">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M2 3v10M9 3v10M2 8h7" stroke-linecap="round"/>
+                  </svg>
+                </div>
+                <span class="token-card-label" data-i18n="extract.headingsCard">헤딩</span>
+              </div>
+
+              <div class="token-card" data-type="fonts">
+                <div class="token-card-icon">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M3 13L8 3l5 10M5.5 9h5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </div>
+                <span class="token-card-label" data-i18n="extract.fontsCard">폰트</span>
               </div>
 
               <div class="token-hint" data-i18n="extract.tokenHint">
@@ -1984,6 +1976,12 @@
               <div class="no-collections" data-i18n-loading>로딩 중...</div>
             </div>
           </div>
+        </div>
+
+        <!-- 시각 프레임 파싱 옵션 -->
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 16px;border-top:1px solid var(--border);">
+          <input type="checkbox" id="useVisualParserToggle" style="width:14px;height:14px;accent-color:var(--primary);cursor:pointer;" />
+          <label for="useVisualParserToggle" style="font-size:11px;color:var(--text-secondary);cursor:pointer;" data-i18n="extract.visualParserLabel">시각 프레임 파싱 (Variables 없는 파일용)</label>
         </div>
 
         <!-- Action Bar -->
@@ -2065,17 +2063,21 @@
               <div class="stat-value" id="statColorNum">0</div>
               <div class="stat-label">Color Styles</div>
             </div>
-            <div class="stat-card" id="statText" data-type="texts">
-              <div class="stat-value" id="statTextNum">0</div>
+            <div class="stat-card" id="statTextStyles" data-type="textStyles">
+              <div class="stat-value" id="statTextStylesNum">0</div>
               <div class="stat-label">Text Styles</div>
+            </div>
+            <div class="stat-card" id="statHeadings" data-type="headings">
+              <div class="stat-value" id="statHeadingsNum">0</div>
+              <div class="stat-label">Headings</div>
+            </div>
+            <div class="stat-card" id="statFonts" data-type="fonts">
+              <div class="stat-value" id="statFontsNum">0</div>
+              <div class="stat-label">Fonts</div>
             </div>
             <div class="stat-card" id="statEffect" data-type="effects">
               <div class="stat-value" id="statEffectNum">0</div>
               <div class="stat-label">Effect Styles</div>
-            </div>
-            <div class="stat-card" id="statIcons" data-type="icons">
-              <div class="stat-value" id="statIconsNum">0</div>
-              <div class="stat-label">Icons</div>
             </div>
           </div>
 
@@ -3281,9 +3283,6 @@
           </button>
           <button class="icon-detail-tab" data-detail-tab="react" data-i18n="icon.detailReact">
             React
-          </button>
-          <button class="icon-detail-tab" data-detail-tab="css" data-i18n="icon.detailCss">
-            CSS
           </button>
         </div>
         <div class="icon-detail-code-wrap">
