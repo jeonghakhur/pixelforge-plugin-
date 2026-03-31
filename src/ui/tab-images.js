@@ -3,6 +3,7 @@ import JSZip from 'jszip';
 import { state } from './state.js';
 import { t } from './i18n.js';
 import { $, showToast, getScope } from './utils.js';
+import { escapeHtml } from '../converters/utils.js';
 
 // ══════════════════════════════════════════════
 // ── Images Tab ──

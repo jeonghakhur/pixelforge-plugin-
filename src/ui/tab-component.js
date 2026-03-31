@@ -2,7 +2,7 @@
 import { state } from './state.js';
 import { lang, t } from './i18n.js';
 import { $, showToast, copyToClipboard } from './utils.js';
-import { RADIX_MAP, detectComponentType, compToPascalCase, buildRadixCSSModules, buildRadixCSS, buildRadixStyled, filterTypographyStyles, stylesToCSSProps } from './component-builders.js';
+import { RADIX_MAP, RADIX_COMPONENT_REGISTRY, detectComponentType, compToPascalCase, buildRadixCSSModules, buildRadixCSS, buildRadixStyled, filterTypographyStyles, stylesToCSSProps } from './component-builders.js';
 
 export var compState = {
   meta: null,
@@ -89,14 +89,16 @@ export function onCompSelectionChanged() {
 export function updateTypeHint(type) {
   var hint = $('compTypeHint');
   if (!hint) return;
-  var pkg = RADIX_MAP[type];
-  hint.textContent = pkg
-    ? 'Radix UI: ' + pkg
-    : type === 'layout'
-      ? lang === 'ko'
-        ? '시맨틱 HTML 태그'
-        : 'Semantic HTML'
-      : 'Native element';
+  var entry = RADIX_COMPONENT_REGISTRY[type];
+  if (entry && entry.themeComponent) {
+    hint.textContent = 'npm install @radix-ui/themes';
+  } else if (entry && !entry.themeComponent) {
+    hint.textContent = 'npm install ' + entry.pkg;
+  } else if (type === 'layout') {
+    hint.textContent = lang === 'ko' ? '시맨틱 HTML 태그' : 'Semantic HTML';
+  } else {
+    hint.textContent = 'npm install @radix-ui/themes';
+  }
 }
 
 var _typeSelect = $('compTypeSelect');

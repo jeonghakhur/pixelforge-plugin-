@@ -257,17 +257,30 @@ window.onmessage = function (event) {
     newAssets.forEach(function (a) {
       imageAssets.push(a);
     });
-    // 에러가 있으면 자동으로 JSON 다운로드 (디버그용)
-    if (msg.errors && msg.errors.length > 0) {
-      var errJson = JSON.stringify({ assets: newAssets.length, errors: msg.errors }, null, 2);
-      var errBlob = new Blob([errJson], { type: 'application/json' });
-      var errUrl = URL.createObjectURL(errBlob);
-      var errA = document.createElement('a');
-      errA.href = errUrl;
-      errA.download = 'image-export-errors.json';
-      errA.click();
-      URL.revokeObjectURL(errUrl);
-    }
+    // 디버그: 항상 결과 다운로드
+    var debugResult = {
+      assets: newAssets.length,
+      errors: msg.errors || [],
+      firstAsset:
+        newAssets.length > 0
+          ? {
+              id: newAssets[0].id,
+              name: newAssets[0].name,
+              format: newAssets[0].format,
+              scale: newAssets[0].scale,
+              byteSize: newAssets[0].byteSize,
+              base64Length: newAssets[0].base64 ? newAssets[0].base64.length : 0,
+              mimeType: newAssets[0].mimeType,
+            }
+          : null,
+    };
+    var debugBlob = new Blob([JSON.stringify(debugResult, null, 2)], { type: 'application/json' });
+    var debugUrl = URL.createObjectURL(debugBlob);
+    var debugA = document.createElement('a');
+    debugA.href = debugUrl;
+    debugA.download = 'image-export-debug.json';
+    debugA.click();
+    URL.revokeObjectURL(debugUrl);
     if (imageAssets.length === 0) {
       setImgState('imgStateEmpty');
     } else {

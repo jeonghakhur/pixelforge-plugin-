@@ -1,8 +1,10 @@
 {
   "version": "2.0",
-  "lastUpdated": "2026-03-26T08:25:05.266Z",
+  "lastUpdated": "2026-03-31T14:35:46.384Z",
   "activeFeatures": [
-    "pixelforge-plugin"
+    "pixelforge-plugin",
+    "ui",
+    "component-generation-improvement"
   ],
   "primaryFeature": "pixelforge-plugin",
   "features": {
@@ -15,9 +17,36 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-26T05:29:47.973Z",
-        "lastUpdated": "2026-03-26T08:25:05.266Z"
+        "lastUpdated": "2026-03-31T14:34:22.423Z"
       },
-      "lastFile": "/Users/jeonghakhur/work/person/pixelforge-plugin/src/ui.js"
+      "lastFile": "/Users/jeonghakhur/work/person/pixelforge-plugin/src/code.ts"
+    },
+    "ui": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-03-31T14:15:31.642Z",
+        "lastUpdated": "2026-03-31T14:35:46.384Z"
+      },
+      "lastFile": "/Users/jeonghakhur/work/person/pixelforge-plugin/src/ui/tab-images.js"
+    },
+    "component-generation-improvement": {
+      "phase": "act",
+      "phaseNumber": 5,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-03-31T14:19:43.877Z",
+        "lastUpdated": "2026-03-31T14:19:43.878Z"
+      },
+      "previousPhase": "check",
+      "autoAdvanced": true
     }
   },
   "pipeline": {
@@ -28,7 +57,7 @@
   "session": {
     "startedAt": "2026-03-26T05:24:26.346Z",
     "onboardingCompleted": false,
-    "lastActivity": "2026-03-26T08:25:05.266Z"
+    "lastActivity": "2026-03-31T14:35:46.384Z"
   },
   "history": [
     {
@@ -178,6 +207,90 @@
     {
       "timestamp": "2026-03-26T08:25:05.266Z",
       "feature": "pixelforge-plugin",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T13:49:25.334Z",
+      "feature": "pixelforge-plugin",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T14:00:40.176Z",
+      "feature": "pixelforge-plugin",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T14:10:48.075Z",
+      "feature": "pixelforge-plugin",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T14:14:26.606Z",
+      "feature": "pixelforge-plugin",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T14:15:31.642Z",
+      "feature": "ui",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T14:15:44.067Z",
+      "feature": "ui",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T14:18:51.502Z",
+      "feature": "pixelforge-plugin",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T14:19:43.878Z",
+      "feature": "component-generation-improvement",
+      "phase": "act",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T14:25:52.185Z",
+      "feature": "pixelforge-plugin",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T14:26:08.242Z",
+      "feature": "pixelforge-plugin",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T14:33:59.252Z",
+      "feature": "pixelforge-plugin",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T14:34:16.471Z",
+      "feature": "pixelforge-plugin",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T14:34:22.423Z",
+      "feature": "pixelforge-plugin",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T14:35:46.384Z",
+      "feature": "ui",
       "phase": "do",
       "action": "updated"
     }

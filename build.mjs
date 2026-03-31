@@ -7,7 +7,7 @@ const codeBuild = {
   entryPoints: ["src/code.ts"],
   bundle: true,
   outfile: "dist/code.js",
-  target: "es6",
+  target: "es2017",
   format: "iife",
   charset: "utf8",
 };
@@ -17,7 +17,7 @@ const uiBuild = {
   bundle: true,
   write: false,
   format: "iife",
-  target: "es6",
+  target: "es2017",
   charset: "utf8",
 };
 

@@ -844,9 +844,19 @@ async function scanNodeStyleIds(
 }
 
 function uint8ToBase64(bytes: Uint8Array): string {
-  let bin = '';
-  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-  return btoa(bin);
+  const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  let result = '';
+  const len = bytes.length;
+  for (let i = 0; i < len; i += 3) {
+    const a = bytes[i];
+    const b = i + 1 < len ? bytes[i + 1] : 0;
+    const c = i + 2 < len ? bytes[i + 2] : 0;
+    result += CHARS[a >> 2];
+    result += CHARS[((a & 3) << 4) | (b >> 4)];
+    result += i + 1 < len ? CHARS[((b & 15) << 2) | (c >> 6)] : '=';
+    result += i + 2 < len ? CHARS[c & 63] : '=';
+  }
+  return result;
 }
 
 function findImageNodes(useSelection: boolean): ImageData[] {
@@ -922,30 +932,25 @@ async function extractImages(
           width: Math.round(node.width),
           height: Math.round(node.height),
         };
-        // getNodeByIdAsync로 export 가능한 완전한 노드 객체 로드
-        const exportNode = await figma.getNodeByIdAsync(node.id);
-        if (!exportNode) {
-          errors.push({ id: node.id, name: node.name, error: 'getNodeByIdAsync returned null' });
-        } else {
-          for (const scale of options.scales) {
-            try {
-              const bytes = await (exportNode as any).exportAsync({
-                format: options.format,
-                constraint: { type: 'SCALE', value: scale },
-              });
-              const base64 = uint8ToBase64(new Uint8Array(bytes));
-              assets.push({
-                ...nodeData,
-                format: options.format,
-                scale,
-                fileName: `${nodeData.kebab}@${scale}x.${ext}`,
-                base64,
-                mimeType: mime,
-                byteSize: bytes.byteLength,
-              });
-            } catch (e: any) {
-              errors.push({ id: node.id, name: node.name, error: String(e) });
-            }
+
+        for (const scale of options.scales) {
+          try {
+            const bytes = await (node as ExportMixin).exportAsync({
+              format: options.format,
+              constraint: { type: 'SCALE', value: scale },
+            });
+            const base64 = uint8ToBase64(new Uint8Array(bytes));
+            assets.push({
+              ...nodeData,
+              format: options.format,
+              scale,
+              fileName: `${nodeData.kebab}@${scale}x.${ext}`,
+              base64,
+              mimeType: mime,
+              byteSize: bytes.byteLength,
+            });
+          } catch (e: any) {
+            errors.push({ id: node.id, name: node.name, error: String(e) });
           }
         }
       }
@@ -1141,6 +1146,20 @@ type ComponentType =
   | 'table'
   | 'aspect-ratio'
   | 'skeleton'
+  | 'icon-button'
+  | 'spinner'
+  | 'checkbox-cards'
+  | 'checkbox-group'
+  | 'radio-cards'
+  | 'segmented-control'
+  | 'tab-nav'
+  | 'data-list'
+  | 'code'
+  | 'link'
+  | 'blockquote'
+  | 'kbd'
+  | 'em'
+  | 'strong'
   | 'layout';
 
 interface ExtractedTexts {
@@ -1148,6 +1167,12 @@ interface ExtractedTexts {
   description: string;
   actions: string[];
   all: string[];
+}
+
+interface RadixProps {
+  variant?: 'solid' | 'soft' | 'outline' | 'ghost' | 'surface' | 'classic';
+  color?: string;
+  size?: '1' | '2' | '3' | '4';
 }
 
 interface GenerateComponentResult {
@@ -1159,6 +1184,119 @@ interface GenerateComponentResult {
   detectedType: ComponentType;
   texts: ExtractedTexts;
   childStyles: Record<string, Record<string, string>>;
+  radixProps: RadixProps;
+}
+
+// ── Radix Themes props 추론 ──────────────────────────────────────────────────
+
+function inferRadixVariant(node: SceneNode): RadixProps['variant'] {
+  if (!('fills' in node)) return 'solid';
+  const fills = (node.fills as readonly Paint[]).filter(
+    (f) => f.visible !== false && f.type === 'SOLID'
+  );
+  const strokes =
+    'strokes' in node ? (node.strokes as readonly Paint[]).filter((s) => s.visible !== false) : [];
+  if (fills.length === 0 && strokes.length === 0) return 'ghost';
+  if (fills.length === 0 && strokes.length > 0) return 'outline';
+  if (
+    fills.length > 0 &&
+    (fills[0] as SolidPaint).opacity !== undefined &&
+    (fills[0] as SolidPaint).opacity! < 0.3
+  )
+    return 'soft';
+  return 'solid';
+}
+
+const FIGMA_TO_RADIX_COLOR: Record<string, string> = {
+  blue: 'blue',
+  bright: 'blue',
+  primary: 'blue',
+  indigo: 'indigo',
+  red: 'red',
+  danger: 'red',
+  error: 'red',
+  crimson: 'crimson',
+  green: 'green',
+  success: 'green',
+  orange: 'orange',
+  warning: 'orange',
+  amber: 'amber',
+  gray: 'gray',
+  grey: 'gray',
+  light: 'gray',
+  default: 'gray',
+  neutral: 'gray',
+  purple: 'purple',
+  violet: 'violet',
+  cyan: 'cyan',
+  teal: 'teal',
+  pink: 'pink',
+  yellow: 'yellow',
+};
+
+function hueToRadixColor(h: number): string | undefined {
+  if (h >= 200 && h <= 260) return 'blue';
+  if (h >= 340 || h <= 15) return 'red';
+  if (h >= 90 && h <= 150) return 'green';
+  if (h >= 20 && h <= 45) return 'orange';
+  if (h >= 260 && h <= 310) return 'purple';
+  if (h >= 160 && h <= 195) return 'cyan';
+  return undefined;
+}
+
+function inferRadixColor(node: SceneNode, colorMap: Map<string, string>): string | undefined {
+  if (!('fills' in node)) return undefined;
+  const fills = (node.fills as readonly Paint[]).filter(
+    (f) => f.visible !== false && f.type === 'SOLID'
+  );
+  if (fills.length === 0) return undefined;
+  const c = (fills[0] as SolidPaint).color;
+  const hex =
+    '#' +
+    [c.r, c.g, c.b]
+      .map((v) =>
+        Math.round(v * 255)
+          .toString(16)
+          .padStart(2, '0')
+      )
+      .join('');
+
+  // 1. colorMap의 CSS variable 이름에서 키워드 매칭
+  const cssVar = colorMap.get(hex) || '';
+  const varLower = cssVar.toLowerCase();
+  for (const [keyword, radixColor] of Object.entries(FIGMA_TO_RADIX_COLOR)) {
+    if (varLower.includes(keyword)) return radixColor;
+  }
+
+  // 2. hue 기반 추론
+  const r = c.r,
+    g = c.g,
+    b = c.b;
+  const max = Math.max(r, g, b),
+    min = Math.min(r, g, b);
+  let h = 0;
+  if (max !== min) {
+    const d = max - min;
+    if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) * 60;
+    else if (max === g) h = ((b - r) / d + 2) * 60;
+    else h = ((r - g) / d + 4) * 60;
+  }
+  // 채도가 너무 낮으면 gray
+  const saturation = max === 0 ? 0 : (max - min) / max;
+  if (saturation < 0.15) return 'gray';
+
+  return hueToRadixColor(h);
+}
+
+function inferRadixSize(node: SceneNode): RadixProps['size'] {
+  if (!('height' in node)) return '2';
+  const h = (node as FrameNode).height;
+  const pt = 'paddingTop' in node ? ((node as FrameNode).paddingTop ?? 0) : 0;
+  // height 기반
+  if (h <= 24) return '1';
+  if (h <= 32) return '2';
+  if (h <= 40) return '3';
+  return '4';
 }
 
 async function generateComponent(): Promise<GenerateComponentResult | null> {
@@ -1525,6 +1663,11 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
     detectedType: detectComponentType(node),
     texts: extractTexts(node),
     childStyles: getChildStyles(node),
+    radixProps: {
+      variant: inferRadixVariant(node),
+      color: inferRadixColor(node, colorMap),
+      size: inferRadixSize(node),
+    },
   };
 }
 
