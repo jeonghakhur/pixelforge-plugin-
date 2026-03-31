@@ -1,6 +1,6 @@
 {
   "version": "2.0",
-  "lastUpdated": "2026-03-31T06:46:49.170Z",
+  "lastUpdated": "2026-03-31T06:53:40.808Z",
   "activeFeatures": [
     "pixelforge-plugin-",
     "converters",
@@ -8,6 +8,14 @@
   ],
   "primaryFeature": "pixelforge-plugin-",
   "features": {
+    "text-token-split": {
+      "phase": "archived",
+      "matchRate": 100,
+      "iterationCount": 0,
+      "startedAt": "2026-03-31T00:00:00.000Z",
+      "archivedAt": "2026-03-31T07:10:00.000Z",
+      "archivedTo": "docs/archive/2026-03/text-token-split/"
+    },
     "icon-registry": {
       "phase": "completed",
       "matchRate": 96,
@@ -41,7 +49,7 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-30T08:26:11.223Z",
-        "lastUpdated": "2026-03-31T06:46:49.170Z"
+        "lastUpdated": "2026-03-31T06:53:40.808Z"
       },
       "lastFile": "/Users/jeonghak/work/pixelforge-plugin-/src/ui.js"
     },
@@ -81,7 +89,7 @@
   "session": {
     "startedAt": "2026-03-30T05:13:36.824Z",
     "onboardingCompleted": false,
-    "lastActivity": "2026-03-31T06:46:49.170Z"
+    "lastActivity": "2026-03-31T06:53:40.808Z"
   },
   "history": [
     {
@@ -1238,6 +1246,42 @@
     },
     {
       "timestamp": "2026-03-31T06:46:49.170Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:51:11.113Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:51:36.560Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:51:50.516Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:52:08.280Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:53:28.578Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:53:40.808Z",
       "feature": "pixelforge-plugin-",
       "phase": "do",
       "action": "updated"
