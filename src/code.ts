@@ -860,23 +860,24 @@ function findImageNodes(useSelection: boolean): ImageData[] {
   const seen = new Set<string>();
 
   function traverse(node: SceneNode) {
-    if (!EXPORTABLE.has(node.type)) return;
     if (seen.has(node.id)) return;
 
-    const fills = (node as any).fills;
-    const hasImageFill =
-      Array.isArray(fills) && fills.some((p: any) => p.type === 'IMAGE' && p.visible !== false);
+    if (EXPORTABLE.has(node.type)) {
+      const fills = (node as any).fills;
+      const hasImageFill =
+        Array.isArray(fills) && fills.some((p: any) => p.type === 'IMAGE' && p.visible !== false);
 
-    if (hasImageFill) {
-      seen.add(node.id);
-      results.push({
-        id: node.id,
-        name: node.name,
-        kebab: toKebabCase(node.name),
-        nodeType: node.type,
-        width: Math.round(node.width),
-        height: Math.round(node.height),
-      });
+      if (hasImageFill) {
+        seen.add(node.id);
+        results.push({
+          id: node.id,
+          name: node.name,
+          kebab: toKebabCase(node.name),
+          nodeType: node.type,
+          width: Math.round(node.width),
+          height: Math.round(node.height),
+        });
+      }
     }
 
     if ('children' in node) {
@@ -888,15 +889,25 @@ function findImageNodes(useSelection: boolean): ImageData[] {
   return results;
 }
 
-async function extractImages(options: ExtractImagesOptions): Promise<ImageAsset[]> {
+async function extractImages(
+  options: ExtractImagesOptions
+): Promise<{ assets: ImageAsset[]; errors: { id: string; name: string; error: string }[] }> {
   const nodes = findImageNodes(options.useSelection);
   const ext = options.format === 'PNG' ? 'png' : 'jpg';
   const mime = options.format === 'PNG' ? 'image/png' : 'image/jpeg';
-  const results: ImageAsset[] = [];
+  const assets: ImageAsset[] = [];
+  const errors: { id: string; name: string; error: string }[] = [];
 
   for (const nodeData of nodes) {
     const node = (await figma.getNodeByIdAsync(nodeData.id)) as SceneNode | null;
-    if (!node) continue;
+    if (!node) {
+      errors.push({
+        id: nodeData.id,
+        name: nodeData.name,
+        error: 'getNodeByIdAsync returned null',
+      });
+      continue;
+    }
 
     for (const scale of options.scales) {
       try {
@@ -905,7 +916,7 @@ async function extractImages(options: ExtractImagesOptions): Promise<ImageAsset[
           constraint: { type: 'SCALE', value: scale },
         });
         const base64 = uint8ToBase64(new Uint8Array(bytes));
-        results.push({
+        assets.push({
           ...nodeData,
           format: options.format,
           scale,
@@ -914,12 +925,12 @@ async function extractImages(options: ExtractImagesOptions): Promise<ImageAsset[
           mimeType: mime,
           byteSize: bytes.byteLength,
         });
-      } catch (_) {
-        // 익스포트 불가 노드 skip
+      } catch (e: any) {
+        errors.push({ id: nodeData.id, name: nodeData.name, error: String(e) });
       }
     }
   }
-  return results;
+  return { assets, errors };
 }
 
 const EXPORTABLE_TYPES = new Set([
@@ -1077,6 +1088,30 @@ type ComponentType =
   | 'accordion'
   | 'popover'
   | 'select'
+  | 'heading'
+  | 'text'
+  | 'card'
+  | 'badge'
+  | 'avatar'
+  | 'separator'
+  | 'input'
+  | 'textarea'
+  | 'progress'
+  | 'slider'
+  | 'radio-group'
+  | 'toggle'
+  | 'toggle-group'
+  | 'scroll-area'
+  | 'dropdown-menu'
+  | 'context-menu'
+  | 'navigation-menu'
+  | 'hover-card'
+  | 'alert-dialog'
+  | 'collapsible'
+  | 'callout'
+  | 'table'
+  | 'aspect-ratio'
+  | 'skeleton'
   | 'layout';
 
 interface ExtractedTexts {
@@ -1328,6 +1363,8 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
       .split('/')
       .map((s) => s.trim())
       .join(' ');
+    // 정확히 'text' 또는 'texts'인 경우 text 타입 (button text, text-input 등과 혼동 방지)
+    if (name === 'text' || name === 'texts') return 'text';
     const patterns: Array<[string[], ComponentType]> = [
       [['dialog', 'modal', 'confirm', 'alert', 'popup'], 'dialog'],
       [['button', 'btn', 'cta', 'action'], 'button'],
@@ -1338,6 +1375,33 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
       [['accordion', 'collapse', 'expand'], 'accordion'],
       [['popover', 'dropdown', 'flyout'], 'popover'],
       [['select', 'combobox', 'picker'], 'select'],
+      [['heading', 'headings', 'typography', 'type scale', 'typescale', 'typeface'], 'heading'],
+      [
+        ['text style', 'text styles', 'text scale', 'body text', 'paragraph style', 'paragraph'],
+        'text',
+      ],
+      [['card', 'tile', 'content-card'], 'card'],
+      [['badge', 'chip', 'tag', 'pill', 'label-pill'], 'badge'],
+      [['avatar', 'profile-pic', 'user-icon', 'user-avatar'], 'avatar'],
+      [['separator', 'divider', 'hr', 'rule'], 'separator'],
+      [['textarea', 'text area', 'multiline', 'multi-line'], 'textarea'],
+      [['input', 'textfield', 'text-input', 'text field', 'search'], 'input'],
+      [['progress', 'progress bar', 'progressbar', 'loading bar'], 'progress'],
+      [['slider', 'range input', 'handle'], 'slider'],
+      [['radio group', 'radio button', 'option group'], 'radio-group'],
+      [['toggle group', 'segmented control', 'button group'], 'toggle-group'],
+      [['icon toggle', 'toggle button'], 'toggle'],
+      [['scroll area', 'scrollable', 'scroll container'], 'scroll-area'],
+      [['dropdown menu', 'action menu', 'options menu'], 'dropdown-menu'],
+      [['context menu', 'right click menu'], 'context-menu'],
+      [['navigation menu', 'nav menu', 'gnb menu'], 'navigation-menu'],
+      [['hover card', 'preview card'], 'hover-card'],
+      [['alert dialog', 'confirm dialog', 'warning dialog'], 'alert-dialog'],
+      [['collapsible', 'expandable section'], 'collapsible'],
+      [['callout', 'notice', 'info box', 'warning box', 'alert box'], 'callout'],
+      [['table', 'data table', 'spreadsheet'], 'table'],
+      [['aspect ratio', 'ratio box'], 'aspect-ratio'],
+      [['skeleton', 'placeholder', 'shimmer', 'loading state'], 'skeleton'],
     ];
     for (const [keywords, type] of patterns) {
       if (keywords.some((kw) => name.includes(kw))) return type;
@@ -1346,15 +1410,31 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
     const children = (n as ChildrenMixin).children as SceneNode[];
     const textNodes = children.filter((c) => c.type === 'TEXT');
     const frameNodes = children.filter((c) => c.type === 'FRAME' || c.type === 'RECTANGLE');
-    if (children.length <= 2 && textNodes.length === 1 && 'fills' in n) {
-      const fills = (n as any).fills;
-      if (Array.isArray(fills) && fills.some((f: any) => f.type === 'SOLID')) return 'button';
+    // 버튼 구조 감지: 1개 텍스트 + 고정 크기(높이 ≤56) + 프레임 또는 자식에 solid fill
+    if (
+      textNodes.length === 1 &&
+      children.length <= 4 &&
+      'height' in n &&
+      (n as any).height <= 56
+    ) {
+      const frameFills = (n as any).fills;
+      const hasSolidFill =
+        (Array.isArray(frameFills) && frameFills.some((f: any) => f.type === 'SOLID')) ||
+        frameNodes.some((fr) => {
+          const fills = (fr as any).fills;
+          return Array.isArray(fills) && fills.some((f: any) => f.type === 'SOLID');
+        });
+      if (hasSolidFill) return 'button';
     }
     if ('layoutMode' in n && (n as FrameNode).layoutMode === 'HORIZONTAL' && frameNodes.length >= 2)
       return 'tabs';
     const smallRect = frameNodes.find((f) => f.width <= 24 && f.height <= 24);
     if (smallRect && textNodes.length >= 1) return 'checkbox';
-    const hasOverlay = frameNodes.some((f) => f.width > n.width * 0.8 || (f as any).opacity < 0.5);
+    const hasOverlay = frameNodes.some(
+      (f) =>
+        ((f as any).layoutPositioning === 'ABSOLUTE' && f.width > n.width * 0.8) ||
+        (f as any).opacity < 0.5
+    );
     if (hasOverlay) return 'dialog';
     return 'layout';
   }
@@ -1463,8 +1543,15 @@ figma.ui.onmessage = (msg: {
       useSelection: false,
     };
     extractImages(options)
-      .then((data) => figma.ui.postMessage({ type: 'extract-images-result', data }))
+      .then(({ assets, errors }) =>
+        figma.ui.postMessage({ type: 'extract-images-result', data: assets, errors })
+      )
       .catch((e) => figma.ui.postMessage({ type: 'extract-images-error', message: String(e) }));
+  }
+  if (msg.type === 'extract-images-debug') {
+    const useSelection = msg.useSelection ?? false;
+    const nodes = findImageNodes(useSelection);
+    figma.ui.postMessage({ type: 'extract-images-debug-result', nodes });
   }
   if (msg.type === 'export-icons') {
     exportIcons()

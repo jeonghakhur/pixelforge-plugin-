@@ -925,6 +925,28 @@
         );
         color: var(--text-muted);
       }
+      .matrix-lower {
+        background: transparent;
+        border-color: transparent;
+      }
+      .matrix-filtered {
+        background: var(--surface);
+        opacity: 0.15;
+      }
+      .matrix-filter-btn {
+        padding: 3px 8px;
+        font-size: 10px;
+        border-radius: 4px;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text-muted);
+        cursor: pointer;
+      }
+      .matrix-filter-btn.active {
+        background: var(--primary);
+        color: #fff;
+        border-color: var(--primary);
+      }
       .matrix-badge {
         display: inline-block;
         padding: 2px 6px;
@@ -1979,7 +2001,7 @@
                     <path d="M2 4h12M2 8h8M2 12h10" stroke-linecap="round"/>
                   </svg>
                 </div>
-                <span class="token-card-label" data-i18n="extract.textStylesCard">본문 스타일</span>
+                <span class="token-card-label" data-i18n="extract.textStylesCard">Text Styles</span>
               </div>
 
               <div class="token-card" data-type="headings">
@@ -1988,7 +2010,7 @@
                     <path d="M2 3v10M9 3v10M2 8h7" stroke-linecap="round"/>
                   </svg>
                 </div>
-                <span class="token-card-label" data-i18n="extract.headingsCard">헤딩</span>
+                <span class="token-card-label" data-i18n="extract.headingsCard">Headings</span>
               </div>
 
               <div class="token-card" data-type="fonts">
@@ -1997,7 +2019,7 @@
                     <path d="M3 13L8 3l5 10M5.5 9h5" stroke-linecap="round" stroke-linejoin="round"/>
                   </svg>
                 </div>
-                <span class="token-card-label" data-i18n="extract.fontsCard">폰트</span>
+                <span class="token-card-label" data-i18n="extract.fontsCard">Fonts</span>
               </div>
 
               <div class="token-hint" data-i18n="extract.tokenHint">
@@ -2389,16 +2411,16 @@
         <span id="a11yCacheBannerDate"></span>
       </div>
       <div class="a11y-subtabs">
-        <button class="a11y-subtab active" data-a11y-sub="manual" data-i18n="contrast.manual">
-          수동 검사
-        </button>
-        <button class="a11y-subtab" data-a11y-sub="matrix" data-i18n="contrast.matrix">
+        <button class="a11y-subtab active" data-a11y-sub="matrix" data-i18n="contrast.matrix">
           컬러 매트릭스
+        </button>
+        <button class="a11y-subtab" data-a11y-sub="manual" data-i18n="contrast.manual">
+          수동 검사
         </button>
       </div>
 
       <!-- 수동 검사 -->
-      <div class="tab-body" id="a11yManualPanel">
+      <div class="tab-body" id="a11yManualPanel" style="display: none">
         <div
           id="a11yHint"
           class="section-card"
@@ -2539,7 +2561,7 @@
       </div>
 
       <!-- 컬러 매트릭스 -->
-      <div class="tab-body" id="a11yMatrixPanel" style="display: none">
+      <div class="tab-body" id="a11yMatrixPanel">
         <div
           id="matrixEmpty"
           class="section-card"
@@ -2563,6 +2585,11 @@
           >
             <div class="section-label" style="margin-bottom: 0">
               명도대비 매트릭스 (<span id="matrixColorCount">0</span>개 색상)
+            </div>
+            <div id="matrixFilters" style="display:flex;gap:4px;">
+              <button class="matrix-filter-btn active" data-filter="all" data-i18n="contrast.filterAll">전체</button>
+              <button class="matrix-filter-btn" data-filter="aa" data-i18n="contrast.filterAA">AA이상</button>
+              <button class="matrix-filter-btn" data-filter="aaa" data-i18n="contrast.filterAAA">AAA만</button>
             </div>
           </div>
           <div class="matrix-wrap">
@@ -2846,6 +2873,13 @@
               "
             >
               <option value="layout">Layout (div/section)</option>
+              <option value="heading">Heading / Typography</option>
+              <option value="text">Text / Body</option>
+              <option value="card">Card</option>
+              <option value="badge">Badge / Chip / Tag</option>
+              <option value="avatar">Avatar</option>
+              <option value="separator">Separator / Divider</option>
+              <option value="input">Input / TextField</option>
               <option value="button">Button</option>
               <option value="dialog">Dialog / Modal</option>
               <option value="tabs">Tabs</option>
@@ -3205,14 +3239,22 @@
       </div>
 
       <!-- 탐지 버튼 -->
-      <div style="padding: 10px 16px; flex-shrink: 0">
+      <div style="padding: 10px 16px; flex-shrink: 0; display: flex; gap: 8px">
         <button
           class="btn-primary"
           id="detectImagesBtn"
-          style="width: 100%"
+          style="flex: 1"
           data-i18n="image.detectBtn"
         >
           이미지 탐지하기
+        </button>
+        <button
+          class="btn-ghost"
+          id="imgDebugBtn"
+          title="탐지된 노드 목록을 JSON으로 다운로드 (디버그)"
+          style="flex-shrink: 0; padding: 0 10px; font-size: 11px"
+        >
+          노드 JSON
         </button>
       </div>
 
