@@ -1,11 +1,21 @@
 {
   "version": "2.0",
-  "lastUpdated": "2026-03-30T07:41:48.852Z",
+  "lastUpdated": "2026-03-31T06:46:49.170Z",
   "activeFeatures": [
-    "pixelforge-plugin-"
+    "pixelforge-plugin-",
+    "converters",
+    "visual-frame-parser"
   ],
   "primaryFeature": "pixelforge-plugin-",
   "features": {
+    "icon-registry": {
+      "phase": "completed",
+      "matchRate": 96,
+      "iterationCount": 1,
+      "startedAt": "2026-03-30T00:00:00.000Z",
+      "completedAt": "2026-03-31T00:00:00.000Z",
+      "reportPath": "docs/04-report/features/icon-registry.report.md"
+    },
     "icon-search-preview": {
       "phase": "archived",
       "matchRate": 100,
@@ -21,6 +31,46 @@
       "startedAt": "2026-03-30T05:42:05.236Z",
       "archivedAt": "2026-03-30T07:41:48.852Z",
       "archivedTo": "docs/archive/2026-03/component-registry/"
+    },
+    "pixelforge-plugin-": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-03-30T08:26:11.223Z",
+        "lastUpdated": "2026-03-31T06:46:49.170Z"
+      },
+      "lastFile": "/Users/jeonghak/work/pixelforge-plugin-/src/ui.js"
+    },
+    "converters": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-03-31T04:51:42.317Z",
+        "lastUpdated": "2026-03-31T06:39:30.941Z"
+      },
+      "lastFile": "/Users/jeonghak/work/pixelforge-plugin-/src/converters/typography.js"
+    },
+    "visual-frame-parser": {
+      "phase": "act",
+      "phaseNumber": 5,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-03-31T05:59:13.434Z",
+        "lastUpdated": "2026-03-31T05:59:13.434Z"
+      },
+      "previousPhase": "check",
+      "autoAdvanced": true
     }
   },
   "pipeline": {
@@ -31,7 +81,7 @@
   "session": {
     "startedAt": "2026-03-30T05:13:36.824Z",
     "onboardingCompleted": false,
-    "lastActivity": "2026-03-30T07:41:48.852Z"
+    "lastActivity": "2026-03-31T06:46:49.170Z"
   },
   "history": [
     {
@@ -516,6 +566,678 @@
     },
     {
       "timestamp": "2026-03-30T07:41:48.852Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-30T08:26:11.223Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-30T08:26:16.888Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-30T08:26:27.962Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-30T08:26:39.988Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-30T08:26:51.618Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-30T08:27:00.815Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-30T08:27:21.133Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-30T08:30:48.494Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-30T08:31:19.310Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-30T08:31:32.123Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-30T08:32:49.007Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-30T08:36:12.406Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-30T08:37:01.819Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-30T08:44:40.515Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-30T08:45:24.508Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-30T08:45:32.268Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-30T08:45:38.017Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-30T08:45:52.503Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-30T08:46:29.904Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-30T08:47:10.764Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-30T08:47:17.446Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-30T08:58:25.750Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-30T09:05:11.283Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-30T09:05:16.353Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-30T09:05:20.914Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-30T09:12:39.600Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-30T09:17:31.032Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-30T09:17:43.289Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-30T09:22:24.979Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-30T09:22:38.556Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-30T09:22:46.320Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-30T09:31:07.607Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-30T09:31:22.903Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-30T09:33:12.903Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-30T09:33:27.592Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-30T09:41:00.167Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-30T09:41:04.638Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-30T09:44:28.746Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-30T09:44:34.364Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-30T09:49:01.223Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-30T09:49:11.253Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-30T09:49:24.087Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-30T09:51:43.861Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-30T09:51:51.931Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-30T09:52:20.046Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T04:32:41.577Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T04:32:46.857Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T04:47:57.916Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T04:48:04.268Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T04:48:12.033Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T04:48:18.158Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T04:48:26.937Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T04:48:33.832Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T04:48:43.785Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T04:51:08.238Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T04:51:20.053Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T04:51:42.317Z",
+      "feature": "converters",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T04:51:46.732Z",
+      "feature": "converters",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T05:22:02.231Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T05:22:05.987Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T05:22:09.875Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T05:22:17.517Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T05:40:27.936Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T05:40:34.768Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T05:40:50.124Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T05:40:57.362Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T05:41:34.462Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T05:41:52.629Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T05:41:56.738Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T05:59:13.434Z",
+      "feature": "visual-frame-parser",
+      "phase": "act",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:02:10.363Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:04:20.783Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:04:26.911Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:04:31.845Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:04:38.523Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:04:46.410Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:04:54.768Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:05:49.843Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:06:08.518Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:07:02.247Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:07:52.616Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:08:49.344Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:19:01.628Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:19:10.236Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:19:32.507Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:19:37.113Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:34:06.574Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:36:36.879Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:36:41.308Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:36:53.449Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:37:12.983Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:37:16.954Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:38:07.228Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:38:48.498Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:38:52.082Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:38:56.137Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:39:04.215Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:39:09.005Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:39:17.215Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:39:20.619Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:39:30.941Z",
+      "feature": "converters",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:39:37.235Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:39:55.134Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:40:02.000Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:40:15.185Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:40:18.394Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:40:34.534Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:40:37.931Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:41:30.843Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:45:09.090Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:46:43.195Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-03-31T06:46:49.170Z",
       "feature": "pixelforge-plugin-",
       "phase": "do",
       "action": "updated"
