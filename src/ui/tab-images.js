@@ -2,7 +2,7 @@
 import JSZip from 'jszip';
 import { state } from './state.js';
 import { t } from './i18n.js';
-import { $, showToast } from './utils.js';
+import { $, showToast, getScope } from './utils.js';
 
 // ══════════════════════════════════════════════
 // ── Images Tab ──
@@ -10,7 +10,6 @@ import { $, showToast } from './utils.js';
 export var imageAssets = []; // ImageAsset[]
 var imageFormat = 'PNG';
 var imageScales = [1, 2]; // 선택된 배율 배열
-var imageUseSelection = false;
 
 // 포맷 버튼
 document.querySelectorAll('.image-format-btn').forEach(function (btn) {
@@ -40,12 +39,6 @@ document.querySelectorAll('.image-scale-btn').forEach(function (btn) {
   });
 });
 
-// 범위 라디오
-document.querySelectorAll('input[name="imgScope"]').forEach(function (r) {
-  r.addEventListener('change', function () {
-    imageUseSelection = r.value === 'selection';
-  });
-});
 
 export function setImgState(stateId) {
   ['imgStateIdle', 'imgStateDetecting', 'imgStateEmpty', 'imgStateError', 'imgStateList'].forEach(
@@ -302,7 +295,7 @@ var imgDebugBtn = $('imgDebugBtn');
 if (imgDebugBtn) {
   imgDebugBtn.addEventListener('click', function () {
     parent.postMessage(
-      { pluginMessage: { type: 'extract-images-debug', useSelection: imageUseSelection } },
+      { pluginMessage: { type: 'extract-images-debug', useSelection: getScope() === 'selection' } },
       '*'
     );
   });
@@ -315,7 +308,7 @@ if (detectImagesBtn) {
       {
         pluginMessage: {
           type: 'extract-images',
-          options: { format: imageFormat, scales: imageScales, useSelection: imageUseSelection },
+          options: { format: imageFormat, scales: imageScales, useSelection: getScope() === 'selection' },
         },
       },
       '*'
@@ -335,7 +328,7 @@ if (imgRetryBtn) {
       {
         pluginMessage: {
           type: 'extract-images',
-          options: { format: imageFormat, scales: imageScales, useSelection: imageUseSelection },
+          options: { format: imageFormat, scales: imageScales, useSelection: getScope() === 'selection' },
         },
       },
       '*'

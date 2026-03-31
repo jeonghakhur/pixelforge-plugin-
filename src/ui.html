@@ -796,144 +796,8 @@
         flex-shrink: 0;
       }
 
-      /* ── A11y Sub Tabs ── */
-      .a11y-subtabs {
-        display: flex;
-        gap: 6px;
-        flex-shrink: 0;
-        padding: 8px 12px;
-        background: var(--bg);
-        border-bottom: 1px solid var(--border);
-      }
-      .a11y-subtab {
-        padding: 4px 12px;
-        background: transparent;
-        border: 1px solid var(--border);
-        border-radius: var(--radius-pill);
-        font-size: 11px;
-        font-weight: 500;
-        color: var(--text-muted);
-        cursor: pointer;
-        transition: all 0.15s;
-      }
-      .a11y-subtab:hover {
-        border-color: var(--primary);
-        color: var(--primary);
-      }
-      .a11y-subtab.active {
-        background: var(--primary);
-        color: #fff;
-        border-color: var(--primary);
-        font-weight: 600;
-      }
-
-      /* ── Contrast Matrix ── */
-      .matrix-wrap {
-        overflow: auto;
-        max-height: calc(100vh - 180px);
-      }
-      .matrix-table {
-        border-collapse: collapse;
-        font-size: 10px;
-        width: max-content;
-      }
-      .matrix-table th,
-      .matrix-table td {
-        padding: 4px 6px;
-        text-align: center;
-        border: 1px solid var(--border);
-        white-space: nowrap;
-        min-width: 72px;
-      }
-      .matrix-table th {
-        background: var(--surface);
-        font-weight: 600;
-        color: var(--text-secondary);
-        font-size: 10px;
-        position: sticky;
-        top: 0;
-        z-index: 1;
-      }
-      .matrix-table th:first-child {
-        position: sticky;
-        left: 0;
-        z-index: 2;
-      }
-      .matrix-table td:first-child {
-        position: sticky;
-        left: 0;
-        background: var(--surface);
-        font-weight: 600;
-        color: var(--text-secondary);
-        font-size: 10px;
-        z-index: 1;
-      }
-      .matrix-table .matrix-swatch {
-        display: inline-block;
-        width: 20px;
-        height: 20px;
-        border-radius: 4px;
-        border: 1px solid rgba(255, 255, 255, 0.15);
-        vertical-align: middle;
-        margin-right: 4px;
-      }
-      .matrix-header-label {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 2px;
-        min-width: 72px;
-        max-width: 100px;
-      }
-      .matrix-header-name {
-        font-size: 9px;
-        max-width: 90px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        display: block;
-      }
-      .matrix-header-hex {
-        font-size: 8px;
-        color: var(--text-muted);
-        font-weight: 400;
-        font-family: 'SF Mono', monospace;
-      }
-      .matrix-aaa {
-        background: var(--success-light);
-        color: var(--success);
-      }
-      .matrix-aa {
-        background: var(--primary-light);
-        color: var(--primary);
-      }
-      .matrix-aa-large {
-        background: rgba(159, 122, 234, 0.15);
-        color: #9f7aea;
-      }
-      .matrix-fail {
-        background: var(--danger-light);
-        color: var(--danger);
-      }
-      .matrix-same {
-        background: repeating-linear-gradient(
-          135deg,
-          var(--surface),
-          var(--surface) 4px,
-          var(--border) 4px,
-          var(--border) 5px
-        );
-        color: var(--text-muted);
-      }
-      .matrix-lower {
-        background: transparent;
-        border-color: transparent;
-      }
-      .matrix-filtered {
-        background: var(--surface);
-        opacity: 0.15;
-      }
-      .matrix-filter-btn {
+      /* ── Contrast Checker ── */
+      .contrast-filter-btn {
         padding: 3px 8px;
         font-size: 10px;
         border-radius: 4px;
@@ -942,10 +806,124 @@
         color: var(--text-muted);
         cursor: pointer;
       }
-      .matrix-filter-btn.active {
+      .contrast-filter-btn.active {
         background: var(--primary);
         color: #fff;
         border-color: var(--primary);
+      }
+      .bg-chip {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        padding: 4px 8px;
+        border-radius: var(--radius-pill);
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text-secondary);
+        font-size: 10px;
+        cursor: pointer;
+        transition: all 0.12s;
+        margin-bottom: 6px;
+      }
+      .bg-chip:hover {
+        border-color: var(--primary);
+        color: var(--text);
+      }
+      .bg-chip.active {
+        border-color: var(--primary);
+        background: var(--primary-light);
+        color: var(--text);
+        font-weight: 600;
+      }
+      .chip-swatch {
+        width: 12px;
+        height: 12px;
+        border-radius: 3px;
+        border: 1px solid rgba(255,255,255,0.15);
+        flex-shrink: 0;
+      }
+      #a11yBgChips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .contrast-card {
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+        margin-bottom: 12px;
+      }
+      .contrast-card-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+      }
+      .card-swatch {
+        width: 20px;
+        height: 20px;
+        border-radius: 4px;
+        border: 1px solid rgba(255,255,255,0.15);
+        flex-shrink: 0;
+      }
+      .card-name {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text);
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .card-hex {
+        font-size: 10px;
+        color: var(--text-muted);
+        font-family: 'SF Mono', monospace;
+      }
+      .contrast-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 12px;
+        border-bottom: 1px solid var(--border);
+        font-size: 11px;
+      }
+      .contrast-row:last-child {
+        border-bottom: none;
+      }
+      .row-preview {
+        width: 28px;
+        height: 20px;
+        border-radius: 3px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        font-weight: 700;
+        flex-shrink: 0;
+        border: 1px solid rgba(128,128,128,0.2);
+      }
+      .row-swatch {
+        width: 12px;
+        height: 12px;
+        border-radius: 3px;
+        border: 1px solid rgba(255,255,255,0.15);
+        flex-shrink: 0;
+      }
+      .row-name {
+        flex: 1;
+        color: var(--text-secondary);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .row-ratio {
+        color: var(--text);
+        font-weight: 600;
+        font-size: 11px;
+        white-space: nowrap;
       }
       .matrix-badge {
         display: inline-block;
@@ -954,6 +932,7 @@
         font-size: 9px;
         font-weight: 700;
         letter-spacing: 0.02em;
+        flex-shrink: 0;
       }
       .badge-aaa {
         background: var(--success-light);
@@ -970,65 +949,6 @@
       .badge-fail {
         background: var(--danger-light);
         color: var(--danger);
-      }
-      .matrix-cell {
-        position: relative;
-        cursor: default;
-      }
-      .matrix-tooltip {
-        display: none;
-        position: absolute;
-        z-index: 10;
-        bottom: calc(100% + 6px);
-        left: 50%;
-        transform: translateX(-50%);
-        background: #ffffff;
-        color: #1a1a1a;
-        font-size: 11px;
-        padding: 10px 12px;
-        border-radius: var(--radius-sm);
-        white-space: nowrap;
-        pointer-events: none;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-        line-height: 1.6;
-        min-width: 180px;
-        text-align: left;
-      }
-      .matrix-tooltip::after {
-        content: '';
-        position: absolute;
-        top: 100%;
-        left: 50%;
-        transform: translateX(-50%);
-        border: 5px solid transparent;
-        border-top-color: #ffffff;
-      }
-      .matrix-cell:hover .matrix-tooltip {
-        display: block;
-      }
-      .matrix-summary {
-        display: flex;
-        gap: 12px;
-        padding: 8px 12px;
-        margin-bottom: 8px;
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: var(--radius);
-        font-size: 11px;
-        color: var(--text-secondary);
-        flex-wrap: wrap;
-        align-items: center;
-      }
-      .matrix-summary-item {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-      }
-      .matrix-summary-dot {
-        width: 8px;
-        height: 8px;
-        border-radius: 2px;
-        flex-shrink: 0;
       }
 
       /* ── Icon Grid ── */
@@ -2410,259 +2330,28 @@
         <span data-i18n="extract.cacheRestoredFrom">캐시에서 복원:</span>
         <span id="a11yCacheBannerDate"></span>
       </div>
-      <div class="a11y-subtabs">
-        <button class="a11y-subtab active" data-a11y-sub="matrix" data-i18n="contrast.matrix">
-          컬러 매트릭스
-        </button>
-        <button class="a11y-subtab" data-a11y-sub="manual" data-i18n="contrast.manual">
-          수동 검사
-        </button>
-      </div>
-
-      <!-- 수동 검사 -->
-      <div class="tab-body" id="a11yManualPanel" style="display: none">
+      <!-- 명도대비 뷰 -->
+      <div class="tab-body" id="a11yView">
         <div
-          id="a11yHint"
+          id="a11yEmpty"
           class="section-card"
           style="background: var(--primary-light); border-color: var(--primary-border)"
         >
-          <p style="font-size: 12px; color: var(--primary); margin: 0" data-i18n="contrast.hint">
-            추출 탭에서 토큰을 먼저 추출하면, 디자인 색상을 드롭다운에서 선택할 수 있습니다.
+          <p style="font-size: 12px; color: var(--primary); margin: 0" data-i18n="contrast.noColors">
+            추출 탭에서 토큰을 추출하면 색상이 자동으로 불러와집니다.
           </p>
         </div>
-        <div class="section-card">
-          <div class="section-label" data-i18n="contrast.title">WCAG 명도 대비 검사</div>
-          <div style="display: flex; gap: 10px; align-items: stretch; margin-bottom: 16px">
-            <div style="flex: 1">
-              <label
-                style="
-                  font-size: 11px;
-                  color: var(--text-muted);
-                  display: block;
-                  margin-bottom: 4px;
-                "
-                data-i18n="contrast.bg"
-                >배경색</label
-              >
-              <select id="a11yBgSelect" class="a11y-select">
-                <option value="">직접 입력</option>
-              </select>
-              <input
-                type="text"
-                id="a11yBgHex"
-                class="a11y-input"
-                placeholder="#FFFFFF"
-                value="#FFFFFF"
-              />
-              <div
-                id="a11yBgPreview"
-                style="
-                  width: 100%;
-                  height: 32px;
-                  border-radius: 6px;
-                  border: 1px solid var(--border);
-                  margin-top: 6px;
-                  background: #ffffff;
-                "
-              ></div>
-            </div>
-            <div style="display: flex; align-items: center; padding-top: 16px">
-              <button
-                id="a11ySwapBtn"
-                title="배경↔텍스트 교체"
-                style="
-                  width: 32px;
-                  height: 32px;
-                  border-radius: 50%;
-                  border: 1px solid var(--border);
-                  background: var(--surface);
-                  cursor: pointer;
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                  font-size: 14px;
-                  color: var(--text-secondary);
-                  transition: all 0.15s;
-                "
-              >
-                ⇄
-              </button>
-            </div>
-            <div style="flex: 1">
-              <label
-                style="
-                  font-size: 11px;
-                  color: var(--text-muted);
-                  display: block;
-                  margin-bottom: 4px;
-                "
-                data-i18n="contrast.fg"
-                >텍스트색</label
-              >
-              <select id="a11yFgSelect" class="a11y-select">
-                <option value="">직접 입력</option>
-              </select>
-              <input
-                type="text"
-                id="a11yFgHex"
-                class="a11y-input"
-                placeholder="#000000"
-                value="#000000"
-              />
-              <div
-                id="a11yFgPreview"
-                style="
-                  width: 100%;
-                  height: 32px;
-                  border-radius: 6px;
-                  border: 1px solid var(--border);
-                  margin-top: 6px;
-                  background: #000000;
-                "
-              ></div>
+        <div id="a11yMain" class="hidden">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+            <span class="section-label" style="margin: 0" data-i18n="contrast.bgSelect">배경색 선택</span>
+            <div style="display: flex; gap: 4px;">
+              <button class="contrast-filter-btn active" data-filter="all" data-i18n="contrast.filterAll">전체</button>
+              <button class="contrast-filter-btn" data-filter="aa" data-i18n="contrast.filterAA">AA이상</button>
+              <button class="contrast-filter-btn" data-filter="aaa" data-i18n="contrast.filterAAA">AAA만</button>
             </div>
           </div>
-          <div
-            style="
-              text-align: center;
-              padding: 20px 0;
-              background: var(--bg);
-              border-radius: var(--radius);
-            "
-          >
-            <div id="a11yRatio" style="font-size: 36px; font-weight: 700; color: var(--primary)">
-              21:1
-            </div>
-            <div style="display: flex; gap: 8px; justify-content: center; margin-top: 12px">
-              <span id="a11yAA" class="a11y-badge pass">AA Normal ✓</span>
-              <span id="a11yAALarge" class="a11y-badge pass">AA Large ✓</span>
-              <span id="a11yAAA" class="a11y-badge pass">AAA ✓</span>
-            </div>
-          </div>
-          <div
-            id="a11yPreviewBox"
-            style="
-              margin-top: 12px;
-              padding: 20px;
-              border-radius: var(--radius);
-              background: #ffffff;
-              border: 1px solid var(--border);
-              text-align: center;
-            "
-          >
-            <span
-              id="a11yPreviewText"
-              style="font-size: 16px; font-weight: 500; color: #000000"
-              data-i18n="contrast.preview"
-              >미리보기 텍스트 Preview</span
-            >
-          </div>
-        </div>
-      </div>
-
-      <!-- 컬러 매트릭스 -->
-      <div class="tab-body" id="a11yMatrixPanel">
-        <div
-          id="matrixEmpty"
-          class="section-card"
-          style="background: var(--primary-light); border-color: var(--primary-border)"
-        >
-          <p
-            style="font-size: 12px; color: var(--primary); margin: 0"
-            data-i18n="contrast.noColors"
-          >
-            추출 탭에서 색상을 먼저 추출하세요. 추출된 색상으로 자동 매트릭스를 생성합니다.
-          </p>
-        </div>
-        <div id="matrixContent" class="hidden">
-          <div
-            style="
-              display: flex;
-              align-items: center;
-              justify-content: space-between;
-              margin-bottom: 8px;
-            "
-          >
-            <div class="section-label" style="margin-bottom: 0">
-              명도대비 매트릭스 (<span id="matrixColorCount">0</span>개 색상)
-            </div>
-            <div id="matrixFilters" style="display:flex;gap:4px;">
-              <button class="matrix-filter-btn active" data-filter="all" data-i18n="contrast.filterAll">전체</button>
-              <button class="matrix-filter-btn" data-filter="aa" data-i18n="contrast.filterAA">AA이상</button>
-              <button class="matrix-filter-btn" data-filter="aaa" data-i18n="contrast.filterAAA">AAA만</button>
-            </div>
-          </div>
-          <div class="matrix-wrap">
-            <table class="matrix-table" id="matrixTable"></table>
-          </div>
-          <div id="matrixSummary"></div>
-          <div
-            style="
-              display: flex;
-              gap: 12px;
-              margin-top: 10px;
-              font-size: 10px;
-              color: var(--text-muted);
-              flex-wrap: wrap;
-            "
-          >
-            <span
-              ><span
-                style="
-                  display: inline-block;
-                  width: 10px;
-                  height: 10px;
-                  border-radius: 2px;
-                  background: rgba(61, 220, 132, 0.12);
-                  vertical-align: middle;
-                  margin-right: 2px;
-                "
-              ></span>
-              AAA (7:1+)</span
-            >
-            <span
-              ><span
-                style="
-                  display: inline-block;
-                  width: 10px;
-                  height: 10px;
-                  border-radius: 2px;
-                  background: rgba(59, 130, 246, 0.12);
-                  vertical-align: middle;
-                  margin-right: 2px;
-                "
-              ></span>
-              AA (4.5:1~7:1)</span
-            >
-            <span
-              ><span
-                style="
-                  display: inline-block;
-                  width: 10px;
-                  height: 10px;
-                  border-radius: 2px;
-                  background: rgba(159, 122, 234, 0.15);
-                  vertical-align: middle;
-                  margin-right: 2px;
-                "
-              ></span>
-              AA Large (3:1~4.5:1)</span
-            >
-            <span
-              ><span
-                style="
-                  display: inline-block;
-                  width: 10px;
-                  height: 10px;
-                  border-radius: 2px;
-                  background: rgba(255, 77, 79, 0.12);
-                  vertical-align: middle;
-                  margin-right: 2px;
-                "
-              ></span>
-              <span data-i18n="contrast.fail">미달</span> (&lt;3:1)</span
-            >
-          </div>
+          <div id="a11yBgChips"></div>
+          <div id="a11yResults" style="margin-top: 16px;"></div>
         </div>
       </div>
     </div>
@@ -3221,19 +2910,6 @@
             <button class="image-scale-btn active" data-scale="1">1×</button>
             <button class="image-scale-btn active" data-scale="2">2×</button>
             <button class="image-scale-btn" data-scale="3">3×</button>
-          </div>
-        </div>
-        <div class="image-option-row">
-          <span class="image-option-label" data-i18n="image.scope">범위</span>
-          <div class="radio-group">
-            <label class="radio-item">
-              <input type="radio" name="imgScope" value="all" checked />
-              <span class="radio-label" data-i18n="image.allPage">전체 페이지</span>
-            </label>
-            <label class="radio-item">
-              <input type="radio" name="imgScope" value="selection" />
-              <span class="radio-label" data-i18n="image.selection">선택 레이어</span>
-            </label>
           </div>
         </div>
       </div>

@@ -26,12 +26,7 @@ import {
   syncIconMode,
   updateIconSelInfo,
 } from './ui/tab-icons.js';
-import {
-  populateA11yColors,
-  buildExtractedColors,
-  getA11ySubTab,
-  renderMatrix,
-} from './ui/tab-a11y.js';
+import { buildExtractedColors, renderA11yView } from './ui/tab-a11y.js';
 import { onExtractThemesResult, onExtractThemesError } from './ui/tab-themes.js';
 import {
   generateCompBtn,
@@ -57,7 +52,7 @@ window._syncIconMode = syncIconMode;
 
 // ── lang 변경 → a11y matrix 재렌더 연결 ──
 registerLangChangeCallback(function () {
-  if (getA11ySubTab() === 'matrix') renderMatrix();
+  renderA11yView();
 });
 
 // ── Main Tab System ──
@@ -89,6 +84,12 @@ function switchMainTab(tab) {
   if (tab === 'icons') {
     syncIconMode();
     updateIconSelInfo();
+  }
+  if (tab === 'a11y') {
+    if (state.extractedColors.length === 0 && state.extractedData) {
+      buildExtractedColors();
+    }
+    renderA11yView();
   }
   if (tab === 'component') updateCompSelInfo();
 }
@@ -133,7 +134,6 @@ window.onmessage = function (event) {
 
   if (msg.type === 'extract-result') {
     renderResult(msg.data);
-    populateA11yColors();
     buildExtractedColors();
     state.tokenCacheInfo = {
       savedAt: new Date().toISOString(),
@@ -293,7 +293,6 @@ window.onmessage = function (event) {
   // Token cache
   if (msg.type === 'cached-token-data') {
     renderResult(msg.data);
-    populateA11yColors();
     buildExtractedColors();
     state.tokenCacheInfo = {
       savedAt: msg.savedAt,

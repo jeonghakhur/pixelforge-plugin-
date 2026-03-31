@@ -892,44 +892,73 @@ function findImageNodes(useSelection: boolean): ImageData[] {
 async function extractImages(
   options: ExtractImagesOptions
 ): Promise<{ assets: ImageAsset[]; errors: { id: string; name: string; error: string }[] }> {
-  const nodes = findImageNodes(options.useSelection);
+  const EXPORTABLE = new Set(['RECTANGLE', 'FRAME', 'COMPONENT', 'INSTANCE', 'GROUP']);
+  const source: readonly SceneNode[] =
+    options.useSelection && figma.currentPage.selection.length > 0
+      ? figma.currentPage.selection
+      : figma.currentPage.children;
+
   const ext = options.format === 'PNG' ? 'png' : 'jpg';
   const mime = options.format === 'PNG' ? 'image/png' : 'image/jpeg';
   const assets: ImageAsset[] = [];
   const errors: { id: string; name: string; error: string }[] = [];
+  const seen = new Set<string>();
 
-  for (const nodeData of nodes) {
-    const node = (await figma.getNodeByIdAsync(nodeData.id)) as SceneNode | null;
-    if (!node) {
-      errors.push({
-        id: nodeData.id,
-        name: nodeData.name,
-        error: 'getNodeByIdAsync returned null',
-      });
-      continue;
+  async function traverse(node: SceneNode) {
+    if (seen.has(node.id)) return;
+
+    if (EXPORTABLE.has(node.type)) {
+      const fills = (node as any).fills;
+      const hasImageFill =
+        Array.isArray(fills) && fills.some((p: any) => p.type === 'IMAGE' && p.visible !== false);
+
+      if (hasImageFill) {
+        seen.add(node.id);
+        const nodeData = {
+          id: node.id,
+          name: node.name,
+          kebab: toKebabCase(node.name),
+          nodeType: node.type,
+          width: Math.round(node.width),
+          height: Math.round(node.height),
+        };
+        // getNodeByIdAsync로 export 가능한 완전한 노드 객체 로드
+        const exportNode = await figma.getNodeByIdAsync(node.id);
+        if (!exportNode) {
+          errors.push({ id: node.id, name: node.name, error: 'getNodeByIdAsync returned null' });
+        } else {
+          for (const scale of options.scales) {
+            try {
+              const bytes = await (exportNode as any).exportAsync({
+                format: options.format,
+                constraint: { type: 'SCALE', value: scale },
+              });
+              const base64 = uint8ToBase64(new Uint8Array(bytes));
+              assets.push({
+                ...nodeData,
+                format: options.format,
+                scale,
+                fileName: `${nodeData.kebab}@${scale}x.${ext}`,
+                base64,
+                mimeType: mime,
+                byteSize: bytes.byteLength,
+              });
+            } catch (e: any) {
+              errors.push({ id: node.id, name: node.name, error: String(e) });
+            }
+          }
+        }
+      }
     }
 
-    for (const scale of options.scales) {
-      try {
-        const bytes = await (node as any).exportAsync({
-          format: options.format,
-          constraint: { type: 'SCALE', value: scale },
-        });
-        const base64 = uint8ToBase64(new Uint8Array(bytes));
-        assets.push({
-          ...nodeData,
-          format: options.format,
-          scale,
-          fileName: `${nodeData.kebab}@${scale}x.${ext}`,
-          base64,
-          mimeType: mime,
-          byteSize: bytes.byteLength,
-        });
-      } catch (e: any) {
-        errors.push({ id: nodeData.id, name: nodeData.name, error: String(e) });
+    if ('children' in node) {
+      for (const child of (node as ChildrenMixin).children) {
+        await traverse(child as SceneNode);
       }
     }
   }
+
+  for (const node of source) await traverse(node as SceneNode);
   return { assets, errors };
 }
 
