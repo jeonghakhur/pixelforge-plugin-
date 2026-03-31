@@ -1,1627 +1,3289 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ko">
-<head>
-<meta charset="utf-8" />
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
 
-  :root {
-    --bg: #1A1A1A;
-    --surface: #2A2A2A;
-    --surface2: #333333;
-    --border: #3A3A3A;
-    --text-primary: rgba(255,255,255,0.95);
-    --text-secondary: rgba(255,255,255,0.75);
-    --text-muted: rgba(255,255,255,0.55);
-    --primary: #3B82F6;
-    --primary-light: rgba(59,130,246,0.12);
-    --primary-border: rgba(59,130,246,0.25);
-    --primary-disabled: rgba(59,130,246,0.4);
-    --success: #3DDC84;
-    --success-light: rgba(61,220,132,0.12);
-    --warning: #F5B731;
-    --warning-light: rgba(245,183,49,0.12);
-    --danger: #FF4D4F;
-    --danger-light: rgba(255,77,79,0.12);
-    --radius: 12px;
-    --radius-sm: 8px;
-    --radius-pill: 100px;
-    --shadow: 0 2px 8px rgba(0,0,0,0.4);
-  }
+      :root {
+        --bg: #1a1a1a;
+        --surface: #2a2a2a;
+        --surface2: #333333;
+        --border: #3a3a3a;
+        --text-primary: rgba(255, 255, 255, 0.95);
+        --text-secondary: rgba(255, 255, 255, 0.75);
+        --text-muted: rgba(255, 255, 255, 0.55);
+        --primary: #3b82f6;
+        --primary-light: rgba(59, 130, 246, 0.12);
+        --primary-border: rgba(59, 130, 246, 0.25);
+        --primary-disabled: rgba(59, 130, 246, 0.4);
+        --success: #3ddc84;
+        --success-light: rgba(61, 220, 132, 0.12);
+        --warning: #f5b731;
+        --warning-light: rgba(245, 183, 49, 0.12);
+        --danger: #ff4d4f;
+        --danger-light: rgba(255, 77, 79, 0.12);
+        --radius: 12px;
+        --radius-sm: 8px;
+        --radius-pill: 100px;
+        --shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+      }
 
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
-    font-size: 13px;
-    color: var(--text-primary);
-    background: var(--bg);
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    overflow: hidden;
-  }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+        font-size: 13px;
+        color: var(--text-primary);
+        background: var(--bg);
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        overflow: hidden;
+      }
 
-  /* ── Header (fixed 48px) ── */
-  .header {
-    height: 48px;
-    display: flex;
-    align-items: center;
-    padding: 0 16px;
-    background: var(--bg);
-    flex-shrink: 0;
-    gap: 10px;
-  }
-  .brand-logo {
-    width: 28px; height: 28px; border-radius: 7px;
-    background: var(--primary); color: #fff;
-    font-size: 11px; font-weight: 800;
-    display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0;
-  }
-  .brand-name { font-size: 15px; font-weight: 700; color: #FFFFFF; }
-  .header-sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
-  .file-name {
-    font-size: 11px; color: var(--text-muted);
-    max-width: 220px; overflow: hidden;
-    text-overflow: ellipsis; white-space: nowrap;
-    flex: 1;
-  }
-  .back-btn {
-    display: none;
-    align-items: center; gap: 5px;
-    background: none; border: none;
-    color: var(--text-secondary); font-size: 12px;
-    cursor: pointer; padding: 4px 8px;
-    border-radius: 6px;
-  }
-  .back-btn:hover { background: var(--surface); }
-  .back-btn.visible { display: flex; }
+      /* ── Header (fixed 48px) ── */
+      .header {
+        height: 48px;
+        display: flex;
+        align-items: center;
+        padding: 0 16px;
+        background: var(--bg);
+        flex-shrink: 0;
+        gap: 10px;
+      }
+      .brand-logo {
+        width: 28px;
+        height: 28px;
+        border-radius: 7px;
+        background: var(--primary);
+        color: #fff;
+        font-size: 11px;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+      .brand-name {
+        font-size: 15px;
+        font-weight: 700;
+        color: #ffffff;
+      }
+      .header-sep {
+        width: 1px;
+        height: 20px;
+        background: var(--border);
+        margin: 0 4px;
+      }
+      .file-name {
+        font-size: 11px;
+        color: var(--text-muted);
+        max-width: 220px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        flex: 1;
+      }
+      .back-btn {
+        display: none;
+        align-items: center;
+        gap: 5px;
+        background: none;
+        border: 1px solid var(--border);
+        color: var(--text-secondary);
+        font-size: 12px;
+        cursor: pointer;
+        padding: 4px 10px;
+        border-radius: 6px;
+        flex-shrink: 0;
+      }
+      .back-btn:hover {
+        background: var(--surface);
+        border-color: var(--primary-border);
+        color: var(--primary);
+      }
+      .back-btn.visible {
+        display: flex;
+      }
 
-  /* ── Lang Toggle ── */
-  .lang-toggle { display: flex; gap: 3px; margin-left: auto; flex-shrink: 0; }
-  .lang-btn {
-    padding: 3px 8px; border-radius: var(--radius-pill);
-    border: 1px solid var(--border); background: transparent;
-    color: var(--text-muted); font-size: 10px; font-weight: 600;
-    cursor: pointer; transition: all 0.15s; line-height: 1;
-  }
-  .lang-btn:hover { border-color: var(--primary); color: var(--primary); }
-  .lang-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+      /* ── Lang Toggle ── */
+      .lang-toggle {
+        display: flex;
+        gap: 3px;
+        flex-shrink: 0;
+      }
+      .lang-btn {
+        padding: 3px 8px;
+        border-radius: var(--radius-pill);
+        border: 1px solid var(--border);
+        background: transparent;
+        color: var(--text-muted);
+        font-size: 10px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s;
+        line-height: 1;
+      }
+      .lang-btn:hover {
+        border-color: var(--primary);
+        color: var(--primary);
+      }
+      .lang-btn.active {
+        background: var(--primary);
+        color: #fff;
+        border-color: var(--primary);
+      }
 
-  /* ── Filter Panel (scrollable) ── */
-  .filter-panel {
-    flex: 1;
-    overflow-y: auto;
-    padding: 14px 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
+      /* ── Filter Panel (scrollable) ── */
+      .filter-panel {
+        flex: 1;
+        overflow-y: auto;
+        padding: 14px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
 
-  /* ── Section Card ── */
-  .section-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 14px;
-  }
-  .section-label {
-    font-size: 11px; font-weight: 600;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: 10px;
-  }
+      /* ── Section Card ── */
+      .section-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 14px;
+      }
+      .section-label {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 10px;
+      }
 
-  /* ── Token Type Grid ── */
-  .token-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-  }
-  .token-card {
-    display: flex; align-items: center; gap: 10px;
-    padding: 12px 14px;
-    border: 1.5px solid var(--border);
-    border-radius: 10px;
-    background: var(--surface);
-    color: var(--text-secondary);
-    font-size: 12px; font-weight: 500;
-    cursor: pointer; transition: all 0.15s;
-    user-select: none;
-  }
-  .token-card:hover { background: var(--surface2); color: var(--text-primary); border-color: var(--border); }
-  .token-card.active {
-    background: var(--primary-light);
-    border-color: var(--primary-border);
-    color: var(--text-primary);
-    font-weight: 600;
-  }
-  .token-card.active svg { color: var(--primary); }
-  .token-card-icon {
-    width: 30px; height: 30px; flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center;
-    border-radius: 7px; background: var(--surface2);
-    transition: background 0.15s;
-  }
-  .token-card.active .token-card-icon { background: rgba(59,130,246,0.2); }
-  .token-card-label { flex: 1; line-height: 1.3; }
-  .token-card.full-width { grid-column: 1 / -1; }
-  .token-hint {
-    grid-column: 1 / -1;
-    margin-top: 2px;
-    font-size: 10px; color: var(--text-muted);
-  }
+      /* ── Token Type Grid ── */
+      .token-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+      .token-card {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 14px;
+        border: 1.5px solid var(--border);
+        border-radius: 10px;
+        background: var(--surface);
+        color: var(--text-secondary);
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.15s;
+        user-select: none;
+      }
+      .token-card:hover {
+        background: var(--surface2);
+        color: var(--text-primary);
+        border-color: var(--border);
+      }
+      .token-card.active {
+        background: var(--primary-light);
+        border-color: var(--primary-border);
+        color: var(--text-primary);
+        font-weight: 600;
+      }
+      .token-card.active svg {
+        color: var(--primary);
+      }
+      .token-card-icon {
+        width: 30px;
+        height: 30px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 7px;
+        background: var(--surface2);
+        transition: background 0.15s;
+      }
+      .token-card.active .token-card-icon {
+        background: rgba(59, 130, 246, 0.2);
+      }
+      .token-card-label {
+        flex: 1;
+        line-height: 1.3;
+      }
+      .token-card.full-width {
+        grid-column: 1 / -1;
+      }
+      .token-hint {
+        grid-column: 1 / -1;
+        margin-top: 2px;
+        font-size: 10px;
+        color: var(--text-muted);
+      }
 
-  /* ── Scope Radio ── */
-  .radio-group { display: flex; gap: 16px; }
-  .radio-item { display: flex; align-items: center; gap: 6px; cursor: pointer; }
-  .radio-item input[type="radio"] { accent-color: var(--primary); width: 14px; height: 14px; cursor: pointer; }
-  .radio-label { font-size: 13px; color: var(--text-secondary); }
-  .radio-item:has(input:checked) .radio-label { color: var(--text-primary); font-weight: 600; }
+      /* ── Scope Radio ── */
+      .radio-group {
+        display: flex;
+        gap: 16px;
+      }
+      .radio-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        cursor: pointer;
+      }
+      .radio-item input[type='radio'] {
+        accent-color: var(--primary);
+        width: 14px;
+        height: 14px;
+        cursor: pointer;
+      }
+      .radio-label {
+        font-size: 13px;
+        color: var(--text-secondary);
+      }
+      .radio-item:has(input:checked) .radio-label {
+        color: var(--text-primary);
+        font-weight: 600;
+      }
 
-  /* ── Selection Info ── */
-  .selection-info {
-    margin-top: 10px;
-    padding: 8px 10px;
-    background: var(--primary-light);
-    border: 1px solid var(--primary-border);
-    border-radius: 6px;
-  }
-  .sel-count {
-    font-size: 12px; font-weight: 600;
-    color: var(--primary);
-    margin-bottom: 4px;
-  }
-  .sel-names {
-    font-size: 11px; color: var(--text-secondary);
-    line-height: 1.5;
-  }
-  .sel-item {
-    display: inline-flex; align-items: center; gap: 4px;
-    background: var(--surface);
-    border: 1px solid var(--primary-border);
-    border-radius: 4px;
-    padding: 2px 6px;
-    margin: 2px 2px 0 0;
-  }
-  .sel-type { font-size: 9px; color: var(--text-muted); text-transform: uppercase; }
-  .sel-name-text { font-size: 11px; color: var(--text-primary); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .sel-more { font-size: 11px; color: var(--text-muted); padding: 2px 4px; }
+      /* ── Selection Info ── */
+      .selection-info {
+        margin-top: 10px;
+        padding: 8px 10px;
+        background: var(--primary-light);
+        border: 1px solid var(--primary-border);
+        border-radius: 6px;
+      }
+      .sel-count {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--primary);
+        margin-bottom: 4px;
+      }
+      .sel-names {
+        font-size: 11px;
+        color: var(--text-secondary);
+        line-height: 1.5;
+      }
+      .sel-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: var(--surface);
+        border: 1px solid var(--primary-border);
+        border-radius: 4px;
+        padding: 2px 6px;
+        margin: 2px 2px 0 0;
+      }
+      .sel-type {
+        font-size: 9px;
+        color: var(--text-muted);
+        text-transform: uppercase;
+      }
+      .sel-name-text {
+        font-size: 11px;
+        color: var(--text-primary);
+        max-width: 140px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .sel-more {
+        font-size: 11px;
+        color: var(--text-muted);
+        padding: 2px 4px;
+      }
 
-  /* ── Collections ── */
-  .col-list { display: flex; flex-direction: column; gap: 4px; }
-  .col-item {
-    display: flex; align-items: center; gap: 8px;
-    padding: 7px 10px; border-radius: 6px;
-    cursor: pointer; transition: background 0.1s;
-  }
-  .col-item:hover { background: var(--bg); }
-  .col-item input[type="checkbox"] { accent-color: var(--primary); width: 14px; height: 14px; cursor: pointer; flex-shrink: 0; }
-  .col-name { font-size: 13px; color: var(--text-primary); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .col-count { font-size: 11px; color: var(--text-muted); }
-  .no-collections { font-size: 12px; color: var(--text-muted); padding: 4px 2px; }
+      /* ── Collections ── */
+      .col-list {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .col-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 10px;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: background 0.1s;
+      }
+      .col-item:hover {
+        background: var(--bg);
+      }
+      .col-item input[type='checkbox'] {
+        accent-color: var(--primary);
+        width: 14px;
+        height: 14px;
+        cursor: pointer;
+        flex-shrink: 0;
+      }
+      .col-name {
+        font-size: 13px;
+        color: var(--text-primary);
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .col-count {
+        font-size: 11px;
+        color: var(--text-muted);
+      }
+      .no-collections {
+        font-size: 12px;
+        color: var(--text-muted);
+        padding: 4px 2px;
+      }
 
-  /* ── Action Bar (fixed) ── */
-  .action-bar {
-    height: 60px;
-    display: flex;
-    align-items: center;
-    padding: 0 16px;
-    background: var(--bg);
-    border-top: 1px solid var(--border);
-    flex-shrink: 0;
-    gap: 10px;
-  }
-  .btn-primary {
-    flex: 1; height: 40px;
-    background: var(--primary); color: #fff;
-    border: none; border-radius: 10px;
-    font-size: 13px; font-weight: 600;
-    cursor: pointer; transition: background 0.15s;
-    display: flex; align-items: center; justify-content: center; gap: 7px;
-    padding: 10px 16px;
-  }
-  .btn-primary:hover { background: #2563EB; }
-  .btn-primary:disabled { background: var(--primary-disabled); cursor: not-allowed; }
-  .btn-ghost {
-    height: 40px; padding: 0 16px;
-    background: var(--surface2); color: var(--text-secondary);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    font-size: 12px; cursor: pointer; transition: all 0.15s;
-    display: flex; align-items: center; gap: 6px;
-  }
-  .btn-ghost:hover { background: var(--surface); color: var(--text-primary); }
-  .btn-ghost:disabled { opacity: 0.4; cursor: not-allowed; }
+      /* ── Action Bar (fixed) ── */
+      .action-bar {
+        height: 60px;
+        display: flex;
+        align-items: center;
+        padding: 0 16px;
+        background: var(--bg);
+        border-top: 1px solid var(--border);
+        flex-shrink: 0;
+        gap: 10px;
+      }
+      .btn-primary {
+        flex: 1;
+        height: 40px;
+        background: var(--primary);
+        color: #fff;
+        border: none;
+        border-radius: 10px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.15s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        padding: 10px 16px;
+      }
+      .btn-primary:hover {
+        background: #2563eb;
+      }
+      .btn-primary:disabled {
+        background: var(--primary-disabled);
+        cursor: not-allowed;
+      }
+      .btn-ghost {
+        height: 40px;
+        padding: 0 16px;
+        background: var(--surface2);
+        color: var(--text-secondary);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        font-size: 12px;
+        cursor: pointer;
+        transition: all 0.15s;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .btn-ghost:hover {
+        background: var(--surface);
+        color: var(--text-primary);
+      }
+      .btn-ghost:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
 
-  /* ── Result Panel ── */
-  .result-panel {
-    flex: 1;
-    overflow-y: auto;
-    padding: 14px 16px 14px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    min-height: 0;
-  }
-  .result-body {
-    flex: 1;
-    overflow-y: auto;
-    padding: 14px 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    min-height: 0;
-  }
-  .result-bar {
-    display: flex; gap: 8px;
-    padding: 10px 16px;
-    background: var(--surface);
-    border-top: 1px solid var(--border);
-    flex-shrink: 0;
-  }
-  .result-bar .btn-ghost { flex: 1; justify-content: center; }
+      /* ── Result Panel ── */
+      .result-panel {
+        flex: 1;
+        overflow-y: auto;
+        padding: 14px 16px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        min-height: 0;
+      }
+      .result-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 14px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        min-height: 0;
+      }
+      .result-bar {
+        display: flex;
+        gap: 8px;
+        padding: 10px 16px;
+        background: var(--surface);
+        border-top: 1px solid var(--border);
+        flex-shrink: 0;
+      }
+      .result-bar .btn-ghost {
+        flex: 1;
+        justify-content: center;
+      }
 
-  /* ── Stat Cards ── */
-  .stats-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
-  }
-  .stat-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 10px 6px;
-    text-align: center;
-  }
-  .stat-value { font-size: 18px; font-weight: 700; color: var(--primary); }
-  .stat-label { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
-  .stat-card.inactive { opacity: 0.3; cursor: default; }
-  .stat-card:not(.inactive) { cursor: pointer; }
-  .stat-card:not(.inactive):hover { border-color: var(--primary-border); background: var(--primary-light); }
-  .stat-card.selected { border-color: var(--primary-border); background: var(--primary-light); }
-  .stat-card.selected .stat-value { color: var(--primary); }
-  .stat-card.dimmed { opacity: 0.3; }
+      /* ── Stat Cards ── */
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+      }
+      .stat-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 10px 6px;
+        text-align: center;
+      }
+      .stat-value {
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--primary);
+      }
+      .stat-label {
+        font-size: 10px;
+        color: var(--text-muted);
+        margin-top: 2px;
+      }
+      .stat-card.inactive {
+        opacity: 1;
+        cursor: default;
+        border-color: var(--border);
+      }
+      .stat-card.inactive .stat-value {
+        color: var(--text-muted);
+        font-weight: 600;
+      }
+      .stat-card:not(.inactive) {
+        cursor: pointer;
+      }
+      .stat-card:not(.inactive):hover {
+        border-color: var(--primary-border);
+        background: var(--primary-light);
+      }
+      .stat-card.selected {
+        border-color: var(--primary-border);
+        background: var(--primary-light);
+      }
+      .stat-card.selected .stat-value {
+        color: var(--primary);
+      }
+      .stat-card.dimmed {
+        opacity: 0.5;
+      }
 
-  /* ── Meta Info ── */
-  .meta-bar {
-    display: flex; gap: 12px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 10px 14px;
-  }
-  .meta-item { display: flex; flex-direction: column; gap: 2px; }
-  .meta-key { font-size: 10px; color: var(--text-muted); }
-  .meta-val { font-size: 12px; color: var(--text-primary); font-weight: 500; }
+      /* ── Meta Info ── */
+      .meta-bar {
+        display: flex;
+        gap: 12px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 10px 14px;
+      }
+      .meta-item {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .meta-key {
+        font-size: 10px;
+        color: var(--text-muted);
+      }
+      .meta-val {
+        font-size: 12px;
+        color: var(--text-primary);
+        font-weight: 500;
+      }
 
-  /* ── Preview Panel ── */
-  .preview-panel {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    overflow: hidden;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-  }
-  .preview-tab-bar {
-    display: flex;
-    align-items: center;
-    padding: 0 12px;
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-    height: 36px;
-    gap: 2px;
-  }
-  .preview-tab {
-    height: 100%;
-    padding: 0 12px;
-    background: none;
-    border: none;
-    border-bottom: 2px solid transparent;
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--text-muted);
-    cursor: pointer;
-    transition: all 0.15s;
-    margin-bottom: -1px;
-  }
-  .preview-tab:hover { color: var(--text-secondary); }
-  .preview-tab.active {
-    color: var(--text-primary);
-    font-weight: 600;
-    border-bottom-color: var(--primary);
-  }
-  .unit-toggle {
-    margin-left: auto;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
-  .unit-label { font-size: 11px; color: var(--text-muted); margin-right: 2px; }
-  .unit-btn {
-    padding: 3px 8px;
-    border-radius: var(--radius-pill);
-    border: 1px solid var(--border);
-    background: transparent;
-    color: var(--text-secondary);
-    font-size: 11px;
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-  .unit-btn.active {
-    background: var(--primary);
-    color: #fff;
-    border-color: var(--primary);
-  }
-  .preview-body {
-    flex: 1;
-    overflow-y: auto;
-    padding: 12px 14px;
-    min-height: 0;
-    background: #111111;
-  }
-  .preview-pre {
-    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
-    font-size: 11px;
-    line-height: 1.65;
-    color: #E2E8F0;
-    white-space: pre-wrap;
-    word-break: break-all;
-  }
-  /* CSS Syntax Highlight */
-  .cs { color: #C084FC; font-weight: 600; }  /* selector */
-  .cp { color: #60A5FA; }                      /* property */
-  .cv { color: #34D399; }                      /* value */
-  .cc { color: rgba(255,255,255,0.35); font-style: italic; }  /* comment */
+      /* ── Preview Panel ── */
+      .preview-panel {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+      .preview-tab-bar {
+        display: flex;
+        align-items: center;
+        padding: 0 12px;
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+        height: 36px;
+        gap: 2px;
+      }
+      .preview-tab {
+        height: 100%;
+        padding: 0 12px;
+        background: none;
+        border: none;
+        border-bottom: 2px solid transparent;
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: all 0.15s;
+        margin-bottom: -1px;
+      }
+      .preview-tab:hover {
+        color: var(--text-secondary);
+      }
+      .preview-tab.active {
+        color: var(--text-primary);
+        font-weight: 600;
+        border-bottom-color: var(--primary);
+      }
+      .unit-toggle {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .unit-label {
+        font-size: 11px;
+        color: var(--text-muted);
+        margin-right: 2px;
+      }
+      .unit-btn {
+        padding: 3px 8px;
+        border-radius: var(--radius-pill);
+        border: 1px solid var(--border);
+        background: transparent;
+        color: var(--text-secondary);
+        font-size: 11px;
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .unit-btn.active {
+        background: var(--primary);
+        color: #fff;
+        border-color: var(--primary);
+      }
+      .preview-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 12px 14px;
+        min-height: 0;
+        background: #111111;
+      }
+      .preview-pre {
+        font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+        font-size: 11px;
+        line-height: 1.65;
+        color: #e2e8f0;
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+      /* CSS Syntax Highlight */
+      .cs {
+        color: #c084fc;
+        font-weight: 600;
+      } /* selector */
+      .cp {
+        color: #60a5fa;
+      } /* property */
+      .cv {
+        color: #34d399;
+      } /* value */
+      .cc {
+        color: rgba(255, 255, 255, 0.35);
+        font-style: italic;
+      } /* comment */
 
-  /* ── Loading View ── */
-  .loading-view {
-    flex: 1;
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    gap: 12px;
-  }
-  .spinner {
-    width: 28px; height: 28px;
-    border: 3px solid var(--border);
-    border-top-color: var(--primary);
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .loading-text { font-size: 13px; color: var(--text-secondary); }
+      /* ── Loading View ── */
+      .loading-view {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+      }
+      .spinner {
+        width: 28px;
+        height: 28px;
+        border: 3px solid var(--border);
+        border-top-color: var(--primary);
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      .loading-text {
+        font-size: 13px;
+        color: var(--text-secondary);
+      }
 
-  /* ── Toast ── */
-  .toast {
-    position: fixed; bottom: 70px; left: 50%;
-    transform: translateX(-50%);
-    background: #FFFFFF; color: #1A1A1A;
-    font-size: 12px; padding: 8px 14px;
-    border-radius: var(--radius-sm); white-space: nowrap;
-    pointer-events: none; opacity: 0;
-    transition: opacity 0.2s; z-index: 999;
-    box-shadow: var(--shadow);
-  }
-  .toast.show { opacity: 1; }
+      /* ── Toast ── */
+      .toast {
+        position: fixed;
+        bottom: 70px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #ffffff;
+        color: #1a1a1a;
+        font-size: 12px;
+        padding: 8px 14px;
+        border-radius: var(--radius-sm);
+        white-space: nowrap;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.2s;
+        z-index: 999;
+        box-shadow: var(--shadow);
+      }
+      .toast.show {
+        opacity: 1;
+      }
 
-  .hidden { display: none !important; }
+      .hidden {
+        display: none !important;
+      }
 
-  /* ── Main Tabs ── */
-  .main-tabs {
-    display: flex;
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-    padding: 0 8px;
-    gap: 0;
-  }
-  .main-tab {
-    padding: 10px 16px;
-    background: none;
-    border: none;
-    border-bottom: 2px solid transparent;
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--text-muted);
-    cursor: pointer;
-    transition: all 0.15s;
-    white-space: nowrap;
-  }
-  .main-tab:hover { color: var(--text-secondary); }
-  .main-tab.active {
-    color: var(--text-primary);
-    font-weight: 600;
-    border-bottom-color: var(--primary);
-  }
-  .tab-panel {
-    flex: 1;
-    overflow: hidden;
-    flex-direction: column;
-  }
-  .tab-body {
-    flex: 1;
-    overflow-y: auto;
-    padding: 14px 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
+      /* ── Main Tabs ── */
+      .main-tabs {
+        display: flex;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+        padding: 0 8px;
+        gap: 0;
+      }
+      .main-tab {
+        padding: 10px 16px;
+        background: none;
+        border: none;
+        border-bottom: 2px solid transparent;
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: all 0.15s;
+        white-space: nowrap;
+      }
+      .main-tab:hover {
+        color: var(--text-secondary);
+      }
+      .main-tab.active {
+        color: var(--text-primary);
+        font-weight: 600;
+        border-bottom-color: var(--primary);
+      }
+      .tab-panel {
+        flex: 1;
+        overflow: hidden;
+        flex-direction: column;
+      }
+      .tab-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 14px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
 
-  /* ── Icon List ── */
-  .icon-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 12px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-  }
-  .icon-preview {
-    width: 32px; height: 32px;
-    display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0;
-    background: var(--bg);
-    border-radius: 6px;
-    overflow: hidden;
-  }
-  .icon-preview svg { width: 24px; height: 24px; }
-  .icon-info { flex: 1; min-width: 0; }
-  .icon-name { font-size: 12px; font-weight: 600; color: var(--text-primary); }
-  .icon-names { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
-  .icon-actions { display: flex; gap: 4px; flex-shrink: 0; }
+      /* ── Icon List ── */
+      .icon-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+      }
+      .icon-preview {
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        background: var(--bg);
+        border-radius: 6px;
+        overflow: hidden;
+      }
+      .icon-preview svg {
+        width: 24px;
+        height: 24px;
+      }
+      .icon-info {
+        flex: 1;
+        min-width: 0;
+      }
+      .icon-name {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-primary);
+      }
+      .icon-names {
+        font-size: 10px;
+        color: var(--text-muted);
+        margin-top: 2px;
+      }
+      .icon-actions {
+        display: flex;
+        gap: 4px;
+        flex-shrink: 0;
+      }
 
-  /* ── A11y Sub Tabs ── */
-  .a11y-subtabs {
-    display: flex; gap: 6px; flex-shrink: 0;
-    padding: 8px 12px; background: var(--bg);
-    border-bottom: 1px solid var(--border);
-  }
-  .a11y-subtab {
-    padding: 4px 12px; background: transparent; border: 1px solid var(--border);
-    border-radius: var(--radius-pill); font-size: 11px; font-weight: 500;
-    color: var(--text-muted); cursor: pointer; transition: all 0.15s;
-  }
-  .a11y-subtab:hover { border-color: var(--primary); color: var(--primary); }
-  .a11y-subtab.active { background: var(--primary); color: #fff; border-color: var(--primary); font-weight: 600; }
+      /* ── A11y Sub Tabs ── */
+      .a11y-subtabs {
+        display: flex;
+        gap: 6px;
+        flex-shrink: 0;
+        padding: 8px 12px;
+        background: var(--bg);
+        border-bottom: 1px solid var(--border);
+      }
+      .a11y-subtab {
+        padding: 4px 12px;
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-pill);
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .a11y-subtab:hover {
+        border-color: var(--primary);
+        color: var(--primary);
+      }
+      .a11y-subtab.active {
+        background: var(--primary);
+        color: #fff;
+        border-color: var(--primary);
+        font-weight: 600;
+      }
 
-  /* ── Contrast Matrix ── */
-  .matrix-wrap { overflow: auto; max-height: calc(100vh - 180px); }
-  .matrix-table { border-collapse: collapse; font-size: 10px; width: max-content; }
-  .matrix-table th, .matrix-table td {
-    padding: 4px 6px; text-align: center; border: 1px solid var(--border);
-    white-space: nowrap; min-width: 72px;
-  }
-  .matrix-table th { background: var(--surface); font-weight: 600; color: var(--text-secondary); font-size: 10px; position: sticky; top: 0; z-index: 1; }
-  .matrix-table th:first-child { position: sticky; left: 0; z-index: 2; }
-  .matrix-table td:first-child { position: sticky; left: 0; background: var(--surface); font-weight: 600; color: var(--text-secondary); font-size: 10px; z-index: 1; }
-  .matrix-table .matrix-swatch { display: inline-block; width: 20px; height: 20px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.15); vertical-align: middle; margin-right: 4px; }
-  .matrix-header-label { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 72px; max-width: 100px; }
-  .matrix-header-name { font-size: 9px; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
-  .matrix-header-hex { font-size: 8px; color: var(--text-muted); font-weight: 400; font-family: 'SF Mono', monospace; }
-  .matrix-aaa { background: var(--success-light); color: var(--success); }
-  .matrix-aa { background: var(--primary-light); color: var(--primary); }
-  .matrix-aa-large { background: rgba(159,122,234,0.15); color: #9F7AEA; }
-  .matrix-fail { background: var(--danger-light); color: var(--danger); }
-  .matrix-same { background: repeating-linear-gradient(135deg, var(--surface), var(--surface) 4px, var(--border) 4px, var(--border) 5px); color: var(--text-muted); }
-  .matrix-badge {
-    display: inline-block; padding: 2px 6px; border-radius: 3px;
-    font-size: 9px; font-weight: 700; letter-spacing: 0.02em;
-  }
-  .badge-aaa { background: var(--success-light); color: var(--success); }
-  .badge-aa { background: var(--primary-light); color: var(--primary); }
-  .badge-aa-large { background: rgba(159,122,234,0.15); color: #9F7AEA; }
-  .badge-fail { background: var(--danger-light); color: var(--danger); }
-  .matrix-cell { position: relative; cursor: default; }
-  .matrix-tooltip {
-    display: none; position: absolute; z-index: 10;
-    bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
-    background: #FFFFFF; color: #1A1A1A;
-    font-size: 11px; padding: 10px 12px; border-radius: var(--radius-sm);
-    white-space: nowrap; pointer-events: none;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.4); line-height: 1.6;
-    min-width: 180px; text-align: left;
-  }
-  .matrix-tooltip::after {
-    content: ''; position: absolute; top: 100%; left: 50%;
-    transform: translateX(-50%); border: 5px solid transparent;
-    border-top-color: #FFFFFF;
-  }
-  .matrix-cell:hover .matrix-tooltip { display: block; }
-  .matrix-summary {
-    display: flex; gap: 12px; padding: 8px 12px; margin-bottom: 8px;
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius); font-size: 11px; color: var(--text-secondary);
-    flex-wrap: wrap; align-items: center;
-  }
-  .matrix-summary-item { display: flex; align-items: center; gap: 4px; }
-  .matrix-summary-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+      /* ── Contrast Matrix ── */
+      .matrix-wrap {
+        overflow: auto;
+        max-height: calc(100vh - 180px);
+      }
+      .matrix-table {
+        border-collapse: collapse;
+        font-size: 10px;
+        width: max-content;
+      }
+      .matrix-table th,
+      .matrix-table td {
+        padding: 4px 6px;
+        text-align: center;
+        border: 1px solid var(--border);
+        white-space: nowrap;
+        min-width: 72px;
+      }
+      .matrix-table th {
+        background: var(--surface);
+        font-weight: 600;
+        color: var(--text-secondary);
+        font-size: 10px;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+      }
+      .matrix-table th:first-child {
+        position: sticky;
+        left: 0;
+        z-index: 2;
+      }
+      .matrix-table td:first-child {
+        position: sticky;
+        left: 0;
+        background: var(--surface);
+        font-weight: 600;
+        color: var(--text-secondary);
+        font-size: 10px;
+        z-index: 1;
+      }
+      .matrix-table .matrix-swatch {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border-radius: 4px;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        vertical-align: middle;
+        margin-right: 4px;
+      }
+      .matrix-header-label {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        min-width: 72px;
+        max-width: 100px;
+      }
+      .matrix-header-name {
+        font-size: 9px;
+        max-width: 90px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        display: block;
+      }
+      .matrix-header-hex {
+        font-size: 8px;
+        color: var(--text-muted);
+        font-weight: 400;
+        font-family: 'SF Mono', monospace;
+      }
+      .matrix-aaa {
+        background: var(--success-light);
+        color: var(--success);
+      }
+      .matrix-aa {
+        background: var(--primary-light);
+        color: var(--primary);
+      }
+      .matrix-aa-large {
+        background: rgba(159, 122, 234, 0.15);
+        color: #9f7aea;
+      }
+      .matrix-fail {
+        background: var(--danger-light);
+        color: var(--danger);
+      }
+      .matrix-same {
+        background: repeating-linear-gradient(
+          135deg,
+          var(--surface),
+          var(--surface) 4px,
+          var(--border) 4px,
+          var(--border) 5px
+        );
+        color: var(--text-muted);
+      }
+      .matrix-badge {
+        display: inline-block;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+      }
+      .badge-aaa {
+        background: var(--success-light);
+        color: var(--success);
+      }
+      .badge-aa {
+        background: var(--primary-light);
+        color: var(--primary);
+      }
+      .badge-aa-large {
+        background: rgba(159, 122, 234, 0.15);
+        color: #9f7aea;
+      }
+      .badge-fail {
+        background: var(--danger-light);
+        color: var(--danger);
+      }
+      .matrix-cell {
+        position: relative;
+        cursor: default;
+      }
+      .matrix-tooltip {
+        display: none;
+        position: absolute;
+        z-index: 10;
+        bottom: calc(100% + 6px);
+        left: 50%;
+        transform: translateX(-50%);
+        background: #ffffff;
+        color: #1a1a1a;
+        font-size: 11px;
+        padding: 10px 12px;
+        border-radius: var(--radius-sm);
+        white-space: nowrap;
+        pointer-events: none;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+        line-height: 1.6;
+        min-width: 180px;
+        text-align: left;
+      }
+      .matrix-tooltip::after {
+        content: '';
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        border: 5px solid transparent;
+        border-top-color: #ffffff;
+      }
+      .matrix-cell:hover .matrix-tooltip {
+        display: block;
+      }
+      .matrix-summary {
+        display: flex;
+        gap: 12px;
+        padding: 8px 12px;
+        margin-bottom: 8px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        font-size: 11px;
+        color: var(--text-secondary);
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .matrix-summary-item {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .matrix-summary-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 2px;
+        flex-shrink: 0;
+      }
 
-  /* ── Icon Grid ── */
-  .icon-grid {
-    display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
-  }
-  .icon-card {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius); padding: 10px; text-align: center;
-    display: flex; flex-direction: column; align-items: center; gap: 6px;
-  }
-  .icon-card-preview {
-    width: 40px; height: 40px; display: flex; align-items: center;
-    justify-content: center; background: var(--bg); border-radius: 6px;
-  }
-  .icon-card-preview svg { width: 28px; height: 28px; }
-  .icon-card-name { font-size: 10px; color: var(--text-secondary); word-break: break-all; line-height: 1.3; max-width: 100%; }
-  .icon-card-actions { display: flex; gap: 4px; }
-  .icon-mode-toggle {
-    display: flex; gap: 6px; padding: 8px 12px;
-    background: var(--bg); border-bottom: 1px solid var(--border);
-  }
-  .icon-mode-btn {
-    padding: 4px 12px; background: transparent; border: 1px solid var(--border);
-    border-radius: var(--radius-pill); font-size: 11px; font-weight: 500;
-    color: var(--text-muted); cursor: pointer; transition: all 0.15s;
-  }
-  .icon-mode-btn:hover { border-color: var(--primary); color: var(--primary); }
-  .icon-mode-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); font-weight: 600; }
-  .icon-card.selected { border-color: var(--primary) !important; background: var(--primary-light) !important; }
-  .icon-card { cursor: pointer; }
-  .icon-card:hover { border-color: var(--primary-border); }
+      /* ── Icon Grid ── */
+      .icon-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+      }
+      .icon-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 10px;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+      }
+      .icon-card-preview {
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--bg);
+        border-radius: 6px;
+      }
+      .icon-card-preview svg {
+        width: 28px;
+        height: 28px;
+      }
+      .icon-card-name {
+        font-size: 10px;
+        color: var(--text-secondary);
+        word-break: break-all;
+        line-height: 1.3;
+        max-width: 100%;
+      }
+      .icon-card-actions {
+        display: flex;
+        gap: 4px;
+      }
+      .icon-mode-toggle {
+        display: flex;
+        gap: 6px;
+        padding: 8px 12px;
+        background: var(--bg);
+        border-bottom: 1px solid var(--border);
+      }
+      .icon-mode-btn {
+        padding: 4px 12px;
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-pill);
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .icon-mode-btn:hover {
+        border-color: var(--primary);
+        color: var(--primary);
+      }
+      .icon-mode-btn.active {
+        background: var(--primary);
+        color: #fff;
+        border-color: var(--primary);
+        font-weight: 600;
+      }
+      .icon-card.selected {
+        border-color: var(--primary) !important;
+        background: var(--primary-light) !important;
+      }
+      .icon-card {
+        cursor: pointer;
+      }
+      .icon-card:hover {
+        border-color: var(--primary-border);
+      }
 
-  /* ── Icon Search ── */
-  .icon-search-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
-  .icon-search-box {
-    flex:1; display:flex; align-items:center; gap:6px;
-    background:var(--bg); border:1px solid var(--border);
-    border-radius:6px; padding:0 10px; height:30px;
-    transition:border-color 0.15s;
-  }
-  .icon-search-box:focus-within { border-color:var(--primary); }
-  .icon-search-icon { color:var(--text-muted); flex-shrink:0; width:13px; height:13px; }
-  .icon-search-input {
-    flex:1; background:none; border:none; outline:none;
-    font-size:11px; color:var(--text-primary); min-width:0;
-  }
-  .icon-search-input::placeholder { color:var(--text-muted); }
-  .icon-search-clear {
-    background:none; border:none; color:var(--text-muted);
-    cursor:pointer; font-size:14px; padding:0; line-height:1;
-  }
-  .icon-search-clear:hover { color:var(--text-primary); }
-  .icon-filter-count { font-size:11px; color:var(--text-muted); white-space:nowrap; flex-shrink:0; }
+      /* ── Icon Search ── */
+      .icon-search-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+      .icon-search-box {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 0 10px;
+        height: 30px;
+        transition: border-color 0.15s;
+      }
+      .icon-search-box:focus-within {
+        border-color: var(--primary);
+      }
+      .icon-search-icon {
+        color: var(--text-muted);
+        flex-shrink: 0;
+        width: 13px;
+        height: 13px;
+      }
+      .icon-search-input {
+        flex: 1;
+        background: none;
+        border: none;
+        outline: none;
+        font-size: 11px;
+        color: var(--text-primary);
+        min-width: 0;
+      }
+      .icon-search-input::placeholder {
+        color: var(--text-muted);
+      }
+      .icon-search-clear {
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        cursor: pointer;
+        font-size: 14px;
+        padding: 0;
+        line-height: 1;
+      }
+      .icon-search-clear:hover {
+        color: var(--text-primary);
+      }
+      .icon-filter-count {
+        font-size: 11px;
+        color: var(--text-muted);
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
 
-  /* ── Icon Detail Panel ── */
-  /* ── Icon Detail Modal ── */
-  .icon-detail-backdrop {
-    position:fixed; inset:0; background:rgba(0,0,0,0.45);
-    z-index:1000; display:flex; align-items:center; justify-content:center;
-  }
-  .icon-detail-backdrop.hidden { display:none; }
-  .icon-detail-panel {
-    background:var(--surface); border:1px solid var(--border);
-    border-radius:10px; overflow:hidden; width:460px; max-width:calc(100vw - 32px);
-    box-shadow:0 8px 32px rgba(0,0,0,0.24);
-    animation:modalIn 0.15s ease;
-  }
-  @keyframes modalIn {
-    from { opacity:0; transform:scale(0.95) translateY(4px); }
-    to   { opacity:1; transform:scale(1) translateY(0); }
-  }
-  .icon-detail-header {
-    display:flex; align-items:center; justify-content:space-between;
-    padding:8px 12px; border-bottom:1px solid var(--border); background:var(--bg);
-  }
-  .icon-detail-header-left { display:flex; align-items:center; gap:8px; }
-  .icon-detail-thumb {
-    width:28px; height:28px; display:flex; align-items:center;
-    justify-content:center; background:var(--surface); border-radius:4px;
-    color:var(--text-primary); flex-shrink:0;
-  }
-  .icon-detail-thumb svg { width:20px; height:20px; }
-  .icon-detail-name {
-    font-size:11px; font-weight:600; color:var(--text-primary);
-    max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-  }
-  .icon-detail-close {
-    color:var(--text-muted); font-size:15px;
-    padding:2px 6px; background:none; border:none; cursor:pointer;
-    border-radius:4px;
-  }
-  .icon-detail-close:hover { color:var(--text-primary); background:var(--surface); }
+      /* ── Icon Detail Panel ── */
+      /* ── Icon Detail Modal ── */
+      .icon-detail-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.45);
+        z-index: 1000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .icon-detail-backdrop.hidden {
+        display: none;
+      }
+      .icon-detail-panel {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        overflow: hidden;
+        width: 460px;
+        max-width: calc(100vw - 32px);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.24);
+        animation: modalIn 0.15s ease;
+      }
+      @keyframes modalIn {
+        from {
+          opacity: 0;
+          transform: scale(0.95) translateY(4px);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1) translateY(0);
+        }
+      }
+      .icon-detail-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg);
+      }
+      .icon-detail-header-left {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .icon-detail-thumb {
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--surface);
+        border-radius: 4px;
+        color: var(--text-primary);
+        flex-shrink: 0;
+      }
+      .icon-detail-thumb svg {
+        width: 20px;
+        height: 20px;
+      }
+      .icon-detail-name {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--text-primary);
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .icon-detail-close {
+        color: var(--text-muted);
+        font-size: 15px;
+        padding: 2px 6px;
+        background: none;
+        border: none;
+        cursor: pointer;
+        border-radius: 4px;
+      }
+      .icon-detail-close:hover {
+        color: var(--text-primary);
+        background: var(--surface);
+      }
 
-  /* ── Color Controls ── */
-  .icon-color-controls {
-    padding:8px 12px; display:flex; align-items:center;
-    gap:8px; border-bottom:1px solid var(--border); flex-wrap:wrap;
-  }
-  .icon-color-label { font-size:10px; color:var(--text-muted); flex-shrink:0; }
-  .icon-color-row { display:flex; align-items:center; gap:6px; flex:1; }
-  .icon-color-select {
-    height:24px; font-size:11px; border:1px solid var(--border);
-    border-radius:4px; background:var(--bg); color:var(--text-primary);
-    padding:0 6px; cursor:pointer; outline:none;
-  }
-  .icon-color-var-input {
-    flex:1; height:24px; font-size:11px; border:1px solid var(--border);
-    border-radius:4px; background:var(--bg); color:var(--text-primary);
-    padding:0 8px; outline:none; font-family:monospace;
-  }
-  .icon-color-var-input:focus { border-color:var(--primary); }
-  .icon-color-picker {
-    width:26px; height:24px; border:1px solid var(--border);
-    border-radius:4px; padding:2px; cursor:pointer; background:var(--bg);
-  }
+      /* ── Color Controls ── */
+      .icon-color-controls {
+        padding: 8px 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border-bottom: 1px solid var(--border);
+        flex-wrap: wrap;
+      }
+      .icon-color-label {
+        font-size: 10px;
+        color: var(--text-muted);
+        flex-shrink: 0;
+      }
+      .icon-color-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex: 1;
+      }
+      .icon-color-select {
+        height: 24px;
+        font-size: 11px;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        background: var(--bg);
+        color: var(--text-primary);
+        padding: 0 6px;
+        cursor: pointer;
+        outline: none;
+      }
+      .icon-color-var-input {
+        flex: 1;
+        height: 24px;
+        font-size: 11px;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        background: var(--bg);
+        color: var(--text-primary);
+        padding: 0 8px;
+        outline: none;
+        font-family: monospace;
+      }
+      .icon-color-var-input:focus {
+        border-color: var(--primary);
+      }
+      .icon-color-picker {
+        width: 26px;
+        height: 24px;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 2px;
+        cursor: pointer;
+        background: var(--bg);
+      }
 
-  /* ── Detail Tabs ── */
-  .icon-detail-tabs { display:flex; padding:6px 12px 0; gap:2px; }
-  .icon-detail-tab {
-    background:none; border:none; border-bottom:2px solid transparent;
-    padding:3px 10px; font-size:11px; font-weight:500;
-    color:var(--text-muted); cursor:pointer; transition:all 0.15s;
-  }
-  .icon-detail-tab.active { color:var(--primary); border-bottom-color:var(--primary); }
-  .icon-detail-tab:hover:not(.active) { color:var(--text-primary); }
+      /* ── Detail Tabs ── */
+      .icon-detail-tabs {
+        display: flex;
+        padding: 6px 12px 0;
+        gap: 2px;
+      }
+      .icon-detail-tab {
+        background: none;
+        border: none;
+        border-bottom: 2px solid transparent;
+        padding: 3px 10px;
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .icon-detail-tab.active {
+        color: var(--primary);
+        border-bottom-color: var(--primary);
+      }
+      .icon-detail-tab:hover:not(.active) {
+        color: var(--text-primary);
+      }
 
-  /* ── Code Area ── */
-  .icon-detail-code-wrap { position:relative; margin:6px 12px 12px; }
-  .icon-detail-code {
-    background:var(--bg); border:1px solid var(--border); border-radius:6px;
-    padding:8px 36px 8px 10px; font-size:10px;
-    font-family:'SF Mono','Fira Code',monospace; line-height:1.6;
-    color:var(--text-primary); white-space:pre-wrap; word-break:break-all;
-    max-height:240px; overflow-y:auto; margin:0;
-  }
-  .icon-detail-copy {
-    position:absolute; top:5px; right:5px; font-size:10px;
-    padding:2px 7px; height:20px; background:var(--surface);
-    border:1px solid var(--border); border-radius:4px;
-    color:var(--text-muted); cursor:pointer;
-  }
-  .icon-detail-copy:hover { color:var(--text-primary); border-color:var(--primary); }
+      /* ── Code Area ── */
+      .icon-detail-code-wrap {
+        position: relative;
+        margin: 6px 12px 12px;
+      }
+      .icon-detail-code {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 8px 36px 8px 10px;
+        font-size: 10px;
+        font-family: 'SF Mono', 'Fira Code', monospace;
+        line-height: 1.6;
+        color: var(--text-primary);
+        white-space: pre-wrap;
+        word-break: break-all;
+        max-height: 240px;
+        overflow-y: auto;
+        margin: 0;
+      }
+      .icon-detail-copy {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        font-size: 10px;
+        padding: 2px 7px;
+        height: 20px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        color: var(--text-muted);
+        cursor: pointer;
+      }
+      .icon-detail-copy:hover {
+        color: var(--text-primary);
+        border-color: var(--primary);
+      }
 
-  /* ── A11y ── */
-  .a11y-badge {
-    display: inline-block;
-    padding: 4px 10px;
-    border-radius: 20px;
-    font-size: 11px;
-    font-weight: 600;
-  }
-  .a11y-badge.pass { background: var(--success-light); color: var(--success); }
-  .a11y-badge.fail { background: var(--danger-light); color: var(--danger); }
-  .a11y-input {
-    width: 100%;
-    padding: 8px 12px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    font-size: 12px;
-    color: var(--text-primary);
-    background: var(--surface2);
-    outline: none;
-  }
-  .a11y-input:focus { border-color: var(--primary); }
-  .a11y-select {
-    width: 100%;
-    padding: 8px 12px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    font-size: 12px;
-    color: var(--text-primary);
-    background: var(--surface2);
-    cursor: pointer;
-    outline: none;
-    margin-bottom: 6px;
-  }
+      /* ── A11y ── */
+      .a11y-badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 600;
+      }
+      .a11y-badge.pass {
+        background: var(--success-light);
+        color: var(--success);
+      }
+      .a11y-badge.fail {
+        background: var(--danger-light);
+        color: var(--danger);
+      }
+      .a11y-input {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-size: 12px;
+        color: var(--text-primary);
+        background: var(--surface2);
+        outline: none;
+      }
+      .a11y-input:focus {
+        border-color: var(--primary);
+      }
+      .a11y-select {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-size: 12px;
+        color: var(--text-primary);
+        background: var(--surface2);
+        cursor: pointer;
+        outline: none;
+        margin-bottom: 6px;
+      }
 
-  /* ── Theme ── */
-  .theme-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    overflow: hidden;
-  }
-  .theme-header {
-    padding: 8px 12px;
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--text-secondary);
-    text-transform: uppercase;
-    border-bottom: 1px solid var(--border);
-  }
-  .theme-header:first-child { border-right: 1px solid var(--border); background: var(--surface2); }
-  .theme-header:nth-child(2) { background: #111111; color: var(--text-muted); }
-  .theme-row-light, .theme-row-dark {
-    padding: 6px 12px;
-    font-size: 11px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    border-bottom: 1px solid var(--border);
-  }
-  .theme-row-light { border-right: 1px solid var(--border); background: var(--surface); }
-  .theme-row-dark { background: #111111; color: #E2E8F0; }
-  .theme-row-light.highlight { background: var(--surface2); }
-  .theme-row-dark.highlight { background: #1A1A1A; }
-  .theme-swatch {
-    width: 16px; height: 16px;
-    border-radius: 4px;
-    border: 1px solid rgba(255,255,255,0.15);
-    flex-shrink: 0;
-  }
-  .theme-var-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
-  .theme-var-value { font-family: 'SF Mono', monospace; font-size: 10px; color: var(--text-muted); }
-  .theme-row-dark .theme-var-value { color: rgba(255,255,255,0.35); }
+      /* ── Theme ── */
+      .theme-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+      }
+      .theme-header {
+        padding: 8px 12px;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        border-bottom: 1px solid var(--border);
+      }
+      .theme-header:first-child {
+        border-right: 1px solid var(--border);
+        background: var(--surface2);
+      }
+      .theme-header:nth-child(2) {
+        background: #111111;
+        color: var(--text-muted);
+      }
+      .theme-row-light,
+      .theme-row-dark {
+        padding: 6px 12px;
+        font-size: 11px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border-bottom: 1px solid var(--border);
+      }
+      .theme-row-light {
+        border-right: 1px solid var(--border);
+        background: var(--surface);
+      }
+      .theme-row-dark {
+        background: #111111;
+        color: #e2e8f0;
+      }
+      .theme-row-light.highlight {
+        background: var(--surface2);
+      }
+      .theme-row-dark.highlight {
+        background: #1a1a1a;
+      }
+      .theme-swatch {
+        width: 16px;
+        height: 16px;
+        border-radius: 4px;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        flex-shrink: 0;
+      }
+      .theme-var-name {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 11px;
+      }
+      .theme-var-value {
+        font-family: 'SF Mono', monospace;
+        font-size: 10px;
+        color: var(--text-muted);
+      }
+      .theme-row-dark .theme-var-value {
+        color: rgba(255, 255, 255, 0.35);
+      }
 
-  /* ── Component ── */
-  .comp-tab {
-    padding: 4px 12px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    font-size: 11px;
-    color: var(--text-secondary);
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-  .comp-tab.active {
-    background: var(--primary);
-    color: #fff;
-    border-color: var(--primary);
-  }
-  .comp-subtabs {
-    display: flex;
-    gap: 4px;
-    padding: 8px 12px 0;
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-  }
-  .comp-subtab {
-    padding: 5px 14px;
-    background: none;
-    border: none;
-    border-bottom: 2px solid transparent;
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--text-muted);
-    cursor: pointer;
-    transition: all 0.15s;
-    margin-bottom: -1px;
-  }
-  .comp-subtab.active { color: var(--primary); border-bottom-color: var(--primary); }
-  .comp-subtab:hover:not(.active) { color: var(--text-primary); }
-  .comp-style-btn {
-    padding: 5px 14px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-pill);
-    font-size: 11px;
-    color: var(--text-secondary);
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-  .comp-style-btn.active {
-    background: var(--primary);
-    color: #fff;
-    border-color: var(--primary);
-  }
-  .comp-registry-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 8px 10px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    transition: border-color 0.15s;
-  }
-  .comp-registry-item:hover { border-color: var(--primary); }
-  .comp-registry-item-info { flex: 1; overflow: hidden; }
-  .comp-registry-item-name { font-size: 12px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .comp-registry-item-meta { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
-  .comp-registry-item-actions { display: flex; gap: 4px; flex-shrink: 0; margin-left: 8px; }
-  .comp-registry-del-btn {
-    padding: 3px 8px;
-    background: none;
-    border: 1px solid var(--danger);
-    border-radius: 4px;
-    font-size: 10px;
-    color: var(--danger);
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-  .comp-registry-del-btn:hover { background: var(--danger-light); }
+      /* ── Component ── */
+      .comp-tab {
+        padding: 4px 12px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        font-size: 11px;
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .comp-tab.active {
+        background: var(--primary);
+        color: #fff;
+        border-color: var(--primary);
+      }
+      .comp-subtabs {
+        display: flex;
+        gap: 4px;
+        padding: 8px 12px 0;
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+      }
+      .comp-subtab {
+        padding: 5px 14px;
+        background: none;
+        border: none;
+        border-bottom: 2px solid transparent;
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: all 0.15s;
+        margin-bottom: -1px;
+      }
+      .comp-subtab.active {
+        color: var(--primary);
+        border-bottom-color: var(--primary);
+      }
+      .comp-subtab:hover:not(.active) {
+        color: var(--text-primary);
+      }
+      .comp-style-btn {
+        padding: 5px 14px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-pill);
+        font-size: 11px;
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .comp-style-btn.active {
+        background: var(--primary);
+        color: #fff;
+        border-color: var(--primary);
+      }
+      .comp-registry-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 10px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        transition: border-color 0.15s;
+      }
+      .comp-registry-item:hover {
+        border-color: var(--primary);
+      }
+      .comp-registry-item-info {
+        flex: 1;
+        overflow: hidden;
+      }
+      .comp-registry-item-name {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-primary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .comp-registry-item-meta {
+        font-size: 10px;
+        color: var(--text-muted);
+        margin-top: 2px;
+      }
+      .comp-registry-item-actions {
+        display: flex;
+        gap: 4px;
+        flex-shrink: 0;
+        margin-left: 8px;
+      }
+      .comp-registry-del-btn {
+        padding: 3px 8px;
+        background: none;
+        border: 1px solid var(--danger);
+        border-radius: 4px;
+        font-size: 10px;
+        color: var(--danger);
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .comp-registry-del-btn:hover {
+        background: var(--danger-light);
+      }
 
-  /* ── Scrollbar ── */
-  ::-webkit-scrollbar { width: 5px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-  ::-webkit-scrollbar-thumb:hover { background: var(--surface2); }
+      /* ── Scrollbar ── */
+      ::-webkit-scrollbar {
+        width: 5px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: var(--border);
+        border-radius: 3px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: var(--surface2);
+      }
 
-  /* ── Image Assets ── */
-  .image-options-bar {
-    padding: 12px 16px;
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    display: flex; flex-direction: column; gap: 10px;
-    flex-shrink: 0;
-  }
-  .image-option-row {
-    display: flex; align-items: center; gap: 10px;
-  }
-  .image-option-label {
-    font-size: 11px; color: var(--text-muted);
-    font-weight: 600; text-transform: uppercase;
-    letter-spacing: 0.04em; width: 38px; flex-shrink: 0;
-  }
-  .image-format-group, .image-scale-group {
-    display: flex; gap: 4px;
-  }
-  .image-format-btn, .image-scale-btn {
-    padding: 3px 10px; border-radius: var(--radius-pill);
-    border: 1px solid var(--border); background: transparent;
-    color: var(--text-secondary); font-size: 11px; font-weight: 500;
-    cursor: pointer; transition: all 0.15s;
-  }
-  .image-format-btn:hover, .image-scale-btn:hover { border-color: var(--primary); color: var(--primary); }
-  .image-format-btn.active, .image-scale-btn.active {
-    background: var(--primary); color: #fff; border-color: var(--primary); font-weight: 600;
-  }
-  .image-list {
-    flex: 1; overflow-y: auto;
-    padding: 12px 16px;
-    display: flex; flex-direction: column; gap: 8px;
-    min-height: 0;
-  }
-  .image-item {
-    display: flex; align-items: center; gap: 12px;
-    padding: 10px 12px;
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius);
-  }
-  .image-thumb {
-    width: 56px; height: 56px; flex-shrink: 0;
-    border-radius: 6px; overflow: hidden;
-    background: var(--bg);
-    display: flex; align-items: center; justify-content: center;
-    border: 1px solid var(--border);
-  }
-  .image-thumb img { width: 100%; height: 100%; object-fit: cover; }
-  .image-thumb-placeholder {
-    font-size: 22px; color: var(--text-muted);
-  }
-  .image-info { flex: 1; min-width: 0; }
-  .image-name {
-    font-size: 12px; font-weight: 600; color: var(--text-primary);
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  }
-  .image-size { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
-  .image-files { font-size: 10px; color: var(--text-muted); margin-top: 3px; font-family: 'SF Mono', monospace; }
-  .image-dl-btn {
-    height: 28px; padding: 0 10px;
-    background: var(--surface2); color: var(--text-secondary);
-    border: 1px solid var(--border); border-radius: 6px;
-    font-size: 11px; cursor: pointer; transition: all 0.15s;
-    flex-shrink: 0; white-space: nowrap;
-  }
-  .image-dl-btn:hover { border-color: var(--primary); color: var(--primary); }
-  .image-empty, .image-idle, .image-detecting, .image-error-state {
-    flex: 1; display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    gap: 8px; padding: 32px 20px; text-align: center;
-  }
-  .image-state-icon { font-size: 32px; }
-  .image-state-title { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
-  .image-state-hint { font-size: 11px; color: var(--text-muted); line-height: 1.5; max-width: 240px; }
-  .image-footer {
-    padding: 10px 16px;
-    background: var(--bg); border-top: 1px solid var(--border);
-    flex-shrink: 0;
-  }
-</style>
-</head>
-<body>
-
-<!-- ── Header ── -->
-<div class="header">
-  <div class="brand-logo">PF</div>
-  <span class="brand-name">PixelForge</span>
-  <div class="header-sep"></div>
-  <span class="file-name" id="headerFile" data-i18n-loading>로딩 중...</span>
-  <button class="back-btn" id="backBtn" data-i18n="extract.back">← 뒤로</button>
-  <div class="lang-toggle">
-    <button class="lang-btn active" data-lang="ko">KO</button>
-    <button class="lang-btn" data-lang="en">EN</button>
-  </div>
-</div>
-
-<!-- ── Main Tabs ── -->
-<div class="main-tabs">
-  <button class="main-tab active" data-tab="extract" data-i18n="tabs.extract">추출</button>
-  <button class="main-tab" data-tab="icons" data-i18n="tabs.icon">아이콘</button>
-  <button class="main-tab" data-tab="a11y" data-i18n="tabs.contrast">명도대비</button>
-  <button class="main-tab" data-tab="themes" data-i18n="tabs.theme">테마</button>
-  <button class="main-tab" data-tab="component" data-i18n="tabs.component">컴포넌트</button>
-  <button class="main-tab" data-tab="images" data-i18n="tabs.image">이미지</button>
-</div>
-
-<!-- ── Extract Panel ── -->
-<div class="tab-panel" id="panel-extract" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
-
-<!-- ── Filter View ── -->
-<div id="view-filter" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
-  <div class="filter-panel">
-
-    <!-- 토큰 타입 -->
-    <div class="section-card">
-      <div class="section-label" data-i18n="extract.tokenType">토큰 타입</div>
-      <div class="token-grid">
-
-        <div class="token-card active" data-type="variables">
-          <div class="token-card-icon">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
-              <rect x="2" y="2" width="12" height="12" rx="2.5"/>
-              <path d="M5.5 8h5M8 5.5v5"/>
-            </svg>
-          </div>
-          <span class="token-card-label">Variables</span>
-        </div>
-
-        <div class="token-card active" data-type="colors">
-          <div class="token-card-icon">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-              <circle cx="8" cy="8" r="5.5"/>
-              <circle cx="8" cy="8" r="2.5" fill="currentColor" stroke="none"/>
-            </svg>
-          </div>
-          <span class="token-card-label">Color Styles</span>
-        </div>
-
-        <div class="token-card active" data-type="spacing">
-          <div class="token-card-icon">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M2 8h12M2 8l3-3M2 8l3 3M14 8l-3-3M14 8l-3 3"/>
-            </svg>
-          </div>
-          <span class="token-card-label">Spacing</span>
-        </div>
-
-        <div class="token-card active" data-type="texts">
-          <div class="token-card-icon">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
-              <path d="M3 4h10M8 4v8M5 12h6"/>
-            </svg>
-          </div>
-          <span class="token-card-label">Text Styles</span>
-        </div>
-
-        <div class="token-card active" data-type="radius">
-          <div class="token-card-icon">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
-              <path d="M3 13V8a5 5 0 0 1 5-5h5"/>
-            </svg>
-          </div>
-          <span class="token-card-label">Radius</span>
-        </div>
-
-        <div class="token-card active" data-type="effects">
-          <div class="token-card-icon">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M8.5 2L5 9h3L6.5 14 12 7H9L10.5 2z"/>
-            </svg>
-          </div>
-          <span class="token-card-label">Effect Styles</span>
-        </div>
-
-        <div class="token-card active full-width" data-type="icons">
-          <div class="token-card-icon">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-              <rect x="2" y="2" width="5" height="5" rx="1.5"/>
-              <rect x="9" y="2" width="5" height="5" rx="1.5"/>
-              <rect x="2" y="9" width="5" height="5" rx="1.5"/>
-              <rect x="9" y="9" width="5" height="5" rx="1.5"/>
-            </svg>
-          </div>
-          <span class="token-card-label">Icons</span>
-        </div>
-
-        <div class="token-hint" data-i18n="extract.tokenHint">Spacing·Radius = FLOAT Variables 자동 감지 / Shadow = Effect Styles 포함</div>
+      /* ── Image Assets ── */
+      .image-options-bar {
+        padding: 12px 16px;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        flex-shrink: 0;
+      }
+      .image-option-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .image-option-label {
+        font-size: 11px;
+        color: var(--text-muted);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        width: 38px;
+        flex-shrink: 0;
+      }
+      .image-format-group,
+      .image-scale-group {
+        display: flex;
+        gap: 4px;
+      }
+      .image-format-btn,
+      .image-scale-btn {
+        padding: 3px 10px;
+        border-radius: var(--radius-pill);
+        border: 1px solid var(--border);
+        background: transparent;
+        color: var(--text-secondary);
+        font-size: 11px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .image-format-btn:hover,
+      .image-scale-btn:hover {
+        border-color: var(--primary);
+        color: var(--primary);
+      }
+      .image-format-btn.active,
+      .image-scale-btn.active {
+        background: var(--primary);
+        color: #fff;
+        border-color: var(--primary);
+        font-weight: 600;
+      }
+      .image-list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 12px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-height: 0;
+      }
+      .image-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 12px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+      }
+      .image-thumb {
+        width: 56px;
+        height: 56px;
+        flex-shrink: 0;
+        border-radius: 6px;
+        overflow: hidden;
+        background: var(--bg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--border);
+      }
+      .image-thumb img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .image-thumb-placeholder {
+        font-size: 22px;
+        color: var(--text-muted);
+      }
+      .image-info {
+        flex: 1;
+        min-width: 0;
+      }
+      .image-name {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-primary);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .image-size {
+        font-size: 10px;
+        color: var(--text-muted);
+        margin-top: 2px;
+      }
+      .image-files {
+        font-size: 10px;
+        color: var(--text-muted);
+        margin-top: 3px;
+        font-family: 'SF Mono', monospace;
+      }
+      .image-dl-btn {
+        height: 28px;
+        padding: 0 10px;
+        background: var(--surface2);
+        color: var(--text-secondary);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        font-size: 11px;
+        cursor: pointer;
+        transition: all 0.15s;
+        flex-shrink: 0;
+        white-space: nowrap;
+      }
+      .image-dl-btn:hover {
+        border-color: var(--primary);
+        color: var(--primary);
+      }
+      .image-empty,
+      .image-idle,
+      .image-detecting,
+      .image-error-state {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 32px 20px;
+        text-align: center;
+      }
+      .image-state-icon {
+        font-size: 32px;
+      }
+      .image-state-title {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-secondary);
+      }
+      .image-state-hint {
+        font-size: 11px;
+        color: var(--text-muted);
+        line-height: 1.5;
+        max-width: 240px;
+      }
+      .image-footer {
+        padding: 10px 16px;
+        background: var(--bg);
+        border-top: 1px solid var(--border);
+        flex-shrink: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ── Header ── -->
+    <div class="header">
+      <div class="brand-logo">PF</div>
+      <span class="brand-name">PixelForge</span>
+      <div class="header-sep"></div>
+      <span class="file-name" id="headerFile" data-i18n-loading>로딩 중...</span>
+      <button class="back-btn" id="backBtn" data-i18n="extract.back">← 뒤로</button>
+      <div class="lang-toggle">
+        <button class="lang-btn active" data-lang="ko">KO</button>
+        <button class="lang-btn" data-lang="en">EN</button>
       </div>
     </div>
 
-    <!-- 추출 범위 -->
-    <div class="section-card">
-      <div class="section-label" data-i18n="extract.scope">추출 범위</div>
-      <div class="radio-group">
-        <label class="radio-item">
-          <input type="radio" name="scope" value="all" checked>
-          <span class="radio-label" data-i18n="extract.allPage">전체 페이지</span>
-        </label>
-        <label class="radio-item">
-          <input type="radio" name="scope" value="selection">
-          <span class="radio-label" data-i18n="extract.selection">선택 레이어만</span>
-        </label>
-      </div>
-      <div class="selection-info hidden" id="selectionInfo">
-        <div class="sel-count" id="selCount">0개 선택됨</div>
-        <div class="sel-names" id="selNames"></div>
-      </div>
+    <!-- ── Main Tabs ── -->
+    <div class="main-tabs">
+      <button class="main-tab active" data-tab="extract" data-i18n="tabs.extract">추출</button>
+      <button class="main-tab" data-tab="icons" data-i18n="tabs.icon">아이콘</button>
+      <button class="main-tab" data-tab="a11y" data-i18n="tabs.contrast">명도대비</button>
+      <button class="main-tab" data-tab="themes" data-i18n="tabs.theme">테마</button>
+      <button class="main-tab" data-tab="component" data-i18n="tabs.component">컴포넌트</button>
+      <button class="main-tab" data-tab="images" data-i18n="tabs.image">이미지</button>
     </div>
 
-    <!-- 컬렉션 -->
-    <div class="section-card" id="colSection">
-      <div class="section-label" data-i18n="extract.collections">컬렉션</div>
-      <div class="col-list" id="colList">
-        <div class="no-collections" data-i18n-loading>로딩 중...</div>
-      </div>
-    </div>
-
-  </div>
-
-  <!-- Action Bar -->
-  <div class="action-bar">
-    <button class="btn-ghost" id="inspectBtn" data-i18n="extract.inspect">🔍 검사</button>
-    <button class="btn-primary" id="extractBtn" data-i18n="extract.btn">
-      토큰 추출하기
-    </button>
-  </div>
-</div>
-
-<!-- ── Loading View ── -->
-<div id="view-loading" class="hidden" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
-  <div class="loading-view">
-    <div class="spinner"></div>
-    <span class="loading-text" data-i18n="extract.loading">토큰을 추출하고 있습니다...</span>
-  </div>
-</div>
-
-<!-- ── Result View ── -->
-<div id="view-result" class="hidden" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
-
-  <!-- 토큰 캐시 배지 -->
-  <div id="tokenCacheBadge" class="hidden" style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text-muted);padding:4px 12px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;">
-    <span data-i18n="extract.cacheRestoredFrom">캐시에서 복원:</span>
-    <span id="tokenCacheSavedAt" style="flex:1;"></span>
-    <button id="tokenCacheClearBtn" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;padding:0 2px;line-height:1;" title="캐시 삭제">×</button>
-  </div>
-
-  <div class="result-body">
-
-    <!-- Stat Cards -->
-    <div class="stats-grid" id="statsRow">
-      <div class="stat-card" id="statVar" data-type="variables">
-        <div class="stat-value" id="statVarNum">0</div>
-        <div class="stat-label">Variables</div>
-      </div>
-      <div class="stat-card" id="statSpacing" data-type="spacing">
-        <div class="stat-value" id="statSpacingNum">0</div>
-        <div class="stat-label">Spacing</div>
-      </div>
-      <div class="stat-card" id="statRadius" data-type="radius">
-        <div class="stat-value" id="statRadiusNum">0</div>
-        <div class="stat-label">Radius</div>
-      </div>
-      <div class="stat-card" id="statColor" data-type="colors">
-        <div class="stat-value" id="statColorNum">0</div>
-        <div class="stat-label">Color Styles</div>
-      </div>
-      <div class="stat-card" id="statText" data-type="texts">
-        <div class="stat-value" id="statTextNum">0</div>
-        <div class="stat-label">Text Styles</div>
-      </div>
-      <div class="stat-card" id="statEffect" data-type="effects">
-        <div class="stat-value" id="statEffectNum">0</div>
-        <div class="stat-label">Effect Styles</div>
-      </div>
-      <div class="stat-card" id="statIcons" data-type="icons">
-        <div class="stat-value" id="statIconsNum">0</div>
-        <div class="stat-label">Icons</div>
-      </div>
-    </div>
-
-    <!-- Meta Info -->
-    <div class="meta-bar">
-      <div class="meta-item">
-        <span class="meta-key" data-i18n="extract.metaFile">파일</span>
-        <span class="meta-val" id="metaFile">—</span>
-      </div>
-      <div class="meta-item">
-        <span class="meta-key" data-i18n="extract.metaScope">범위</span>
-        <span class="meta-val" id="metaMode">—</span>
-      </div>
-      <div class="meta-item">
-        <span class="meta-key" data-i18n="extract.metaNodes">노드</span>
-        <span class="meta-val" id="metaNodes">—</span>
-      </div>
-      <div class="meta-item">
-        <span class="meta-key" data-i18n="extract.metaTime">추출 시각</span>
-        <span class="meta-val" id="metaTime">—</span>
-      </div>
-    </div>
-
-    <!-- Preview Panel -->
-    <div class="preview-panel">
-      <div class="preview-tab-bar">
-        <button class="preview-tab active" id="tabJson">JSON</button>
-        <button class="preview-tab" id="tabCss">CSS</button>
-        <div class="unit-toggle" id="unitToggle" style="display:none;">
-          <span class="unit-label" data-i18n="extract.unit">단위:</span>
-          <button class="unit-btn active" id="unitPx">px</button>
-          <button class="unit-btn" id="unitRem">rem</button>
-        </div>
-      </div>
-      <div class="preview-body">
-        <pre class="preview-pre" id="previewPre"></pre>
-      </div>
-    </div>
-
-  </div>
-
-  <!-- Fixed Bottom Bar -->
-  <div class="result-bar">
-    <button class="btn-ghost" id="copyBtn" data-i18n="extract.copy">📋 복사</button>
-    <button class="btn-ghost" id="downloadJsonBtn">⬇ JSON</button>
-    <button class="btn-ghost" id="downloadCssBtn">⬇ CSS</button>
-  </div>
-
-</div>
-
-</div><!-- /panel-extract -->
-
-<!-- ── Icon Panel ── -->
-<div class="tab-panel" id="panel-icons" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
-  <div class="tab-body">
-    <div class="section-card">
-      <div class="section-label" data-i18n="icon.title">아이콘 SVG 추출</div>
-      <div style="display:flex;justify-content:center;margin-bottom:12px;">
-        <div class="icon-mode-toggle">
-          <button class="icon-mode-btn active" data-icon-mode="all" data-i18n="icon.allMode">전체 추출</button>
-          <button class="icon-mode-btn" data-icon-mode="selection" data-i18n="icon.selMode">선택 추출</button>
-        </div>
-      </div>
-
-      <!-- 전체 추출 모드 -->
-      <div id="iconModeAll">
-        <div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;line-height:1.6;padding:8px 10px;background:var(--bg);border-radius:6px;">
-          아이콘 패턴으로 자동 탐색합니다 (<code style="font-size:11px;background:var(--surface);padding:1px 4px;border-radius:3px;">icon*</code>, <code style="font-size:11px;background:var(--surface);padding:1px 4px;border-radius:3px;">Icon*</code>, <code style="font-size:11px;background:var(--surface);padding:1px 4px;border-radius:3px;">ic/*</code>)
-        </div>
-        <button class="btn-primary" id="exportIconsAllBtn" style="width:100%;height:40px;" data-i18n="icon.allBtn">전체 아이콘 추출하기</button>
-      </div>
-
-      <!-- 선택 추출 모드 -->
-      <div id="iconModeSelection" style="display:none;">
-        <div style="margin-bottom:8px;font-size:12px;color:var(--text-secondary);line-height:1.6;">Figma에서 프레임/요소를 선택하세요</div>
-        <div id="iconSelInfo" style="font-size:12px;color:var(--text-muted);margin-bottom:10px;padding:6px 10px;background:var(--bg);border-radius:6px;">0개 선택됨</div>
-        <button class="btn-primary" id="exportIconsBtn" style="width:100%;height:40px;" data-i18n="icon.selBtn">선택 요소 추출하기</button>
-      </div>
-    </div>
-    <div id="iconResults" class="hidden">
-      <!-- 검색바 -->
-      <div id="iconSearchRow" class="icon-search-row hidden">
-        <div class="icon-search-box">
-          <svg class="icon-search-icon" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="6.5" cy="6.5" r="5" stroke="currentColor" stroke-width="1.5"/>
-            <path d="M10 10L14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+    <!-- ── Extract Panel ── -->
+    <div
+      class="tab-panel"
+      id="panel-extract"
+      style="display: flex; flex-direction: column; flex: 1; overflow: hidden"
+    >
+      <!-- ── Filter View ── -->
+      <div
+        id="view-filter"
+        style="display: flex; flex-direction: column; flex: 1; overflow: hidden"
+      >
+        <!-- 이전 추출 결과 배너 -->
+        <div
+          id="filterCacheBanner"
+          class="hidden"
+          style="
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: var(--primary-light);
+            border-bottom: 1px solid var(--primary-border);
+            flex-shrink: 0;
+          "
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="var(--primary)"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            style="flex-shrink: 0"
+          >
+            <path d="M8 3v5l3 3" />
+            <circle cx="8" cy="8" r="6" />
           </svg>
-          <input id="iconSearchInput" type="text" class="icon-search-input" placeholder="아이콘 검색..." autocomplete="off" data-i18n-placeholder="icon.searchPlaceholder" />
-          <button id="iconSearchClear" class="icon-search-clear hidden">×</button>
+          <div style="flex: 1; min-width: 0">
+            <span
+              style="font-size: 11px; font-weight: 600; color: var(--primary)"
+              data-i18n="extract.filterCacheTitle"
+              >이전 추출 결과</span
+            >
+            <span
+              id="filterCacheSavedAt"
+              style="font-size: 10px; color: var(--text-muted); margin-left: 6px"
+            ></span>
+          </div>
+          <button
+            id="filterCacheViewBtn"
+            style="
+              font-size: 11px;
+              padding: 3px 8px;
+              border-radius: 4px;
+              border: 1px solid var(--primary);
+              background: transparent;
+              color: var(--primary);
+              cursor: pointer;
+              white-space: nowrap;
+            "
+            data-i18n="extract.filterCacheView"
+          >
+            결과 보기
+          </button>
+          <button
+            id="filterCacheClearBtn"
+            style="
+              font-size: 11px;
+              padding: 3px 8px;
+              border-radius: 4px;
+              border: 1px solid var(--border);
+              background: transparent;
+              color: var(--text-muted);
+              cursor: pointer;
+              white-space: nowrap;
+            "
+            data-i18n="extract.filterCacheDelete"
+          >
+            삭제
+          </button>
         </div>
-        <span id="iconFilterCount" class="icon-filter-count"></span>
-      </div>
 
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-        <div style="display:flex;align-items:center;gap:6px;">
-          <div class="section-label" style="margin-bottom:0;padding:0 2px;">추출 결과 (<span id="iconCount">0</span>개)</div>
-          <span id="iconCacheBadge" class="hidden" style="font-size:10px;color:var(--text-muted);display:flex;align-items:center;gap:4px;">
-            <span id="iconCacheSavedAt"></span>
-            <button id="iconCacheClearBtn" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:13px;padding:0 2px;line-height:1;" title="캐시 삭제">×</button>
-          </span>
-        </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;">
-          <button class="btn-ghost" id="iconDownloadSvgBtn" style="height:28px;padding:0 10px;font-size:11px;" data-i18n="icon.downloadSvg">SVG 파일</button>
-          <button class="btn-ghost" id="iconDownloadSvgCodeBtn" style="height:28px;padding:0 10px;font-size:11px;" data-i18n="icon.downloadSvgCode">SVG 코드</button>
-          <button class="btn-ghost" id="iconDownloadReactBtn" style="height:28px;padding:0 10px;font-size:11px;" data-i18n="icon.downloadReact">React</button>
-        </div>
-      </div>
-      <div id="iconList" class="icon-grid"></div>
+        <div class="filter-panel">
+          <!-- 토큰 타입 -->
+          <div class="section-card">
+            <div class="section-label" data-i18n="extract.tokenType">토큰 타입</div>
+            <div class="token-grid">
+              <div class="token-card active" data-type="variables">
+                <div class="token-card-icon">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                  >
+                    <rect x="2" y="2" width="12" height="12" rx="2.5" />
+                    <path d="M5.5 8h5M8 5.5v5" />
+                  </svg>
+                </div>
+                <span class="token-card-label">Variables</span>
+              </div>
 
-    </div>
-  </div>
-</div>
+              <div class="token-card active" data-type="colors">
+                <div class="token-card-icon">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                  >
+                    <circle cx="8" cy="8" r="5.5" />
+                    <circle cx="8" cy="8" r="2.5" fill="currentColor" stroke="none" />
+                  </svg>
+                </div>
+                <span class="token-card-label">Color Styles</span>
+              </div>
 
-<!-- ── Accessibility Panel ── -->
-<div class="tab-panel" id="panel-a11y" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
-  <div id="a11yCacheBanner" class="hidden" style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);padding:4px 12px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;">
-    <span data-i18n="extract.cacheRestoredFrom">캐시에서 복원:</span>
-    <span id="a11yCacheBannerDate"></span>
-  </div>
-  <div class="a11y-subtabs">
-    <button class="a11y-subtab active" data-a11y-sub="manual" data-i18n="contrast.manual">수동 검사</button>
-    <button class="a11y-subtab" data-a11y-sub="matrix" data-i18n="contrast.matrix">컬러 매트릭스</button>
-  </div>
+              <div class="token-card active" data-type="spacing">
+                <div class="token-card-icon">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M2 8h12M2 8l3-3M2 8l3 3M14 8l-3-3M14 8l-3 3" />
+                  </svg>
+                </div>
+                <span class="token-card-label">Spacing</span>
+              </div>
 
-  <!-- 수동 검사 -->
-  <div class="tab-body" id="a11yManualPanel">
-    <div id="a11yHint" class="section-card" style="background:var(--primary-light);border-color:var(--primary-border);">
-      <p style="font-size:12px;color:var(--primary);margin:0;" data-i18n="contrast.hint">추출 탭에서 토큰을 먼저 추출하면, 디자인 색상을 드롭다운에서 선택할 수 있습니다.</p>
-    </div>
-    <div class="section-card">
-      <div class="section-label" data-i18n="contrast.title">WCAG 명도 대비 검사</div>
-      <div style="display:flex;gap:10px;align-items:stretch;margin-bottom:16px;">
-        <div style="flex:1;">
-          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px;" data-i18n="contrast.bg">배경색</label>
-          <select id="a11yBgSelect" class="a11y-select"><option value="">직접 입력</option></select>
-          <input type="text" id="a11yBgHex" class="a11y-input" placeholder="#FFFFFF" value="#FFFFFF" />
-          <div id="a11yBgPreview" style="width:100%;height:32px;border-radius:6px;border:1px solid var(--border);margin-top:6px;background:#FFFFFF;"></div>
-        </div>
-        <div style="display:flex;align-items:center;padding-top:16px;">
-          <button id="a11ySwapBtn" title="배경↔텍스트 교체" style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:var(--surface);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--text-secondary);transition:all 0.15s;">⇄</button>
-        </div>
-        <div style="flex:1;">
-          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px;" data-i18n="contrast.fg">텍스트색</label>
-          <select id="a11yFgSelect" class="a11y-select"><option value="">직접 입력</option></select>
-          <input type="text" id="a11yFgHex" class="a11y-input" placeholder="#000000" value="#000000" />
-          <div id="a11yFgPreview" style="width:100%;height:32px;border-radius:6px;border:1px solid var(--border);margin-top:6px;background:#000000;"></div>
-        </div>
-      </div>
-      <div style="text-align:center;padding:20px 0;background:var(--bg);border-radius:var(--radius);">
-        <div id="a11yRatio" style="font-size:36px;font-weight:700;color:var(--primary);">21:1</div>
-        <div style="display:flex;gap:8px;justify-content:center;margin-top:12px;">
-          <span id="a11yAA" class="a11y-badge pass">AA Normal ✓</span>
-          <span id="a11yAALarge" class="a11y-badge pass">AA Large ✓</span>
-          <span id="a11yAAA" class="a11y-badge pass">AAA ✓</span>
-        </div>
-      </div>
-      <div id="a11yPreviewBox" style="margin-top:12px;padding:20px;border-radius:var(--radius);background:#FFFFFF;border:1px solid var(--border);text-align:center;">
-        <span id="a11yPreviewText" style="font-size:16px;font-weight:500;color:#000000;" data-i18n="contrast.preview">미리보기 텍스트 Preview</span>
-      </div>
-    </div>
-  </div>
+              <div class="token-card active" data-type="texts">
+                <div class="token-card-icon">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                  >
+                    <path d="M3 4h10M8 4v8M5 12h6" />
+                  </svg>
+                </div>
+                <span class="token-card-label">Text Styles</span>
+              </div>
 
-  <!-- 컬러 매트릭스 -->
-  <div class="tab-body" id="a11yMatrixPanel" style="display:none;">
-    <div id="matrixEmpty" class="section-card" style="background:var(--primary-light);border-color:var(--primary-border);">
-      <p style="font-size:12px;color:var(--primary);margin:0;" data-i18n="contrast.noColors">추출 탭에서 색상을 먼저 추출하세요. 추출된 색상으로 자동 매트릭스를 생성합니다.</p>
-    </div>
-    <div id="matrixContent" class="hidden">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-        <div class="section-label" style="margin-bottom:0;">명도대비 매트릭스 (<span id="matrixColorCount">0</span>개 색상)</div>
-      </div>
-      <div class="matrix-wrap">
-        <table class="matrix-table" id="matrixTable"></table>
-      </div>
-      <div id="matrixSummary"></div>
-      <div style="display:flex;gap:12px;margin-top:10px;font-size:10px;color:var(--text-muted);flex-wrap:wrap;">
-        <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(61,220,132,0.12);vertical-align:middle;margin-right:2px;"></span> AAA (7:1+)</span>
-        <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(59,130,246,0.12);vertical-align:middle;margin-right:2px;"></span> AA (4.5:1~7:1)</span>
-        <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(159,122,234,0.15);vertical-align:middle;margin-right:2px;"></span> AA Large (3:1~4.5:1)</span>
-        <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(255,77,79,0.12);vertical-align:middle;margin-right:2px;"></span> <span data-i18n="contrast.fail">미달</span> (&lt;3:1)</span>
-      </div>
-    </div>
-  </div>
-</div>
+              <div class="token-card active" data-type="radius">
+                <div class="token-card-icon">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                  >
+                    <path d="M3 13V8a5 5 0 0 1 5-5h5" />
+                  </svg>
+                </div>
+                <span class="token-card-label">Radius</span>
+              </div>
 
-<!-- ── Theme Panel ── -->
-<div class="tab-panel" id="panel-themes" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
-  <div id="themesCacheBanner" class="hidden" style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);padding:4px 12px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;">
-    <span data-i18n="extract.cacheRestoredFrom">캐시에서 복원:</span>
-    <span id="themesCacheBannerDate"></span>
-  </div>
-  <div class="tab-body">
-    <div class="section-card" style="margin-bottom:0;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-        <div class="section-label" style="margin-bottom:0;" data-i18n="theme.title">다크/라이트 테마 비교</div>
-        <div style="display:flex;gap:6px;">
-          <button class="btn-ghost" id="extractThemesBtn" style="height:32px;padding:0 12px;font-size:12px;" data-i18n="theme.extract">테마 추출</button>
-          <button class="btn-ghost" id="themeCopyCssBtn" style="height:32px;padding:0 12px;font-size:12px;" disabled data-i18n="theme.copyCss">CSS 복사</button>
-          <button class="btn-ghost" id="themeFilterBtn" style="height:32px;padding:0 12px;font-size:12px;" disabled data-i18n="theme.showAll">전체 보기</button>
-        </div>
-      </div>
-    </div>
-    <div id="themeContent" style="flex:1;overflow-y:auto;">
-      <div id="themeEmptyState" style="padding:14px 16px;">
-        <div class="section-card" style="background:var(--primary-light);border-color:var(--primary-border);margin-bottom:10px;">
-          <p style="font-size:12px;color:var(--primary);margin:0;line-height:1.6;">
-            Variables의 Light/Dark 모드를 자동 감지하여 비교합니다.
-          </p>
-        </div>
-        <div class="section-card" style="margin-bottom:10px;">
-          <div class="section-label">전제 조건</div>
-          <p style="font-size:12px;color:var(--text-secondary);margin:0;line-height:1.6;">
-            Figma Variables에 <strong>2개 이상의 모드</strong>(예: Light / Dark)가 정의되어 있어야 합니다.
-          </p>
-        </div>
-        <div class="section-card" style="margin-bottom:0;">
-          <div class="section-label">미리보기 (샘플)</div>
-          <div class="theme-grid">
-            <div class="theme-header">Light</div>
-            <div class="theme-header">Dark</div>
-            <div class="theme-row-light">
-              <div class="theme-swatch" style="background:#FFFFFF"></div>
-              <span class="theme-var-name" style="color:var(--text-muted);">color/background</span>
-              <span class="theme-var-value">#FFFFFF</span>
-            </div>
-            <div class="theme-row-dark">
-              <div class="theme-swatch" style="background:#0F172A"></div>
-              <span class="theme-var-name">color/background</span>
-              <span class="theme-var-value">#0F172A</span>
-            </div>
-            <div class="theme-row-light highlight">
-              <div class="theme-swatch" style="background:#1E293B"></div>
-              <span class="theme-var-name" style="color:var(--text-muted);">color/text-primary</span>
-              <span class="theme-var-value">#1E293B</span>
-            </div>
-            <div class="theme-row-dark highlight">
-              <div class="theme-swatch" style="background:#F1F5F9"></div>
-              <span class="theme-var-name">color/text-primary</span>
-              <span class="theme-var-value">#F1F5F9</span>
-            </div>
-            <div class="theme-row-light">
-              <div class="theme-swatch" style="background:#2563EB"></div>
-              <span class="theme-var-name" style="color:var(--text-muted);">color/primary</span>
-              <span class="theme-var-value">#2563EB</span>
-            </div>
-            <div class="theme-row-dark">
-              <div class="theme-swatch" style="background:#3B82F6"></div>
-              <span class="theme-var-name">color/primary</span>
-              <span class="theme-var-value">#3B82F6</span>
+              <div class="token-card active" data-type="effects">
+                <div class="token-card-icon">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.4"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M8.5 2L5 9h3L6.5 14 12 7H9L10.5 2z" />
+                  </svg>
+                </div>
+                <span class="token-card-label">Effect Styles</span>
+              </div>
+
+              <div class="token-card active full-width" data-type="icons">
+                <div class="token-card-icon">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                  >
+                    <rect x="2" y="2" width="5" height="5" rx="1.5" />
+                    <rect x="9" y="2" width="5" height="5" rx="1.5" />
+                    <rect x="2" y="9" width="5" height="5" rx="1.5" />
+                    <rect x="9" y="9" width="5" height="5" rx="1.5" />
+                  </svg>
+                </div>
+                <span class="token-card-label">Icons</span>
+              </div>
+
+              <div class="token-hint" data-i18n="extract.tokenHint">
+                Spacing·Radius = FLOAT Variables 자동 감지 / Shadow = Effect Styles 포함
+              </div>
             </div>
           </div>
-          <p style="font-size:10px;color:var(--text-muted);margin-top:8px;text-align:center;">위는 샘플 데이터입니다. "테마 추출" 버튼을 클릭하여 실제 데이터를 확인하세요.</p>
+
+          <!-- 추출 범위 -->
+          <div class="section-card">
+            <div class="section-label" data-i18n="extract.scope">추출 범위</div>
+            <div class="radio-group">
+              <label class="radio-item">
+                <input type="radio" name="scope" value="all" checked />
+                <span class="radio-label" data-i18n="extract.allPage">전체 페이지</span>
+              </label>
+              <label class="radio-item">
+                <input type="radio" name="scope" value="selection" />
+                <span class="radio-label" data-i18n="extract.selection">선택 레이어만</span>
+              </label>
+            </div>
+            <div class="selection-info hidden" id="selectionInfo">
+              <div class="sel-count" id="selCount">0개 선택됨</div>
+              <div class="sel-names" id="selNames"></div>
+            </div>
+          </div>
+
+          <!-- 컬렉션 -->
+          <div class="section-card" id="colSection">
+            <div class="section-label" data-i18n="extract.collections">컬렉션</div>
+            <div class="col-list" id="colList">
+              <div class="no-collections" data-i18n-loading>로딩 중...</div>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
-  </div>
-</div>
 
-<!-- ── Component Panel ── -->
-<div class="tab-panel" id="panel-component" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
-
-  <!-- 서브탭 -->
-  <div class="comp-subtabs">
-    <button class="comp-subtab active" data-comp-sub="generate" data-i18n="component.subGenerate">코드 생성</button>
-    <button class="comp-subtab" data-comp-sub="registry" data-i18n="component.subRegistry">레지스트리</button>
-  </div>
-
-  <!-- ── 생성 뷰 ── -->
-  <div id="compGenerateView" class="tab-body" style="overflow-y:auto;">
-
-    <!-- 선택 정보 -->
-    <div id="compSelInfo" style="font-size:12px;color:var(--text-muted);margin-bottom:10px;padding:6px 10px;background:var(--bg);border-radius:6px;" data-i18n="component.noSel">선택된 노드 없음</div>
-
-    <div class="section-card">
-      <!-- 컴포넌트 타입 -->
-      <div style="margin-bottom:10px;">
-        <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;" data-i18n="component.typeLabel">컴포넌트 타입</div>
-        <select id="compTypeSelect" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text-primary);font-size:12px;cursor:pointer;outline:none;">
-          <option value="layout">Layout (div/section)</option>
-          <option value="button">Button</option>
-          <option value="dialog">Dialog / Modal</option>
-          <option value="tabs">Tabs</option>
-          <option value="select">Select / Dropdown</option>
-          <option value="tooltip">Tooltip</option>
-          <option value="checkbox">Checkbox</option>
-          <option value="switch">Switch / Toggle</option>
-          <option value="accordion">Accordion</option>
-          <option value="popover">Popover</option>
-        </select>
-        <div id="compTypeHint" style="font-size:10px;color:var(--text-muted);margin-top:3px;"></div>
-      </div>
-
-      <!-- 스타일 방식 -->
-      <div style="margin-bottom:10px;">
-        <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;" data-i18n="component.styleLabel">스타일 방식</div>
-        <div style="display:flex;gap:4px;">
-          <button class="comp-style-btn active" data-comp-style="css-modules">CSS Modules</button>
-          <button class="comp-style-btn" data-comp-style="styled">Styled-Components</button>
-          <button class="comp-style-btn" data-comp-style="html">HTML</button>
+        <!-- Action Bar -->
+        <div class="action-bar">
+          <button class="btn-ghost" id="inspectBtn" data-i18n="extract.inspect">🔍 검사</button>
+          <button class="btn-primary" id="extractBtn" data-i18n="extract.btn">토큰 추출하기</button>
         </div>
       </div>
 
-      <!-- TypeScript -->
-      <div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:12px;">
-        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
-          <input type="checkbox" id="compTsCheck" checked style="accent-color:var(--primary);width:14px;height:14px;cursor:pointer;">
-          <span style="font-size:11px;color:var(--text-secondary);">TypeScript</span>
-        </label>
-      </div>
-
-      <button class="btn-primary" id="generateCompBtn" style="width:100%;height:40px;" data-i18n="component.generate">코드 생성</button>
-    </div>
-
-    <!-- 결과 영역 -->
-    <div id="compResult" class="hidden">
-      <div style="display:flex;gap:4px;margin-bottom:6px;">
-        <button class="comp-tab active" data-comp-code-tab="tsx">TSX</button>
-        <button class="comp-tab" id="compCssTabBtn" data-comp-code-tab="css">CSS</button>
-      </div>
-      <div style="position:relative;">
-        <textarea id="compCode" readonly style="width:100%;height:220px;font-family:'SF Mono','Fira Code',monospace;font-size:11px;line-height:1.6;padding:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:#111111;color:#E2E8F0;resize:vertical;"></textarea>
-        <button class="btn-ghost" id="compCopyBtn" style="position:absolute;top:8px;right:8px;height:26px;padding:0 10px;font-size:11px;" data-i18n="component.copy">복사</button>
-      </div>
-
-      <!-- 저장 폼 -->
-      <div style="display:flex;gap:6px;margin-top:8px;align-items:center;">
-        <input type="text" id="compNameInput" placeholder="컴포넌트명 (예: PrimaryButton)" style="flex:1;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text-primary);font-size:12px;outline:none;" />
-        <button class="btn-primary" id="compSaveBtn" style="height:34px;padding:0 14px;font-size:12px;white-space:nowrap;" data-i18n="component.saveBtn">레지스트리 저장</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── 레지스트리 뷰 ── -->
-  <div id="compRegistryView" class="tab-body" style="display:none;overflow-y:auto;">
-
-    <!-- 저장된 항목 상세 (불러왔을 때) -->
-    <div id="compRegistryDetail" class="hidden">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-        <div>
-          <div id="compDetailName" style="font-size:13px;font-weight:600;color:var(--text-primary);"></div>
-          <div id="compDetailMeta" style="font-size:11px;color:var(--text-muted);margin-top:2px;"></div>
-        </div>
-        <div style="display:flex;gap:4px;">
-          <button class="btn-ghost" id="compDetailEditBtn" style="height:28px;padding:0 10px;font-size:11px;" data-i18n="component.edit">수정</button>
-          <button class="btn-ghost" id="compDetailUpdateBtn" style="height:28px;padding:0 10px;font-size:11px;" data-i18n="component.update">업데이트</button>
-          <button class="btn-ghost" id="compDetailDeleteBtn" style="height:28px;padding:0 10px;font-size:11px;color:var(--danger);border-color:var(--danger);" data-i18n="component.delete">삭제</button>
+      <!-- ── Loading View ── -->
+      <div
+        id="view-loading"
+        class="hidden"
+        style="display: flex; flex-direction: column; flex: 1; overflow: hidden"
+      >
+        <div class="loading-view">
+          <div class="spinner"></div>
+          <span class="loading-text" data-i18n="extract.loading">토큰을 추출하고 있습니다...</span>
         </div>
       </div>
-      <div style="display:flex;gap:4px;margin-bottom:6px;">
-        <button class="comp-tab active" data-comp-detail-tab="tsx">TSX</button>
-        <button class="comp-tab" id="compDetailCssTabBtn" data-comp-detail-tab="css">CSS</button>
-      </div>
-      <div style="position:relative;">
-        <textarea id="compDetailCode" style="width:100%;height:240px;font-family:'SF Mono','Fira Code',monospace;font-size:11px;line-height:1.6;padding:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:#111111;color:#E2E8F0;resize:vertical;" readonly></textarea>
-        <div style="position:absolute;top:8px;right:8px;display:flex;gap:4px;">
-          <button class="btn-ghost" id="compDetailCopyBtn" style="height:26px;padding:0 10px;font-size:11px;" data-i18n="component.copy">복사</button>
-          <button class="btn-ghost" id="compDetailSaveEditBtn" style="height:26px;padding:0 10px;font-size:11px;display:none;" data-i18n="component.saveEdit">저장</button>
-          <button class="btn-ghost" id="compDetailCancelEditBtn" style="height:26px;padding:0 10px;font-size:11px;display:none;" data-i18n="component.cancel">취소</button>
+
+      <!-- ── Result View ── -->
+      <div
+        id="view-result"
+        class="hidden"
+        style="display: flex; flex-direction: column; flex: 1; overflow: hidden"
+      >
+        <!-- 토큰 캐시 배지 -->
+        <div
+          id="tokenCacheBadge"
+          class="hidden"
+          style="
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 10px;
+            color: var(--text-muted);
+            padding: 4px 12px;
+            background: var(--bg);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+          "
+        >
+          <span data-i18n="extract.cacheRestoredFrom">캐시에서 복원:</span>
+          <span id="tokenCacheSavedAt" style="flex: 1"></span>
+          <button
+            id="tokenCacheClearBtn"
+            style="
+              background: none;
+              border: none;
+              color: var(--text-muted);
+              cursor: pointer;
+              font-size: 14px;
+              padding: 0 2px;
+              line-height: 1;
+            "
+            title="캐시 삭제"
+          >
+            ×
+          </button>
+        </div>
+
+        <div class="result-body">
+          <!-- Stat Cards -->
+          <div class="stats-grid" id="statsRow">
+            <div class="stat-card" id="statVar" data-type="variables">
+              <div class="stat-value" id="statVarNum">0</div>
+              <div class="stat-label">Variables</div>
+            </div>
+            <div class="stat-card" id="statSpacing" data-type="spacing">
+              <div class="stat-value" id="statSpacingNum">0</div>
+              <div class="stat-label">Spacing</div>
+            </div>
+            <div class="stat-card" id="statRadius" data-type="radius">
+              <div class="stat-value" id="statRadiusNum">0</div>
+              <div class="stat-label">Radius</div>
+            </div>
+            <div class="stat-card" id="statColor" data-type="colors">
+              <div class="stat-value" id="statColorNum">0</div>
+              <div class="stat-label">Color Styles</div>
+            </div>
+            <div class="stat-card" id="statText" data-type="texts">
+              <div class="stat-value" id="statTextNum">0</div>
+              <div class="stat-label">Text Styles</div>
+            </div>
+            <div class="stat-card" id="statEffect" data-type="effects">
+              <div class="stat-value" id="statEffectNum">0</div>
+              <div class="stat-label">Effect Styles</div>
+            </div>
+            <div class="stat-card" id="statIcons" data-type="icons">
+              <div class="stat-value" id="statIconsNum">0</div>
+              <div class="stat-label">Icons</div>
+            </div>
+          </div>
+
+          <!-- Meta Info -->
+          <div class="meta-bar">
+            <div class="meta-item">
+              <span class="meta-key" data-i18n="extract.metaFile">파일</span>
+              <span class="meta-val" id="metaFile">—</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-key" data-i18n="extract.metaScope">범위</span>
+              <span class="meta-val" id="metaMode">—</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-key" data-i18n="extract.metaNodes">노드</span>
+              <span class="meta-val" id="metaNodes">—</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-key" data-i18n="extract.metaTime">추출 시각</span>
+              <span class="meta-val" id="metaTime">—</span>
+            </div>
+          </div>
+
+          <!-- Preview Panel -->
+          <div class="preview-panel">
+            <div class="preview-tab-bar">
+              <button class="preview-tab active" id="tabJson">JSON</button>
+              <button class="preview-tab" id="tabCss">CSS</button>
+              <div class="unit-toggle" id="unitToggle" style="display: none">
+                <span class="unit-label" data-i18n="extract.unit">단위:</span>
+                <button class="unit-btn active" id="unitPx">px</button>
+                <button class="unit-btn" id="unitRem">rem</button>
+              </div>
+            </div>
+            <div class="preview-body">
+              <pre class="preview-pre" id="previewPre"></pre>
+            </div>
+          </div>
+        </div>
+
+        <!-- Fixed Bottom Bar -->
+        <div class="result-bar">
+          <button class="btn-ghost" id="copyBtn" data-i18n="extract.copy">📋 복사</button>
+          <button class="btn-ghost" id="downloadJsonBtn">⬇ JSON</button>
+          <button class="btn-ghost" id="downloadCssBtn">⬇ CSS</button>
         </div>
       </div>
-      <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">
-        <button class="btn-ghost" id="compDetailBackBtn" style="height:28px;padding:0 10px;font-size:11px;" data-i18n="component.backToList">← 목록으로</button>
+    </div>
+    <!-- /panel-extract -->
+
+    <!-- ── Icon Panel ── -->
+    <div
+      class="tab-panel"
+      id="panel-icons"
+      style="display: none; flex-direction: column; flex: 1; overflow: hidden"
+    >
+      <div class="tab-body">
+        <div class="section-card">
+          <div class="section-label" data-i18n="icon.title">아이콘 SVG 추출</div>
+          <div style="display: flex; justify-content: center; margin-bottom: 12px">
+            <div class="icon-mode-toggle">
+              <button class="icon-mode-btn active" data-icon-mode="all" data-i18n="icon.allMode">
+                전체 추출
+              </button>
+              <button class="icon-mode-btn" data-icon-mode="selection" data-i18n="icon.selMode">
+                선택 추출
+              </button>
+            </div>
+          </div>
+
+          <!-- 전체 추출 모드 -->
+          <div id="iconModeAll">
+            <div
+              style="
+                font-size: 12px;
+                color: var(--text-secondary);
+                margin-bottom: 10px;
+                line-height: 1.6;
+                padding: 8px 10px;
+                background: var(--bg);
+                border-radius: 6px;
+              "
+            >
+              아이콘 패턴으로 자동 탐색합니다 (<code
+                style="
+                  font-size: 11px;
+                  background: var(--surface);
+                  padding: 1px 4px;
+                  border-radius: 3px;
+                "
+                >icon*</code
+              >,
+              <code
+                style="
+                  font-size: 11px;
+                  background: var(--surface);
+                  padding: 1px 4px;
+                  border-radius: 3px;
+                "
+                >Icon*</code
+              >,
+              <code
+                style="
+                  font-size: 11px;
+                  background: var(--surface);
+                  padding: 1px 4px;
+                  border-radius: 3px;
+                "
+                >ic/*</code
+              >)
+            </div>
+            <button
+              class="btn-primary"
+              id="exportIconsAllBtn"
+              style="width: 100%; height: 40px"
+              data-i18n="icon.allBtn"
+            >
+              전체 아이콘 추출하기
+            </button>
+          </div>
+
+          <!-- 선택 추출 모드 -->
+          <div id="iconModeSelection" style="display: none">
+            <div
+              style="
+                margin-bottom: 8px;
+                font-size: 12px;
+                color: var(--text-secondary);
+                line-height: 1.6;
+              "
+            >
+              Figma에서 프레임/요소를 선택하세요
+            </div>
+            <div
+              id="iconSelInfo"
+              style="
+                font-size: 12px;
+                color: var(--text-muted);
+                margin-bottom: 10px;
+                padding: 6px 10px;
+                background: var(--bg);
+                border-radius: 6px;
+              "
+            >
+              0개 선택됨
+            </div>
+            <button
+              class="btn-primary"
+              id="exportIconsBtn"
+              style="width: 100%; height: 40px"
+              data-i18n="icon.selBtn"
+            >
+              선택 요소 추출하기
+            </button>
+          </div>
+        </div>
+        <div id="iconResults" class="hidden">
+          <!-- 검색바 -->
+          <div id="iconSearchRow" class="icon-search-row hidden">
+            <div class="icon-search-box">
+              <svg
+                class="icon-search-icon"
+                viewBox="0 0 16 16"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <circle cx="6.5" cy="6.5" r="5" stroke="currentColor" stroke-width="1.5" />
+                <path
+                  d="M10 10L14 14"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                />
+              </svg>
+              <input
+                id="iconSearchInput"
+                type="text"
+                class="icon-search-input"
+                placeholder="아이콘 검색..."
+                autocomplete="off"
+                data-i18n-placeholder="icon.searchPlaceholder"
+              />
+              <button id="iconSearchClear" class="icon-search-clear hidden">×</button>
+            </div>
+            <span id="iconFilterCount" class="icon-filter-count"></span>
+          </div>
+
+          <div
+            style="
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              margin-bottom: 8px;
+            "
+          >
+            <div style="display: flex; align-items: center; gap: 6px">
+              <div class="section-label" style="margin-bottom: 0; padding: 0 2px">
+                추출 결과 (<span id="iconCount">0</span>개)
+              </div>
+              <span
+                id="iconCacheBadge"
+                class="hidden"
+                style="
+                  font-size: 10px;
+                  color: var(--text-muted);
+                  display: flex;
+                  align-items: center;
+                  gap: 4px;
+                "
+              >
+                <span id="iconCacheSavedAt"></span>
+                <button
+                  id="iconCacheClearBtn"
+                  style="
+                    background: none;
+                    border: none;
+                    color: var(--text-muted);
+                    cursor: pointer;
+                    font-size: 13px;
+                    padding: 0 2px;
+                    line-height: 1;
+                  "
+                  title="캐시 삭제"
+                >
+                  ×
+                </button>
+              </span>
+            </div>
+            <div style="display: flex; gap: 6px; flex-wrap: wrap">
+              <button
+                class="btn-ghost"
+                id="iconDownloadSvgBtn"
+                style="height: 28px; padding: 0 10px; font-size: 11px"
+                data-i18n="icon.downloadSvg"
+              >
+                SVG 파일
+              </button>
+              <button
+                class="btn-ghost"
+                id="iconDownloadSvgCodeBtn"
+                style="height: 28px; padding: 0 10px; font-size: 11px"
+                data-i18n="icon.downloadSvgCode"
+              >
+                SVG 코드
+              </button>
+              <button
+                class="btn-ghost"
+                id="iconDownloadReactBtn"
+                style="height: 28px; padding: 0 10px; font-size: 11px"
+                data-i18n="icon.downloadReact"
+              >
+                React
+              </button>
+            </div>
+          </div>
+          <div id="iconList" class="icon-grid"></div>
+        </div>
       </div>
     </div>
 
-    <!-- 목록 -->
-    <div id="compRegistryList">
-      <input type="text" id="compSearchInput" placeholder="검색..." style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text-primary);font-size:12px;outline:none;margin-bottom:8px;" />
-      <div id="compRegistryItems" style="display:flex;flex-direction:column;gap:4px;"></div>
-      <div id="compRegistryEmpty" style="text-align:center;padding:32px 0;color:var(--text-muted);font-size:12px;" data-i18n="component.registryEmpty">저장된 컴포넌트가 없습니다</div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:8px;border-top:1px solid var(--border);">
-        <div id="compRegistryCount" style="font-size:11px;color:var(--text-muted);"></div>
-        <button class="btn-ghost" id="compExportAllBtn" style="height:28px;padding:0 10px;font-size:11px;" data-i18n="component.exportAll">전체 내보내기</button>
+    <!-- ── Accessibility Panel ── -->
+    <div
+      class="tab-panel"
+      id="panel-a11y"
+      style="display: none; flex-direction: column; flex: 1; overflow: hidden"
+    >
+      <div
+        id="a11yCacheBanner"
+        class="hidden"
+        style="
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 11px;
+          color: var(--text-muted);
+          padding: 4px 12px;
+          background: var(--bg);
+          border-bottom: 1px solid var(--border);
+          flex-shrink: 0;
+        "
+      >
+        <span data-i18n="extract.cacheRestoredFrom">캐시에서 복원:</span>
+        <span id="a11yCacheBannerDate"></span>
+      </div>
+      <div class="a11y-subtabs">
+        <button class="a11y-subtab active" data-a11y-sub="manual" data-i18n="contrast.manual">
+          수동 검사
+        </button>
+        <button class="a11y-subtab" data-a11y-sub="matrix" data-i18n="contrast.matrix">
+          컬러 매트릭스
+        </button>
+      </div>
+
+      <!-- 수동 검사 -->
+      <div class="tab-body" id="a11yManualPanel">
+        <div
+          id="a11yHint"
+          class="section-card"
+          style="background: var(--primary-light); border-color: var(--primary-border)"
+        >
+          <p style="font-size: 12px; color: var(--primary); margin: 0" data-i18n="contrast.hint">
+            추출 탭에서 토큰을 먼저 추출하면, 디자인 색상을 드롭다운에서 선택할 수 있습니다.
+          </p>
+        </div>
+        <div class="section-card">
+          <div class="section-label" data-i18n="contrast.title">WCAG 명도 대비 검사</div>
+          <div style="display: flex; gap: 10px; align-items: stretch; margin-bottom: 16px">
+            <div style="flex: 1">
+              <label
+                style="
+                  font-size: 11px;
+                  color: var(--text-muted);
+                  display: block;
+                  margin-bottom: 4px;
+                "
+                data-i18n="contrast.bg"
+                >배경색</label
+              >
+              <select id="a11yBgSelect" class="a11y-select">
+                <option value="">직접 입력</option>
+              </select>
+              <input
+                type="text"
+                id="a11yBgHex"
+                class="a11y-input"
+                placeholder="#FFFFFF"
+                value="#FFFFFF"
+              />
+              <div
+                id="a11yBgPreview"
+                style="
+                  width: 100%;
+                  height: 32px;
+                  border-radius: 6px;
+                  border: 1px solid var(--border);
+                  margin-top: 6px;
+                  background: #ffffff;
+                "
+              ></div>
+            </div>
+            <div style="display: flex; align-items: center; padding-top: 16px">
+              <button
+                id="a11ySwapBtn"
+                title="배경↔텍스트 교체"
+                style="
+                  width: 32px;
+                  height: 32px;
+                  border-radius: 50%;
+                  border: 1px solid var(--border);
+                  background: var(--surface);
+                  cursor: pointer;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  font-size: 14px;
+                  color: var(--text-secondary);
+                  transition: all 0.15s;
+                "
+              >
+                ⇄
+              </button>
+            </div>
+            <div style="flex: 1">
+              <label
+                style="
+                  font-size: 11px;
+                  color: var(--text-muted);
+                  display: block;
+                  margin-bottom: 4px;
+                "
+                data-i18n="contrast.fg"
+                >텍스트색</label
+              >
+              <select id="a11yFgSelect" class="a11y-select">
+                <option value="">직접 입력</option>
+              </select>
+              <input
+                type="text"
+                id="a11yFgHex"
+                class="a11y-input"
+                placeholder="#000000"
+                value="#000000"
+              />
+              <div
+                id="a11yFgPreview"
+                style="
+                  width: 100%;
+                  height: 32px;
+                  border-radius: 6px;
+                  border: 1px solid var(--border);
+                  margin-top: 6px;
+                  background: #000000;
+                "
+              ></div>
+            </div>
+          </div>
+          <div
+            style="
+              text-align: center;
+              padding: 20px 0;
+              background: var(--bg);
+              border-radius: var(--radius);
+            "
+          >
+            <div id="a11yRatio" style="font-size: 36px; font-weight: 700; color: var(--primary)">
+              21:1
+            </div>
+            <div style="display: flex; gap: 8px; justify-content: center; margin-top: 12px">
+              <span id="a11yAA" class="a11y-badge pass">AA Normal ✓</span>
+              <span id="a11yAALarge" class="a11y-badge pass">AA Large ✓</span>
+              <span id="a11yAAA" class="a11y-badge pass">AAA ✓</span>
+            </div>
+          </div>
+          <div
+            id="a11yPreviewBox"
+            style="
+              margin-top: 12px;
+              padding: 20px;
+              border-radius: var(--radius);
+              background: #ffffff;
+              border: 1px solid var(--border);
+              text-align: center;
+            "
+          >
+            <span
+              id="a11yPreviewText"
+              style="font-size: 16px; font-weight: 500; color: #000000"
+              data-i18n="contrast.preview"
+              >미리보기 텍스트 Preview</span
+            >
+          </div>
+        </div>
+      </div>
+
+      <!-- 컬러 매트릭스 -->
+      <div class="tab-body" id="a11yMatrixPanel" style="display: none">
+        <div
+          id="matrixEmpty"
+          class="section-card"
+          style="background: var(--primary-light); border-color: var(--primary-border)"
+        >
+          <p
+            style="font-size: 12px; color: var(--primary); margin: 0"
+            data-i18n="contrast.noColors"
+          >
+            추출 탭에서 색상을 먼저 추출하세요. 추출된 색상으로 자동 매트릭스를 생성합니다.
+          </p>
+        </div>
+        <div id="matrixContent" class="hidden">
+          <div
+            style="
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              margin-bottom: 8px;
+            "
+          >
+            <div class="section-label" style="margin-bottom: 0">
+              명도대비 매트릭스 (<span id="matrixColorCount">0</span>개 색상)
+            </div>
+          </div>
+          <div class="matrix-wrap">
+            <table class="matrix-table" id="matrixTable"></table>
+          </div>
+          <div id="matrixSummary"></div>
+          <div
+            style="
+              display: flex;
+              gap: 12px;
+              margin-top: 10px;
+              font-size: 10px;
+              color: var(--text-muted);
+              flex-wrap: wrap;
+            "
+          >
+            <span
+              ><span
+                style="
+                  display: inline-block;
+                  width: 10px;
+                  height: 10px;
+                  border-radius: 2px;
+                  background: rgba(61, 220, 132, 0.12);
+                  vertical-align: middle;
+                  margin-right: 2px;
+                "
+              ></span>
+              AAA (7:1+)</span
+            >
+            <span
+              ><span
+                style="
+                  display: inline-block;
+                  width: 10px;
+                  height: 10px;
+                  border-radius: 2px;
+                  background: rgba(59, 130, 246, 0.12);
+                  vertical-align: middle;
+                  margin-right: 2px;
+                "
+              ></span>
+              AA (4.5:1~7:1)</span
+            >
+            <span
+              ><span
+                style="
+                  display: inline-block;
+                  width: 10px;
+                  height: 10px;
+                  border-radius: 2px;
+                  background: rgba(159, 122, 234, 0.15);
+                  vertical-align: middle;
+                  margin-right: 2px;
+                "
+              ></span>
+              AA Large (3:1~4.5:1)</span
+            >
+            <span
+              ><span
+                style="
+                  display: inline-block;
+                  width: 10px;
+                  height: 10px;
+                  border-radius: 2px;
+                  background: rgba(255, 77, 79, 0.12);
+                  vertical-align: middle;
+                  margin-right: 2px;
+                "
+              ></span>
+              <span data-i18n="contrast.fail">미달</span> (&lt;3:1)</span
+            >
+          </div>
+        </div>
       </div>
     </div>
-  </div>
 
-</div>
-
-<!-- ── Images Panel ── -->
-<div class="tab-panel" id="panel-images" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
-  <div id="imagesCacheBanner" class="hidden" style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);padding:4px 12px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;">
-    <span data-i18n="extract.cacheRestoredFrom">캐시에서 복원:</span>
-    <span id="imagesCacheBannerDate"></span>
-  </div>
-
-  <!-- 옵션 바 -->
-  <div class="image-options-bar">
-    <div class="image-option-row">
-      <span class="image-option-label" data-i18n="image.format">포맷</span>
-      <div class="image-format-group">
-        <button class="image-format-btn active" data-fmt="PNG">PNG</button>
-        <button class="image-format-btn" data-fmt="JPG">JPG</button>
+    <!-- ── Theme Panel ── -->
+    <div
+      class="tab-panel"
+      id="panel-themes"
+      style="display: none; flex-direction: column; flex: 1; overflow: hidden"
+    >
+      <div
+        id="themesCacheBanner"
+        class="hidden"
+        style="
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 11px;
+          color: var(--text-muted);
+          padding: 4px 12px;
+          background: var(--bg);
+          border-bottom: 1px solid var(--border);
+          flex-shrink: 0;
+        "
+      >
+        <span data-i18n="extract.cacheRestoredFrom">캐시에서 복원:</span>
+        <span id="themesCacheBannerDate"></span>
+      </div>
+      <div class="tab-body">
+        <div class="section-card" style="margin-bottom: 0">
+          <div
+            style="
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              margin-bottom: 10px;
+            "
+          >
+            <div class="section-label" style="margin-bottom: 0" data-i18n="theme.title">
+              다크/라이트 테마 비교
+            </div>
+            <div style="display: flex; gap: 6px">
+              <button
+                class="btn-ghost"
+                id="extractThemesBtn"
+                style="height: 32px; padding: 0 12px; font-size: 12px"
+                data-i18n="theme.extract"
+              >
+                테마 추출
+              </button>
+              <button
+                class="btn-ghost"
+                id="themeCopyCssBtn"
+                style="height: 32px; padding: 0 12px; font-size: 12px"
+                disabled
+                data-i18n="theme.copyCss"
+              >
+                CSS 복사
+              </button>
+              <button
+                class="btn-ghost"
+                id="themeFilterBtn"
+                style="height: 32px; padding: 0 12px; font-size: 12px"
+                disabled
+                data-i18n="theme.showAll"
+              >
+                전체 보기
+              </button>
+            </div>
+          </div>
+        </div>
+        <div id="themeContent" style="flex: 1; overflow-y: auto">
+          <div id="themeEmptyState" style="padding: 14px 16px">
+            <div
+              class="section-card"
+              style="
+                background: var(--primary-light);
+                border-color: var(--primary-border);
+                margin-bottom: 10px;
+              "
+            >
+              <p style="font-size: 12px; color: var(--primary); margin: 0; line-height: 1.6">
+                Variables의 Light/Dark 모드를 자동 감지하여 비교합니다.
+              </p>
+            </div>
+            <div class="section-card" style="margin-bottom: 10px">
+              <div class="section-label">전제 조건</div>
+              <p style="font-size: 12px; color: var(--text-secondary); margin: 0; line-height: 1.6">
+                Figma Variables에 <strong>2개 이상의 모드</strong>(예: Light / Dark)가 정의되어
+                있어야 합니다.
+              </p>
+            </div>
+            <div class="section-card" style="margin-bottom: 0">
+              <div class="section-label">미리보기 (샘플)</div>
+              <div class="theme-grid">
+                <div class="theme-header">Light</div>
+                <div class="theme-header">Dark</div>
+                <div class="theme-row-light">
+                  <div class="theme-swatch" style="background: #ffffff"></div>
+                  <span class="theme-var-name" style="color: var(--text-muted)"
+                    >color/background</span
+                  >
+                  <span class="theme-var-value">#FFFFFF</span>
+                </div>
+                <div class="theme-row-dark">
+                  <div class="theme-swatch" style="background: #0f172a"></div>
+                  <span class="theme-var-name">color/background</span>
+                  <span class="theme-var-value">#0F172A</span>
+                </div>
+                <div class="theme-row-light highlight">
+                  <div class="theme-swatch" style="background: #1e293b"></div>
+                  <span class="theme-var-name" style="color: var(--text-muted)"
+                    >color/text-primary</span
+                  >
+                  <span class="theme-var-value">#1E293B</span>
+                </div>
+                <div class="theme-row-dark highlight">
+                  <div class="theme-swatch" style="background: #f1f5f9"></div>
+                  <span class="theme-var-name">color/text-primary</span>
+                  <span class="theme-var-value">#F1F5F9</span>
+                </div>
+                <div class="theme-row-light">
+                  <div class="theme-swatch" style="background: #2563eb"></div>
+                  <span class="theme-var-name" style="color: var(--text-muted)">color/primary</span>
+                  <span class="theme-var-value">#2563EB</span>
+                </div>
+                <div class="theme-row-dark">
+                  <div class="theme-swatch" style="background: #3b82f6"></div>
+                  <span class="theme-var-name">color/primary</span>
+                  <span class="theme-var-value">#3B82F6</span>
+                </div>
+              </div>
+              <p
+                style="
+                  font-size: 10px;
+                  color: var(--text-muted);
+                  margin-top: 8px;
+                  text-align: center;
+                "
+              >
+                위는 샘플 데이터입니다. "테마 추출" 버튼을 클릭하여 실제 데이터를 확인하세요.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
-    <div class="image-option-row">
-      <span class="image-option-label" data-i18n="image.scale">배율</span>
-      <div class="image-scale-group">
-        <button class="image-scale-btn active" data-scale="1">1×</button>
-        <button class="image-scale-btn active" data-scale="2">2×</button>
-        <button class="image-scale-btn" data-scale="3">3×</button>
+
+    <!-- ── Component Panel ── -->
+    <div
+      class="tab-panel"
+      id="panel-component"
+      style="display: none; flex-direction: column; flex: 1; overflow: hidden"
+    >
+      <!-- 서브탭 -->
+      <div class="comp-subtabs">
+        <button
+          class="comp-subtab active"
+          data-comp-sub="generate"
+          data-i18n="component.subGenerate"
+        >
+          코드 생성
+        </button>
+        <button class="comp-subtab" data-comp-sub="registry" data-i18n="component.subRegistry">
+          레지스트리
+        </button>
+      </div>
+
+      <!-- ── 생성 뷰 ── -->
+      <div id="compGenerateView" class="tab-body" style="overflow-y: auto">
+        <!-- 선택 정보 -->
+        <div
+          id="compSelInfo"
+          style="
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+            padding: 6px 10px;
+            background: var(--bg);
+            border-radius: 6px;
+          "
+          data-i18n="component.noSel"
+        >
+          선택된 노드 없음
+        </div>
+
+        <div class="section-card">
+          <!-- 컴포넌트 타입 -->
+          <div style="margin-bottom: 10px">
+            <div
+              style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px"
+              data-i18n="component.typeLabel"
+            >
+              컴포넌트 타입
+            </div>
+            <select
+              id="compTypeSelect"
+              style="
+                width: 100%;
+                padding: 7px 10px;
+                border: 1px solid var(--border);
+                border-radius: var(--radius-sm);
+                background: var(--surface2);
+                color: var(--text-primary);
+                font-size: 12px;
+                cursor: pointer;
+                outline: none;
+              "
+            >
+              <option value="layout">Layout (div/section)</option>
+              <option value="button">Button</option>
+              <option value="dialog">Dialog / Modal</option>
+              <option value="tabs">Tabs</option>
+              <option value="select">Select / Dropdown</option>
+              <option value="tooltip">Tooltip</option>
+              <option value="checkbox">Checkbox</option>
+              <option value="switch">Switch / Toggle</option>
+              <option value="accordion">Accordion</option>
+              <option value="popover">Popover</option>
+            </select>
+            <div
+              id="compTypeHint"
+              style="font-size: 10px; color: var(--text-muted); margin-top: 3px"
+            ></div>
+          </div>
+
+          <!-- 스타일 방식 -->
+          <div style="margin-bottom: 10px">
+            <div
+              style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px"
+              data-i18n="component.styleLabel"
+            >
+              스타일 방식
+            </div>
+            <div style="display: flex; gap: 4px">
+              <button class="comp-style-btn active" data-comp-style="css-modules">
+                CSS Modules
+              </button>
+              <button class="comp-style-btn" data-comp-style="styled">Styled-Components</button>
+              <button class="comp-style-btn" data-comp-style="html">HTML</button>
+            </div>
+          </div>
+
+          <!-- TypeScript -->
+          <div
+            style="
+              display: flex;
+              align-items: center;
+              justify-content: flex-end;
+              margin-bottom: 12px;
+            "
+          >
+            <label style="display: flex; align-items: center; gap: 4px; cursor: pointer">
+              <input
+                type="checkbox"
+                id="compTsCheck"
+                checked
+                style="accent-color: var(--primary); width: 14px; height: 14px; cursor: pointer"
+              />
+              <span style="font-size: 11px; color: var(--text-secondary)">TypeScript</span>
+            </label>
+          </div>
+
+          <button
+            class="btn-primary"
+            id="generateCompBtn"
+            style="width: 100%; height: 40px"
+            data-i18n="component.generate"
+          >
+            코드 생성
+          </button>
+        </div>
+
+        <!-- 결과 영역 -->
+        <div id="compResult" class="hidden">
+          <div style="display: flex; gap: 4px; margin-bottom: 6px">
+            <button class="comp-tab active" data-comp-code-tab="tsx">TSX</button>
+            <button class="comp-tab" id="compCssTabBtn" data-comp-code-tab="css">CSS</button>
+          </div>
+          <div style="position: relative">
+            <textarea
+              id="compCode"
+              readonly
+              style="
+                width: 100%;
+                height: 220px;
+                font-family: 'SF Mono', 'Fira Code', monospace;
+                font-size: 11px;
+                line-height: 1.6;
+                padding: 12px;
+                border: 1px solid var(--border);
+                border-radius: var(--radius-sm);
+                background: #111111;
+                color: #e2e8f0;
+                resize: vertical;
+              "
+            ></textarea>
+            <button
+              class="btn-ghost"
+              id="compCopyBtn"
+              style="
+                position: absolute;
+                top: 8px;
+                right: 8px;
+                height: 26px;
+                padding: 0 10px;
+                font-size: 11px;
+              "
+              data-i18n="component.copy"
+            >
+              복사
+            </button>
+          </div>
+
+          <!-- 저장 폼 -->
+          <div style="display: flex; gap: 6px; margin-top: 8px; align-items: center">
+            <input
+              type="text"
+              id="compNameInput"
+              placeholder="컴포넌트명 (예: PrimaryButton)"
+              style="
+                flex: 1;
+                padding: 7px 10px;
+                border: 1px solid var(--border);
+                border-radius: var(--radius-sm);
+                background: var(--surface2);
+                color: var(--text-primary);
+                font-size: 12px;
+                outline: none;
+              "
+            />
+            <button
+              class="btn-primary"
+              id="compSaveBtn"
+              style="height: 34px; padding: 0 14px; font-size: 12px; white-space: nowrap"
+              data-i18n="component.saveBtn"
+            >
+              레지스트리 저장
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── 레지스트리 뷰 ── -->
+      <div id="compRegistryView" class="tab-body" style="display: none; overflow-y: auto">
+        <!-- 저장된 항목 상세 (불러왔을 때) -->
+        <div id="compRegistryDetail" class="hidden">
+          <div
+            style="
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              margin-bottom: 8px;
+            "
+          >
+            <div>
+              <div
+                id="compDetailName"
+                style="font-size: 13px; font-weight: 600; color: var(--text-primary)"
+              ></div>
+              <div
+                id="compDetailMeta"
+                style="font-size: 11px; color: var(--text-muted); margin-top: 2px"
+              ></div>
+            </div>
+            <div style="display: flex; gap: 4px">
+              <button
+                class="btn-ghost"
+                id="compDetailEditBtn"
+                style="height: 28px; padding: 0 10px; font-size: 11px"
+                data-i18n="component.edit"
+              >
+                수정
+              </button>
+              <button
+                class="btn-ghost"
+                id="compDetailUpdateBtn"
+                style="height: 28px; padding: 0 10px; font-size: 11px"
+                data-i18n="component.update"
+              >
+                업데이트
+              </button>
+              <button
+                class="btn-ghost"
+                id="compDetailDeleteBtn"
+                style="
+                  height: 28px;
+                  padding: 0 10px;
+                  font-size: 11px;
+                  color: var(--danger);
+                  border-color: var(--danger);
+                "
+                data-i18n="component.delete"
+              >
+                삭제
+              </button>
+            </div>
+          </div>
+          <div style="display: flex; gap: 4px; margin-bottom: 6px">
+            <button class="comp-tab active" data-comp-detail-tab="tsx">TSX</button>
+            <button class="comp-tab" id="compDetailCssTabBtn" data-comp-detail-tab="css">
+              CSS
+            </button>
+          </div>
+          <div style="position: relative">
+            <textarea
+              id="compDetailCode"
+              style="
+                width: 100%;
+                height: 240px;
+                font-family: 'SF Mono', 'Fira Code', monospace;
+                font-size: 11px;
+                line-height: 1.6;
+                padding: 12px;
+                border: 1px solid var(--border);
+                border-radius: var(--radius-sm);
+                background: #111111;
+                color: #e2e8f0;
+                resize: vertical;
+              "
+              readonly
+            ></textarea>
+            <div style="position: absolute; top: 8px; right: 8px; display: flex; gap: 4px">
+              <button
+                class="btn-ghost"
+                id="compDetailCopyBtn"
+                style="height: 26px; padding: 0 10px; font-size: 11px"
+                data-i18n="component.copy"
+              >
+                복사
+              </button>
+              <button
+                class="btn-ghost"
+                id="compDetailSaveEditBtn"
+                style="height: 26px; padding: 0 10px; font-size: 11px; display: none"
+                data-i18n="component.saveEdit"
+              >
+                저장
+              </button>
+              <button
+                class="btn-ghost"
+                id="compDetailCancelEditBtn"
+                style="height: 26px; padding: 0 10px; font-size: 11px; display: none"
+                data-i18n="component.cancel"
+              >
+                취소
+              </button>
+            </div>
+          </div>
+          <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border)">
+            <button
+              class="btn-ghost"
+              id="compDetailBackBtn"
+              style="height: 28px; padding: 0 10px; font-size: 11px"
+              data-i18n="component.backToList"
+            >
+              ← 목록으로
+            </button>
+          </div>
+        </div>
+
+        <!-- 목록 -->
+        <div id="compRegistryList">
+          <input
+            type="text"
+            id="compSearchInput"
+            placeholder="검색..."
+            style="
+              width: 100%;
+              padding: 7px 10px;
+              border: 1px solid var(--border);
+              border-radius: var(--radius-sm);
+              background: var(--surface2);
+              color: var(--text-primary);
+              font-size: 12px;
+              outline: none;
+              margin-bottom: 8px;
+            "
+          />
+          <div id="compRegistryItems" style="display: flex; flex-direction: column; gap: 4px"></div>
+          <div
+            id="compRegistryEmpty"
+            style="text-align: center; padding: 32px 0; color: var(--text-muted); font-size: 12px"
+            data-i18n="component.registryEmpty"
+          >
+            저장된 컴포넌트가 없습니다
+          </div>
+          <div
+            style="
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              margin-top: 10px;
+              padding-top: 8px;
+              border-top: 1px solid var(--border);
+            "
+          >
+            <div id="compRegistryCount" style="font-size: 11px; color: var(--text-muted)"></div>
+            <button
+              class="btn-ghost"
+              id="compExportAllBtn"
+              style="height: 28px; padding: 0 10px; font-size: 11px"
+              data-i18n="component.exportAll"
+            >
+              전체 내보내기
+            </button>
+          </div>
+        </div>
       </div>
     </div>
-    <div class="image-option-row">
-      <span class="image-option-label" data-i18n="image.scope">범위</span>
-      <div class="radio-group">
-        <label class="radio-item">
-          <input type="radio" name="imgScope" value="all" checked>
-          <span class="radio-label" data-i18n="image.allPage">전체 페이지</span>
-        </label>
-        <label class="radio-item">
-          <input type="radio" name="imgScope" value="selection">
-          <span class="radio-label" data-i18n="image.selection">선택 레이어</span>
-        </label>
+
+    <!-- ── Images Panel ── -->
+    <div
+      class="tab-panel"
+      id="panel-images"
+      style="display: none; flex-direction: column; flex: 1; overflow: hidden"
+    >
+      <div
+        id="imagesCacheBanner"
+        class="hidden"
+        style="
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 11px;
+          color: var(--text-muted);
+          padding: 4px 12px;
+          background: var(--bg);
+          border-bottom: 1px solid var(--border);
+          flex-shrink: 0;
+        "
+      >
+        <span data-i18n="extract.cacheRestoredFrom">캐시에서 복원:</span>
+        <span id="imagesCacheBannerDate"></span>
+      </div>
+
+      <!-- 옵션 바 -->
+      <div class="image-options-bar">
+        <div class="image-option-row">
+          <span class="image-option-label" data-i18n="image.format">포맷</span>
+          <div class="image-format-group">
+            <button class="image-format-btn active" data-fmt="PNG">PNG</button>
+            <button class="image-format-btn" data-fmt="JPG">JPG</button>
+          </div>
+        </div>
+        <div class="image-option-row">
+          <span class="image-option-label" data-i18n="image.scale">배율</span>
+          <div class="image-scale-group">
+            <button class="image-scale-btn active" data-scale="1">1×</button>
+            <button class="image-scale-btn active" data-scale="2">2×</button>
+            <button class="image-scale-btn" data-scale="3">3×</button>
+          </div>
+        </div>
+        <div class="image-option-row">
+          <span class="image-option-label" data-i18n="image.scope">범위</span>
+          <div class="radio-group">
+            <label class="radio-item">
+              <input type="radio" name="imgScope" value="all" checked />
+              <span class="radio-label" data-i18n="image.allPage">전체 페이지</span>
+            </label>
+            <label class="radio-item">
+              <input type="radio" name="imgScope" value="selection" />
+              <span class="radio-label" data-i18n="image.selection">선택 레이어</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- 탐지 버튼 -->
+      <div style="padding: 10px 16px; flex-shrink: 0">
+        <button
+          class="btn-primary"
+          id="detectImagesBtn"
+          style="width: 100%"
+          data-i18n="image.detectBtn"
+        >
+          이미지 탐지하기
+        </button>
+      </div>
+
+      <!-- 상태: idle -->
+      <div id="imgStateIdle" class="image-idle">
+        <div class="image-state-icon">🖼</div>
+        <div class="image-state-title" data-i18n="image.idleTitle">이미지 에셋 탐지</div>
+        <div class="image-state-hint" data-i18n="image.idle">
+          위 버튼을 클릭하여 이미지 에셋을 탐지하세요.
+        </div>
+      </div>
+
+      <!-- 상태: detecting -->
+      <div id="imgStateDetecting" class="image-detecting hidden">
+        <div class="spinner"></div>
+        <div class="image-state-title" data-i18n="image.detecting">
+          이미지를 탐지하고 있습니다...
+        </div>
+      </div>
+
+      <!-- 상태: empty -->
+      <div id="imgStateEmpty" class="image-empty hidden">
+        <div class="image-state-icon">📭</div>
+        <div class="image-state-title" data-i18n="image.empty">이미지 에셋을 찾을 수 없습니다.</div>
+        <div class="image-state-hint" data-i18n="image.emptyHint">
+          IMAGE fill이 적용된 노드가 없거나 선택 범위에 포함되지 않았습니다.
+        </div>
+      </div>
+
+      <!-- 상태: error -->
+      <div id="imgStateError" class="image-error-state hidden">
+        <div class="image-state-icon">⚠️</div>
+        <div class="image-state-title" id="imgErrorMsg"></div>
+        <button class="btn-ghost" id="imgRetryBtn" style="margin-top: 8px" data-i18n="image.retry">
+          다시 시도
+        </button>
+      </div>
+
+      <!-- 상태: list -->
+      <div
+        id="imgStateList"
+        class="hidden"
+        style="flex: 1; overflow: hidden; display: flex; flex-direction: column; min-height: 0"
+      >
+        <div id="imgList" class="image-list"></div>
+        <div class="image-footer">
+          <button class="btn-primary" id="imgDownloadAllBtn" style="width: 100%" disabled>
+            <span data-i18n="image.downloadAll">전체 ZIP 다운로드</span>
+            <span id="imgDownloadAllCount"></span>
+          </button>
+        </div>
       </div>
     </div>
-  </div>
 
-  <!-- 탐지 버튼 -->
-  <div style="padding:10px 16px;flex-shrink:0;">
-    <button class="btn-primary" id="detectImagesBtn" style="width:100%;" data-i18n="image.detectBtn">이미지 탐지하기</button>
-  </div>
+    <!-- ── Toast ── -->
+    <div class="toast" id="toast"></div>
 
-  <!-- 상태: idle -->
-  <div id="imgStateIdle" class="image-idle">
-    <div class="image-state-icon">🖼</div>
-    <div class="image-state-title" data-i18n="image.idleTitle">이미지 에셋 탐지</div>
-    <div class="image-state-hint" data-i18n="image.idle">위 버튼을 클릭하여 이미지 에셋을 탐지하세요.</div>
-  </div>
-
-  <!-- 상태: detecting -->
-  <div id="imgStateDetecting" class="image-detecting hidden">
-    <div class="spinner"></div>
-    <div class="image-state-title" data-i18n="image.detecting">이미지를 탐지하고 있습니다...</div>
-  </div>
-
-  <!-- 상태: empty -->
-  <div id="imgStateEmpty" class="image-empty hidden">
-    <div class="image-state-icon">📭</div>
-    <div class="image-state-title" data-i18n="image.empty">이미지 에셋을 찾을 수 없습니다.</div>
-    <div class="image-state-hint" data-i18n="image.emptyHint">IMAGE fill이 적용된 노드가 없거나 선택 범위에 포함되지 않았습니다.</div>
-  </div>
-
-  <!-- 상태: error -->
-  <div id="imgStateError" class="image-error-state hidden">
-    <div class="image-state-icon">⚠️</div>
-    <div class="image-state-title" id="imgErrorMsg"></div>
-    <button class="btn-ghost" id="imgRetryBtn" style="margin-top:8px;" data-i18n="image.retry">다시 시도</button>
-  </div>
-
-  <!-- 상태: list -->
-  <div id="imgStateList" class="hidden" style="flex:1;overflow:hidden;display:flex;flex-direction:column;min-height:0;">
-    <div id="imgList" class="image-list"></div>
-    <div class="image-footer">
-      <button class="btn-primary" id="imgDownloadAllBtn" style="width:100%;" disabled>
-        <span data-i18n="image.downloadAll">전체 ZIP 다운로드</span>
-        <span id="imgDownloadAllCount"></span>
-      </button>
-    </div>
-  </div>
-
-</div>
-
-<!-- ── Toast ── -->
-<div class="toast" id="toast"></div>
-
-<!-- ── Icon Detail Modal ── -->
-<div id="iconDetailBackdrop" class="icon-detail-backdrop hidden">
-  <div id="iconDetailPanel" class="icon-detail-panel">
-    <div class="icon-detail-header">
-      <div class="icon-detail-header-left">
-        <div class="icon-detail-thumb" id="iconDetailThumb"></div>
-        <span class="icon-detail-name" id="iconDetailName"></span>
-      </div>
-      <button class="icon-detail-close" id="iconDetailClose">×</button>
-    </div>
-    <div class="icon-color-controls">
-      <span class="icon-color-label" data-i18n="icon.colorMode">색상 모드</span>
-      <div class="icon-color-row">
-        <select id="iconColorModeSelect" class="icon-color-select">
-          <option value="currentColor" data-i18n="icon.colorModeCC">currentColor</option>
-          <option value="cssVar" data-i18n="icon.colorModeCssVar">CSS 변수</option>
-          <option value="custom" data-i18n="icon.colorModeCustom">커스텀 색상</option>
-        </select>
-        <input id="iconColorVarInput" type="text" class="icon-color-var-input hidden" placeholder="--icon-color" data-i18n-placeholder="icon.cssVarPlaceholder" />
-        <input id="iconColorPicker" type="color" class="icon-color-picker hidden" value="#3B82F6" />
+    <!-- ── Icon Detail Modal ── -->
+    <div id="iconDetailBackdrop" class="icon-detail-backdrop hidden">
+      <div id="iconDetailPanel" class="icon-detail-panel">
+        <div class="icon-detail-header">
+          <div class="icon-detail-header-left">
+            <div class="icon-detail-thumb" id="iconDetailThumb"></div>
+            <span class="icon-detail-name" id="iconDetailName"></span>
+          </div>
+          <button class="icon-detail-close" id="iconDetailClose">×</button>
+        </div>
+        <div class="icon-color-controls">
+          <span class="icon-color-label" data-i18n="icon.colorMode">색상 모드</span>
+          <div class="icon-color-row">
+            <select id="iconColorModeSelect" class="icon-color-select">
+              <option value="currentColor" data-i18n="icon.colorModeCC">currentColor</option>
+              <option value="cssVar" data-i18n="icon.colorModeCssVar">CSS 변수</option>
+              <option value="custom" data-i18n="icon.colorModeCustom">커스텀 색상</option>
+            </select>
+            <input
+              id="iconColorVarInput"
+              type="text"
+              class="icon-color-var-input hidden"
+              placeholder="--icon-color"
+              data-i18n-placeholder="icon.cssVarPlaceholder"
+            />
+            <input
+              id="iconColorPicker"
+              type="color"
+              class="icon-color-picker hidden"
+              value="#3B82F6"
+            />
+          </div>
+        </div>
+        <div class="icon-detail-tabs">
+          <button class="icon-detail-tab active" data-detail-tab="svg" data-i18n="icon.detailSvg">
+            SVG
+          </button>
+          <button class="icon-detail-tab" data-detail-tab="react" data-i18n="icon.detailReact">
+            React
+          </button>
+          <button class="icon-detail-tab" data-detail-tab="css" data-i18n="icon.detailCss">
+            CSS
+          </button>
+        </div>
+        <div class="icon-detail-code-wrap">
+          <pre class="icon-detail-code" id="iconDetailCode"></pre>
+          <button class="icon-detail-copy" id="iconDetailCopyBtn" data-i18n="icon.detailCopy">
+            복사
+          </button>
+        </div>
       </div>
     </div>
-    <div class="icon-detail-tabs">
-      <button class="icon-detail-tab active" data-detail-tab="svg" data-i18n="icon.detailSvg">SVG</button>
-      <button class="icon-detail-tab" data-detail-tab="react" data-i18n="icon.detailReact">React</button>
-      <button class="icon-detail-tab" data-detail-tab="css" data-i18n="icon.detailCss">CSS</button>
-    </div>
-    <div class="icon-detail-code-wrap">
-      <pre class="icon-detail-code" id="iconDetailCode"></pre>
-      <button class="icon-detail-copy" id="iconDetailCopyBtn" data-i18n="icon.detailCopy">복사</button>
-    </div>
-  </div>
-</div>
 
-<!-- UI_SCRIPT_PLACEHOLDER -->
-</body>
+    <!-- UI_SCRIPT_PLACEHOLDER -->
+  </body>
 </html>

@@ -80,7 +80,7 @@ interface ExtractImagesOptions {
 interface ExtractOptions {
   collectionIds: string[];
   useSelection: boolean;
-  tokenTypes: Array<"variables" | "colors" | "texts" | "effects" | "spacing" | "radius" | "icons">;
+  tokenTypes: Array<'variables' | 'colors' | 'texts' | 'effects' | 'spacing' | 'radius' | 'icons'>;
 }
 
 interface ExtractedTokens {
@@ -100,7 +100,7 @@ interface ExtractedTokens {
     figmaFileKey: string;
     extractedAt: string;
     fileName: string;
-    sourceMode: "all" | "selection";
+    sourceMode: 'all' | 'selection';
     totalNodes: number;
     tokenTypes: string[];
   };
@@ -133,11 +133,11 @@ function countVariableUsage(nodes: readonly SceneNode[]): Map<string, number> {
 
   function traverse(node: SceneNode) {
     // Node-level bindings (width, height, opacity, cornerRadius, etc.)
-    if ("boundVariables" in node && node.boundVariables) {
+    if ('boundVariables' in node && node.boundVariables) {
       recordBound(node.boundVariables as Record<string, unknown>);
     }
     // Fill paint bindings (color variables in fills)
-    if ("fills" in node) {
+    if ('fills' in node) {
       const fills = (node as any).fills;
       if (Array.isArray(fills)) {
         fills.forEach((paint: any) => {
@@ -146,7 +146,7 @@ function countVariableUsage(nodes: readonly SceneNode[]): Map<string, number> {
       }
     }
     // Stroke paint bindings
-    if ("strokes" in node) {
+    if ('strokes' in node) {
       const strokes = (node as any).strokes;
       if (Array.isArray(strokes)) {
         strokes.forEach((paint: any) => {
@@ -154,7 +154,7 @@ function countVariableUsage(nodes: readonly SceneNode[]): Map<string, number> {
         });
       }
     }
-    if ("children" in node) {
+    if ('children' in node) {
       for (const child of (node as ChildrenMixin).children) traverse(child);
     }
   }
@@ -164,17 +164,17 @@ function countVariableUsage(nodes: readonly SceneNode[]): Map<string, number> {
 
 function countStyleUsage(nodes: readonly SceneNode[]): Map<string, number> {
   const counts = new Map<string, number>();
-  const styleKeys = ["fillStyleId", "strokeStyleId", "effectStyleId", "textStyleId"];
+  const styleKeys = ['fillStyleId', 'strokeStyleId', 'effectStyleId', 'textStyleId'];
   function traverse(node: SceneNode) {
     for (const key of styleKeys) {
       if (key in node) {
         const val = (node as any)[key];
-        if (typeof val === "string" && val) {
+        if (typeof val === 'string' && val) {
           counts.set(val, (counts.get(val) ?? 0) + 1);
         }
       }
     }
-    if ("children" in node) {
+    if ('children' in node) {
       for (const child of (node as ChildrenMixin).children) traverse(child);
     }
   }
@@ -186,26 +186,26 @@ function countNodes(nodes: readonly SceneNode[]): number {
   let count = 0;
   for (const node of nodes) {
     count++;
-    if ("children" in node) count += countNodes((node as ChildrenMixin).children);
+    if ('children' in node) count += countNodes((node as ChildrenMixin).children);
   }
   return count;
 }
 
 function fontWeightFromStyle(style: string): number {
   const s = style.toLowerCase();
-  if (/thin|hairline/.test(s))                   return 100;
-  if (/extra\s*light|ultra\s*light/.test(s))     return 200;
-  if (/light/.test(s))                           return 300;
-  if (/medium/.test(s))                          return 500;
-  if (/semi\s*bold|demi\s*bold/.test(s))         return 600;
-  if (/extra\s*bold|ultra\s*bold/.test(s))       return 800;
-  if (/black|heavy/.test(s))                     return 900;
-  if (/bold/.test(s))                            return 700;
+  if (/thin|hairline/.test(s)) return 100;
+  if (/extra\s*light|ultra\s*light/.test(s)) return 200;
+  if (/light/.test(s)) return 300;
+  if (/medium/.test(s)) return 500;
+  if (/semi\s*bold|demi\s*bold/.test(s)) return 600;
+  if (/extra\s*bold|ultra\s*bold/.test(s)) return 800;
+  if (/black|heavy/.test(s)) return 900;
+  if (/bold/.test(s)) return 700;
   return 400;
 }
 
 const SPACING_RE = /\b(spacing|space|gap|padding|margin|gutter|inset|distance)\b/i;
-const RADIUS_RE  = /\b(radius|corner|rounded|border.?radius)\b/i;
+const RADIUS_RE = /\b(radius|corner|rounded|border.?radius)\b/i;
 
 function mapVariable(v: Variable, varUsage: Map<string, number>): VariableData {
   return {
@@ -242,9 +242,7 @@ function getSelectionInfo() {
 
   if (sel.length > 0) {
     const node = sel[0];
-    const master = node.type === 'INSTANCE'
-      ? (node as InstanceNode).mainComponent
-      : null;
+    const master = node.type === 'INSTANCE' ? (node as InstanceNode).mainComponent : null;
     meta = {
       nodeId: node.id,
       nodeName: node.name,
@@ -271,7 +269,7 @@ async function sendCollections() {
     variableIds: [...c.variableIds],
   }));
   figma.ui.postMessage({
-    type: "init-data",
+    type: 'init-data',
     collections,
     fileName: figma.root.name,
     selection: getSelectionInfo(),
@@ -279,15 +277,23 @@ async function sendCollections() {
 
   // 마지막 아이콘 데이터 복원
   try {
-    const cached = await figma.clientStorage.getAsync('lastIconData') as { data: unknown; savedAt: string } | undefined;
+    const cached = (await figma.clientStorage.getAsync('lastIconData')) as
+      | { data: unknown; savedAt: string }
+      | undefined;
     if (cached?.data) {
-      figma.ui.postMessage({ type: 'cached-icon-data', data: cached.data, savedAt: cached.savedAt });
+      figma.ui.postMessage({
+        type: 'cached-icon-data',
+        data: cached.data,
+        savedAt: cached.savedAt,
+      });
     }
   } catch (_) {}
 
   // 토큰 캐시 복원
   try {
-    const tokenCache = await figma.clientStorage.getAsync(TOKEN_CACHE_KEY) as TokenCacheEntry | undefined;
+    const tokenCache = (await figma.clientStorage.getAsync(TOKEN_CACHE_KEY)) as
+      | TokenCacheEntry
+      | undefined;
     if (tokenCache?.data) {
       figma.ui.postMessage({
         type: 'cached-token-data',
@@ -305,8 +311,8 @@ async function extractAll(options: ExtractOptions): Promise<ExtractedTokens> {
   const isSelectionMode = options.useSelection && figma.currentPage.selection.length > 0;
   const types = options.tokenTypes;
 
-  const needsVars = types.some((t) => ["variables", "spacing", "radius"].includes(t));
-  const needsStyles = types.some((t) => ["colors", "texts", "effects"].includes(t));
+  const needsVars = types.some((t) => ['variables', 'spacing', 'radius'].includes(t));
+  const needsStyles = types.some((t) => ['colors', 'texts', 'effects'].includes(t));
 
   // Pre-fetch
   const allVariables = needsVars ? await figma.variables.getLocalVariablesAsync() : [];
@@ -317,26 +323,31 @@ async function extractAll(options: ExtractOptions): Promise<ExtractedTokens> {
   const styleUsage = needsStyles ? countStyleUsage(sourceNodes) : new Map<string, number>();
 
   // Variables
-  let variableResult: ExtractedTokens["variables"] = { collections: [], variables: [] };
-  if (types.includes("variables")) {
+  let variableResult: ExtractedTokens['variables'] = { collections: [], variables: [] };
+  if (types.includes('variables')) {
     if (isSelectionMode) {
       // Selection mode: resolve ALL used variable IDs (local + external library)
       const usedIds = Array.from(varUsage.keys());
       if (usedIds.length > 0) {
-        const resolvedVars = (await Promise.all(
-          usedIds.map((id) => figma.variables.getVariableByIdAsync(id).catch(() => null))
-        )).filter((v): v is Variable => v !== null && v.resolvedType !== "BOOLEAN");
+        const resolvedVars = (
+          await Promise.all(
+            usedIds.map((id) => figma.variables.getVariableByIdAsync(id).catch(() => null))
+          )
+        ).filter((v): v is Variable => v !== null && v.resolvedType !== 'BOOLEAN');
 
         const colIdSet = new Set(resolvedVars.map((v) => v.variableCollectionId));
-        const resolvedCols = (await Promise.all(
-          Array.from(colIdSet).map((id) =>
-            figma.variables.getVariableCollectionByIdAsync(id).catch(() => null)
+        const resolvedCols = (
+          await Promise.all(
+            Array.from(colIdSet).map((id) =>
+              figma.variables.getVariableCollectionByIdAsync(id).catch(() => null)
+            )
           )
-        )).filter((c): c is VariableCollection => c !== null);
+        ).filter((c): c is VariableCollection => c !== null);
 
         variableResult = {
           collections: resolvedCols.map((c) => ({
-            id: c.id, name: c.name,
+            id: c.id,
+            name: c.name,
             modes: c.modes.map((m) => ({ modeId: m.modeId, name: m.name })),
             variableIds: [...c.variableIds],
           })),
@@ -345,13 +356,15 @@ async function extractAll(options: ExtractOptions): Promise<ExtractedTokens> {
       }
     } else {
       // Full page mode: local variables filtered by selected collections
-      const filtered = options.collectionIds.length > 0
-        ? allCollections.filter((c) => options.collectionIds.includes(c.id))
-        : allCollections;
+      const filtered =
+        options.collectionIds.length > 0
+          ? allCollections.filter((c) => options.collectionIds.includes(c.id))
+          : allCollections;
       const filteredIds = new Set(filtered.map((c) => c.id));
       variableResult = {
         collections: filtered.map((c) => ({
-          id: c.id, name: c.name,
+          id: c.id,
+          name: c.name,
           modes: c.modes.map((m) => ({ modeId: m.modeId, name: m.name })),
           variableIds: [...c.variableIds],
         })),
@@ -364,11 +377,11 @@ async function extractAll(options: ExtractOptions): Promise<ExtractedTokens> {
 
   // Spacing — FLOAT vars matching spacing patterns (name or collection name)
   let spacing: VariableData[] = [];
-  if (types.includes("spacing")) {
+  if (types.includes('spacing')) {
     spacing = allVariables
       .filter((v) => {
-        if (v.resolvedType !== "FLOAT") return false;
-        const colName = collectionMap.get(v.variableCollectionId) ?? "";
+        if (v.resolvedType !== 'FLOAT') return false;
+        const colName = collectionMap.get(v.variableCollectionId) ?? '';
         return SPACING_RE.test(v.name) || SPACING_RE.test(colName);
       })
       .map((v) => mapVariable(v, varUsage))
@@ -377,11 +390,11 @@ async function extractAll(options: ExtractOptions): Promise<ExtractedTokens> {
 
   // Radius — FLOAT vars matching radius patterns
   let radius: VariableData[] = [];
-  if (types.includes("radius")) {
+  if (types.includes('radius')) {
     radius = allVariables
       .filter((v) => {
-        if (v.resolvedType !== "FLOAT") return false;
-        const colName = collectionMap.get(v.variableCollectionId) ?? "";
+        if (v.resolvedType !== 'FLOAT') return false;
+        const colName = collectionMap.get(v.variableCollectionId) ?? '';
         return RADIUS_RE.test(v.name) || RADIUS_RE.test(colName);
       })
       .map((v) => mapVariable(v, varUsage))
@@ -390,25 +403,33 @@ async function extractAll(options: ExtractOptions): Promise<ExtractedTokens> {
 
   // Color Styles
   let colors: ColorStyleData[] = [];
-  if (types.includes("colors")) {
+  if (types.includes('colors')) {
     colors = (await figma.getLocalPaintStylesAsync())
       .map((s) => ({
-        id: s.id, name: s.name, description: s.description,
-        paints: [...s.paints], usageCount: styleUsage.get(s.id) ?? 0,
+        id: s.id,
+        name: s.name,
+        description: s.description,
+        paints: [...s.paints],
+        usageCount: styleUsage.get(s.id) ?? 0,
       }))
       .filter((s) => !isSelectionMode || s.usageCount > 0);
   }
 
   // Text Styles
   let texts: TextStyleData[] = [];
-  if (types.includes("texts")) {
+  if (types.includes('texts')) {
     texts = (await figma.getLocalTextStylesAsync())
       .map((s) => ({
-        id: s.id, name: s.name, description: s.description,
-        fontName: s.fontName, fontSize: s.fontSize,
+        id: s.id,
+        name: s.name,
+        description: s.description,
+        fontName: s.fontName,
+        fontSize: s.fontSize,
         fontWeight: (s as any).fontWeight ?? fontWeightFromStyle(s.fontName.style),
-        letterSpacing: s.letterSpacing, lineHeight: s.lineHeight,
-        textCase: s.textCase, textDecoration: s.textDecoration,
+        letterSpacing: s.letterSpacing,
+        lineHeight: s.lineHeight,
+        textCase: s.textCase,
+        textDecoration: s.textDecoration,
         usageCount: styleUsage.get(s.id) ?? 0,
       }))
       .filter((s) => !isSelectionMode || s.usageCount > 0);
@@ -416,24 +437,29 @@ async function extractAll(options: ExtractOptions): Promise<ExtractedTokens> {
 
   // Effect Styles (shadows + blurs)
   let effects: EffectStyleData[] = [];
-  if (types.includes("effects")) {
+  if (types.includes('effects')) {
     effects = (await figma.getLocalEffectStylesAsync())
       .map((s) => ({
-        id: s.id, name: s.name, description: s.description,
-        effects: [...s.effects], usageCount: styleUsage.get(s.id) ?? 0,
+        id: s.id,
+        name: s.name,
+        description: s.description,
+        effects: [...s.effects],
+        usageCount: styleUsage.get(s.id) ?? 0,
       }))
       .filter((s) => !isSelectionMode || s.usageCount > 0);
   }
 
   // Icons — components with "icon" in name or parent component set name
   let icons: IconData[] = [];
-  if (types.includes("icons")) {
-    const allComponents = figma.currentPage.findAll((n) => n.type === "COMPONENT") as ComponentNode[];
+  if (types.includes('icons')) {
+    const allComponents = figma.currentPage.findAll(
+      (n) => n.type === 'COMPONENT'
+    ) as ComponentNode[];
     icons = allComponents
       .filter((c) => {
         // Icon=false → 아이콘이 없는 variant (버튼/배지 등) — 제외
         if (/\bIcon=false\b/i.test(c.name)) return false;
-        const parentName = c.parent && "name" in c.parent ? (c.parent as any).name as string : "";
+        const parentName = c.parent && 'name' in c.parent ? ((c.parent as any).name as string) : '';
         return /icon/i.test(c.name) || /icon/i.test(parentName);
       })
       .map((c) => ({
@@ -453,35 +479,33 @@ async function extractAll(options: ExtractOptions): Promise<ExtractedTokens> {
     styles: { colors, texts, effects },
     icons,
     meta: {
-      figmaFileKey: figma.fileKey ?? "",
+      figmaFileKey: figma.fileKey ?? '',
       extractedAt: new Date().toISOString(),
       fileName: figma.root.name,
-      sourceMode: isSelectionMode ? "selection" : "all",
+      sourceMode: isSelectionMode ? 'selection' : 'all',
       totalNodes: countNodes(sourceNodes),
       tokenTypes: types,
     },
   };
 }
 
-sendCollections().catch((e) =>
-  figma.ui.postMessage({ type: "extract-error", message: String(e) })
-);
+sendCollections().catch((e) => figma.ui.postMessage({ type: 'extract-error', message: String(e) }));
 
-figma.on("selectionchange", () => {
-  figma.ui.postMessage({ type: "selection-changed", selection: getSelectionInfo() });
+figma.on('selectionchange', () => {
+  figma.ui.postMessage({ type: 'selection-changed', selection: getSelectionInfo() });
 });
 
 function inspectSelection() {
   const sel = figma.currentPage.selection;
-  if (sel.length === 0) return { error: "선택된 노드 없음" };
+  if (sel.length === 0) return { error: '선택된 노드 없음' };
 
   function serializePaint(paint: Paint): Record<string, unknown> {
     const p: Record<string, unknown> = { type: paint.type };
-    if (paint.type === "SOLID") {
+    if (paint.type === 'SOLID') {
       p.color = paint.color;
       p.opacity = paint.opacity;
       p.boundVariables = (paint as any).boundVariables ?? null;
-    } else if (paint.type.startsWith("GRADIENT")) {
+    } else if (paint.type.startsWith('GRADIENT')) {
       p.gradientStops = (paint as any).gradientStops;
       p.boundVariables = (paint as any).boundVariables ?? null;
     }
@@ -495,20 +519,22 @@ function inspectSelection() {
       type: node.type,
     };
 
-    if ("fills" in node) result.fills = ((node as any).fills as Paint[]).map(serializePaint);
-    if ("strokes" in node) result.strokes = ((node as any).strokes as Paint[]).map(serializePaint);
-    if ("boundVariables" in node) result.boundVariables = (node as any).boundVariables ?? null;
-    if ("fillStyleId" in node) result.fillStyleId = (node as any).fillStyleId || null;
-    if ("strokeStyleId" in node) result.strokeStyleId = (node as any).strokeStyleId || null;
-    if ("textStyleId" in node) result.textStyleId = (node as any).textStyleId || null;
-    if ("effectStyleId" in node) result.effectStyleId = (node as any).effectStyleId || null;
-    if ("characters" in node) result.text = (node as any).characters?.slice(0, 80);
-    if ("cornerRadius" in node) result.cornerRadius = (node as any).cornerRadius;
-    if ("opacity" in node && (node as any).opacity !== 1) result.opacity = (node as any).opacity;
+    if ('fills' in node) result.fills = ((node as any).fills as Paint[]).map(serializePaint);
+    if ('strokes' in node) result.strokes = ((node as any).strokes as Paint[]).map(serializePaint);
+    if ('boundVariables' in node) result.boundVariables = (node as any).boundVariables ?? null;
+    if ('fillStyleId' in node) result.fillStyleId = (node as any).fillStyleId || null;
+    if ('strokeStyleId' in node) result.strokeStyleId = (node as any).strokeStyleId || null;
+    if ('textStyleId' in node) result.textStyleId = (node as any).textStyleId || null;
+    if ('effectStyleId' in node) result.effectStyleId = (node as any).effectStyleId || null;
+    if ('characters' in node) result.text = (node as any).characters?.slice(0, 80);
+    if ('cornerRadius' in node) result.cornerRadius = (node as any).cornerRadius;
+    if ('opacity' in node && (node as any).opacity !== 1) result.opacity = (node as any).opacity;
 
-    if (depth < 6 && "children" in node) {
-      result.children = (node as ChildrenMixin).children.map(c => serializeNode(c as SceneNode, depth + 1));
-    } else if ("children" in node) {
+    if (depth < 6 && 'children' in node) {
+      result.children = (node as ChildrenMixin).children.map((c) =>
+        serializeNode(c as SceneNode, depth + 1)
+      );
+    } else if ('children' in node) {
       result.childCount = (node as ChildrenMixin).children.length;
     }
 
@@ -517,7 +543,7 @@ function inspectSelection() {
 
   return {
     selectionCount: sel.length,
-    nodes: sel.map(n => serializeNode(n, 0)),
+    nodes: sel.map((n) => serializeNode(n, 0)),
   };
 }
 
@@ -544,8 +570,13 @@ function parseVariantName(name: string): { base: string; variants: string[] } {
   // fallback: 첫 번째 segment 값
   if (baseSegIdx === -1) {
     const m = segments[0]?.trim().match(/^(\w+)=(.+)$/);
-    if (m) { base = m[2].trim(); baseSegIdx = 0; }
-    else    { base = segments[0]?.trim() || name; baseSegIdx = 0; }
+    if (m) {
+      base = m[2].trim();
+      baseSegIdx = 0;
+    } else {
+      base = segments[0]?.trim() || name;
+      baseSegIdx = 0;
+    }
   }
 
   // 2nd pass: base segment 제외한 나머지를 variant로
@@ -575,8 +606,8 @@ function toKebabCase(name: string): string {
 function toPascalCase(name: string): string {
   const { base } = parseVariantName(name);
   return base
-    .replace(/[^a-zA-Z0-9\s_/.\-]/g, '')
-    .split(/[\s_/.\-]+|(?<=[a-z])(?=[A-Z])/)
+    .replace(/[^a-zA-Z0-9\s_/.-]/g, '')
+    .split(/[\s_/.-]+|(?<=[a-z])(?=[A-Z])/)
     .filter(Boolean)
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join('');
@@ -590,7 +621,13 @@ function figmaColorToHex(c: { r: number; g: number; b: number }): string {
   const r = Math.round(c.r * 255);
   const g = Math.round(c.g * 255);
   const b = Math.round(c.b * 255);
-  return '#' + [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('').toUpperCase();
+  return (
+    '#' +
+    [r, g, b]
+      .map((v) => v.toString(16).padStart(2, '0'))
+      .join('')
+      .toUpperCase()
+  );
 }
 
 function uint8ToBase64(bytes: Uint8Array): string {
@@ -601,9 +638,10 @@ function uint8ToBase64(bytes: Uint8Array): string {
 
 function findImageNodes(useSelection: boolean): ImageData[] {
   const EXPORTABLE = new Set(['RECTANGLE', 'FRAME', 'COMPONENT', 'INSTANCE', 'GROUP']);
-  const source: readonly SceneNode[] = useSelection && figma.currentPage.selection.length > 0
-    ? figma.currentPage.selection
-    : figma.currentPage.children;
+  const source: readonly SceneNode[] =
+    useSelection && figma.currentPage.selection.length > 0
+      ? figma.currentPage.selection
+      : figma.currentPage.children;
 
   const results: ImageData[] = [];
   const seen = new Set<string>();
@@ -613,8 +651,8 @@ function findImageNodes(useSelection: boolean): ImageData[] {
     if (seen.has(node.id)) return;
 
     const fills = (node as any).fills;
-    const hasImageFill = Array.isArray(fills) &&
-      fills.some((p: any) => p.type === 'IMAGE' && p.visible !== false);
+    const hasImageFill =
+      Array.isArray(fills) && fills.some((p: any) => p.type === 'IMAGE' && p.visible !== false);
 
     if (hasImageFill) {
       seen.add(node.id);
@@ -644,7 +682,7 @@ async function extractImages(options: ExtractImagesOptions): Promise<ImageAsset[
   const results: ImageAsset[] = [];
 
   for (const nodeData of nodes) {
-    const node = await figma.getNodeByIdAsync(nodeData.id) as SceneNode | null;
+    const node = (await figma.getNodeByIdAsync(nodeData.id)) as SceneNode | null;
     if (!node) continue;
 
     for (const scale of options.scales) {
@@ -671,7 +709,14 @@ async function extractImages(options: ExtractImagesOptions): Promise<ImageAsset[
   return results;
 }
 
-const EXPORTABLE_TYPES = new Set(['COMPONENT', 'INSTANCE', 'FRAME', 'GROUP', 'VECTOR', 'BOOLEAN_OPERATION']);
+const EXPORTABLE_TYPES = new Set([
+  'COMPONENT',
+  'INSTANCE',
+  'FRAME',
+  'GROUP',
+  'VECTOR',
+  'BOOLEAN_OPERATION',
+]);
 const CONTAINER_TYPES = new Set(['FRAME', 'GROUP', 'COMPONENT_SET', 'SECTION']);
 
 // 컨테이너(Frame/Group/ComponentSet)면 자식 재귀 탐색, 아니면 노드 자체 수집
@@ -692,7 +737,9 @@ function collectExportTargets(node: SceneNode, seen: Set<string>): SceneNode[] {
   return [];
 }
 
-async function exportIcons(): Promise<{ name: string; kebab: string; pascal: string; variants: string[]; svg: string }[]> {
+async function exportIcons(): Promise<
+  { name: string; kebab: string; pascal: string; variants: string[]; svg: string }[]
+> {
   const sel = figma.currentPage.selection;
   if (sel.length === 0) return [];
 
@@ -703,7 +750,13 @@ async function exportIcons(): Promise<{ name: string; kebab: string; pascal: str
     targets.push(...collectExportTargets(node, seen));
   }
 
-  const results: { name: string; kebab: string; pascal: string; variants: string[]; svg: string }[] = [];
+  const results: {
+    name: string;
+    kebab: string;
+    pascal: string;
+    variants: string[];
+    svg: string;
+  }[] = [];
   for (const node of targets) {
     try {
       const svgBytes = await (node as any).exportAsync({ format: 'SVG' });
@@ -724,19 +777,27 @@ async function exportIcons(): Promise<{ name: string; kebab: string; pascal: str
   return results;
 }
 
-async function exportIconsAll(): Promise<{ name: string; kebab: string; pascal: string; variants: string[]; svg: string }[]> {
+async function exportIconsAll(): Promise<
+  { name: string; kebab: string; pascal: string; variants: string[]; svg: string }[]
+> {
   const ICON_RE = /icon|ic[/\\]/i;
   const nodes = figma.currentPage.findAll((n) => {
     // COMPONENT만 대상: FRAME/GROUP은 구조 컨테이너라 제외
     if (n.type !== 'COMPONENT') return false;
     if (/\bIcon=false\b/i.test(n.name)) return false;
-    const parentName = n.parent && 'name' in n.parent ? (n.parent as any).name as string : '';
+    const parentName = n.parent && 'name' in n.parent ? ((n.parent as any).name as string) : '';
     // variant 속성 형태 ("Glyph=android", "Icon=Default" 등): 부모(COMPONENT_SET) 이름으로만 판단
     // 일반 이름("arrow-left", "icon-close"): 이름 또는 부모 이름으로 판단
     if (/=/.test(n.name)) return ICON_RE.test(parentName);
     return ICON_RE.test(n.name) || ICON_RE.test(parentName);
   });
-  const results: { name: string; kebab: string; pascal: string; variants: string[]; svg: string }[] = [];
+  const results: {
+    name: string;
+    kebab: string;
+    pascal: string;
+    variants: string[];
+    svg: string;
+  }[] = [];
   const seen = new Set<string>();
   for (const node of nodes) {
     // node.name 기준 중복 제거 — 다른 크기 variant는 별도 항목으로 유지
@@ -793,7 +854,17 @@ async function extractThemes(): Promise<Record<string, { name: string; value: st
   return result;
 }
 
-type ComponentType = 'dialog' | 'button' | 'tabs' | 'checkbox' | 'switch' | 'tooltip' | 'accordion' | 'popover' | 'select' | 'layout';
+type ComponentType =
+  | 'dialog'
+  | 'button'
+  | 'tabs'
+  | 'checkbox'
+  | 'switch'
+  | 'tooltip'
+  | 'accordion'
+  | 'popover'
+  | 'select'
+  | 'layout';
 
 interface ExtractedTexts {
   title: string;
@@ -829,13 +900,15 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
     if (val && typeof val === 'object' && 'r' in (val as unknown as Record<string, unknown>)) {
       const hex = figmaColorToHex(val as { r: number; g: number; b: number });
       if (!colorMap.has(hex)) {
-        const cssName = '--' + v.name
-          .replace(/([a-z])([A-Z])/g, '$1-$2')
-          .replace(/\//g, '-')
-          .replace(/[^a-zA-Z0-9-]/g, '-')
-          .replace(/-+/g, '-')
-          .replace(/^-|-$/g, '')
-          .toLowerCase();
+        const cssName =
+          '--' +
+          v.name
+            .replace(/([a-z])([A-Z])/g, '$1-$2')
+            .replace(/\//g, '-')
+            .replace(/[^a-zA-Z0-9-]/g, '-')
+            .replace(/-+/g, '-')
+            .replace(/^-|-$/g, '')
+            .toLowerCase();
         colorMap.set(hex, cssName);
       }
     }
@@ -869,7 +942,10 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
         s['flex-direction'] = 'column';
       }
       if (f.itemSpacing > 0) s['gap'] = f.itemSpacing + 'px';
-      const pt = f.paddingTop, pr = f.paddingRight, pb = f.paddingBottom, pl = f.paddingLeft;
+      const pt = f.paddingTop,
+        pr = f.paddingRight,
+        pb = f.paddingBottom,
+        pl = f.paddingLeft;
       if (pt > 0 || pr > 0 || pb > 0 || pl > 0) {
         s['padding'] = pt + 'px ' + pr + 'px ' + pb + 'px ' + pl + 'px';
       }
@@ -902,14 +978,16 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
   function nodeToHtml(n: SceneNode, indent: number): string {
     const pad = '  '.repeat(indent);
     if (n.type === 'TEXT') {
-      const text = (n as TextNode).characters.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const text = (n as TextNode).characters
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
       return pad + '<span>' + text + '</span>';
     }
     const styles = getNodeStyles(n);
     const entries = Object.entries(styles);
-    const styleAttr = entries.length > 0
-      ? ' style="' + entries.map(([k, v]) => k + ': ' + v).join('; ') + '"'
-      : '';
+    const styleAttr =
+      entries.length > 0 ? ' style="' + entries.map(([k, v]) => k + ': ' + v).join('; ') + '"' : '';
     if ('children' in n && (n as ChildrenMixin).children.length > 0) {
       const kids = (n as ChildrenMixin).children
         .filter((c) => (c as SceneNode).visible !== false)
@@ -930,10 +1008,12 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
     const entries = Object.entries(styles);
     let styleAttr = '';
     if (entries.length > 0) {
-      const obj = entries.map(([k, v]) => {
-        const camelKey = k.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
-        return camelKey + ": '" + v + "'";
-      }).join(', ');
+      const obj = entries
+        .map(([k, v]) => {
+          const camelKey = k.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
+          return camelKey + ": '" + v + "'";
+        })
+        .join(', ');
       styleAttr = ' style={{' + obj + '}}';
     }
     if ('children' in n && (n as ChildrenMixin).children.length > 0) {
@@ -972,7 +1052,8 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
       if (Array.isArray(fills) && fills.some((f: any) => f.type === 'SOLID')) return 'button';
     }
     // tabs: horizontal layout with 2+ frame children
-    if ('layoutMode' in n && (n as FrameNode).layoutMode === 'HORIZONTAL' && frameNodes.length >= 2) return 'tabs';
+    if ('layoutMode' in n && (n as FrameNode).layoutMode === 'HORIZONTAL' && frameNodes.length >= 2)
+      return 'tabs';
     // checkbox: small rect (≤24px) + text
     const smallRect = frameNodes.find((f) => f.width <= 24 && f.height <= 24);
     if (smallRect && textNodes.length >= 1) return 'checkbox';
@@ -996,7 +1077,10 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
     const all = collected.map((t) => t.text.trim()).filter(Boolean);
     const nodeHeight = 'height' in n ? (n as any).height : 100;
     const threshold = nodeHeight * 0.65;
-    const actions = collected.filter((t) => t.y > threshold).map((t) => t.text.trim()).filter(Boolean);
+    const actions = collected
+      .filter((t) => t.y > threshold)
+      .map((t) => t.text.trim())
+      .filter(Boolean);
     return { title: all[0] || '', description: all[1] || '', actions, all };
   }
 
@@ -1010,9 +1094,7 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
     return result;
   }
 
-  const master = node.type === 'INSTANCE'
-    ? (node as InstanceNode).mainComponent
-    : null;
+  const master = node.type === 'INSTANCE' ? (node as InstanceNode).mainComponent : null;
 
   return {
     name: node.name,
@@ -1033,27 +1115,32 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
   };
 }
 
-figma.ui.onmessage = (msg: { type: string; options?: ExtractOptions; width?: number; height?: number }) => {
-  if (msg.type === "resize") {
+figma.ui.onmessage = (msg: {
+  type: string;
+  options?: ExtractOptions;
+  width?: number;
+  height?: number;
+}) => {
+  if (msg.type === 'resize') {
     figma.ui.resize(msg.width ?? 480, msg.height ?? 580);
   }
-  if (msg.type === "inspect") {
+  if (msg.type === 'inspect') {
     try {
       const data = inspectSelection();
-      figma.ui.postMessage({ type: "inspect-result", data });
+      figma.ui.postMessage({ type: 'inspect-result', data });
     } catch (e) {
-      figma.ui.postMessage({ type: "inspect-result", data: { error: String(e) } });
+      figma.ui.postMessage({ type: 'inspect-result', data: { error: String(e) } });
     }
   }
-  if (msg.type === "extract") {
+  if (msg.type === 'extract') {
     const options: ExtractOptions = msg.options ?? {
       collectionIds: [],
       useSelection: false,
-      tokenTypes: ["variables", "spacing", "radius", "colors", "texts", "effects", "icons"],
+      tokenTypes: ['variables', 'spacing', 'radius', 'colors', 'texts', 'effects', 'icons'],
     };
     extractAll(options)
       .then(async (data) => {
-        figma.ui.postMessage({ type: "extract-result", data });
+        figma.ui.postMessage({ type: 'extract-result', data });
         try {
           await figma.clientStorage.setAsync(TOKEN_CACHE_KEY, {
             data,
@@ -1063,9 +1150,9 @@ figma.ui.onmessage = (msg: { type: string; options?: ExtractOptions; width?: num
           } as TokenCacheEntry);
         } catch (_) {}
       })
-      .catch((e) => figma.ui.postMessage({ type: "extract-error", message: String(e) }));
+      .catch((e) => figma.ui.postMessage({ type: 'extract-error', message: String(e) }));
   }
-  if (msg.type === "extract-images") {
+  if (msg.type === 'extract-images') {
     const options: ExtractImagesOptions = msg.options ?? {
       format: 'PNG',
       scales: [1, 2],
@@ -1075,71 +1162,82 @@ figma.ui.onmessage = (msg: { type: string; options?: ExtractOptions; width?: num
       .then((data) => figma.ui.postMessage({ type: 'extract-images-result', data }))
       .catch((e) => figma.ui.postMessage({ type: 'extract-images-error', message: String(e) }));
   }
-  if (msg.type === "export-icons") {
+  if (msg.type === 'export-icons') {
     exportIcons()
       .then(async (data) => {
-        figma.ui.postMessage({ type: "export-icons-result", data });
-        await figma.clientStorage.setAsync('lastIconData', { data, savedAt: new Date().toISOString() });
+        figma.ui.postMessage({ type: 'export-icons-result', data });
+        await figma.clientStorage.setAsync('lastIconData', {
+          data,
+          savedAt: new Date().toISOString(),
+        });
       })
-      .catch((e) => figma.ui.postMessage({ type: "export-icons-error", message: String(e) }));
+      .catch((e) => figma.ui.postMessage({ type: 'export-icons-error', message: String(e) }));
   }
-  if (msg.type === "export-icons-all") {
+  if (msg.type === 'export-icons-all') {
     exportIconsAll()
       .then(async (data) => {
-        figma.ui.postMessage({ type: "export-icons-all-result", data });
-        await figma.clientStorage.setAsync('lastIconData', { data, savedAt: new Date().toISOString() });
+        figma.ui.postMessage({ type: 'export-icons-all-result', data });
+        await figma.clientStorage.setAsync('lastIconData', {
+          data,
+          savedAt: new Date().toISOString(),
+        });
       })
-      .catch((e) => figma.ui.postMessage({ type: "export-icons-all-error", message: String(e) }));
+      .catch((e) => figma.ui.postMessage({ type: 'export-icons-all-error', message: String(e) }));
   }
-  if (msg.type === "clear-icon-cache") {
-    figma.clientStorage.deleteAsync('lastIconData')
+  if (msg.type === 'clear-icon-cache') {
+    figma.clientStorage
+      .deleteAsync('lastIconData')
       .then(() => figma.ui.postMessage({ type: 'clear-icon-cache-done' }))
       .catch(() => figma.ui.postMessage({ type: 'clear-icon-cache-done' }));
   }
-  if (msg.type === "token-cache-clear") {
-    figma.clientStorage.deleteAsync(TOKEN_CACHE_KEY)
+  if (msg.type === 'token-cache-clear') {
+    figma.clientStorage
+      .deleteAsync(TOKEN_CACHE_KEY)
       .then(() => figma.ui.postMessage({ type: 'token-cache-cleared' }))
       .catch(() => figma.ui.postMessage({ type: 'token-cache-cleared' }));
   }
-  if (msg.type === "extract-themes") {
+  if (msg.type === 'extract-themes') {
     extractThemes()
-      .then((data) => figma.ui.postMessage({ type: "extract-themes-result", data }))
-      .catch((e) => figma.ui.postMessage({ type: "extract-themes-error", message: String(e) }));
+      .then((data) => figma.ui.postMessage({ type: 'extract-themes-result', data }))
+      .catch((e) => figma.ui.postMessage({ type: 'extract-themes-error', message: String(e) }));
   }
-  if (msg.type === "generate-component") {
+  if (msg.type === 'generate-component') {
     generateComponent()
-      .then((data) => figma.ui.postMessage({ type: "generate-component-result", data }))
-      .catch((e) => figma.ui.postMessage({ type: "generate-component-error", message: String(e) }));
+      .then((data) => figma.ui.postMessage({ type: 'generate-component-result', data }))
+      .catch((e) => figma.ui.postMessage({ type: 'generate-component-error', message: String(e) }));
   }
-  if (msg.type === "registry-get") {
+  if (msg.type === 'registry-get') {
     const key = `pf-registry-${figma.root.id}`;
-    figma.clientStorage.getAsync(key)
-      .then((data) => figma.ui.postMessage({ type: "registry-data", registry: data ?? {} }))
-      .catch((e) => figma.ui.postMessage({ type: "registry-error", message: String(e) }));
+    figma.clientStorage
+      .getAsync(key)
+      .then((data) => figma.ui.postMessage({ type: 'registry-data', registry: data ?? {} }))
+      .catch((e) => figma.ui.postMessage({ type: 'registry-error', message: String(e) }));
   }
-  if (msg.type === "registry-save") {
+  if (msg.type === 'registry-save') {
     const key = `pf-registry-${figma.root.id}`;
-    figma.clientStorage.getAsync(key)
+    figma.clientStorage
+      .getAsync(key)
       .then((data: Record<string, unknown>) => {
         const registry = (data as Record<string, unknown>) ?? {};
         registry[(msg as any).entry.figmaMasterNodeId] = (msg as any).entry;
         return figma.clientStorage.setAsync(key, registry);
       })
-      .then(() => figma.ui.postMessage({ type: "registry-saved" }))
-      .catch((e) => figma.ui.postMessage({ type: "registry-error", message: String(e) }));
+      .then(() => figma.ui.postMessage({ type: 'registry-saved' }))
+      .catch((e) => figma.ui.postMessage({ type: 'registry-error', message: String(e) }));
   }
-  if (msg.type === "registry-delete") {
+  if (msg.type === 'registry-delete') {
     const key = `pf-registry-${figma.root.id}`;
-    figma.clientStorage.getAsync(key)
+    figma.clientStorage
+      .getAsync(key)
       .then((data: Record<string, unknown>) => {
         const registry = (data as Record<string, unknown>) ?? {};
         delete registry[(msg as any).masterId];
         return figma.clientStorage.setAsync(key, registry);
       })
-      .then(() => figma.ui.postMessage({ type: "registry-deleted" }))
-      .catch((e) => figma.ui.postMessage({ type: "registry-error", message: String(e) }));
+      .then(() => figma.ui.postMessage({ type: 'registry-deleted' }))
+      .catch((e) => figma.ui.postMessage({ type: 'registry-error', message: String(e) }));
   }
-  if (msg.type === "close") {
+  if (msg.type === 'close') {
     figma.closePlugin();
   }
 };

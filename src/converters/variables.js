@@ -3,7 +3,9 @@ import { toCssName, figmaColorToCSS, toUnit } from './utils.js';
 export function buildVarMap(data) {
   var map = {};
   if (data.variables && data.variables.variables) {
-    data.variables.variables.forEach(function(v) { map[v.id] = v; });
+    data.variables.variables.forEach(function (v) {
+      map[v.id] = v;
+    });
   }
   return map;
 }
@@ -21,12 +23,12 @@ export function resolveValue(val, varMap, depth) {
 }
 
 // Collection name → detect dark-mode collection
-var DARK_RE  = /\b(dark|night|dim)\b/i;
+var DARK_RE = /\b(dark|night|dim)\b/i;
 
 // Build [{name, line}] entries for one mode
 function buildVarEntries(colVars, mode, varMap, unit) {
   var entries = [];
-  colVars.forEach(function(v) {
+  colVars.forEach(function (v) {
     var raw = (v.valuesByMode || {})[mode.modeId];
     var val = resolveValue(raw, varMap, 0);
     if (val === null || val === undefined) return;
@@ -63,11 +65,11 @@ export function convertVariables(data, varMap, unit) {
   if (vars.length === 0) return { rootLines: '', themeBlocks: [] };
 
   var rootLines = '';
-  var seenInRoot = new Set();           // dedup tracker for :root
-  var themeMap = {};                    // modeName → {comment, seen: Set, lines}
+  var seenInRoot = new Set(); // dedup tracker for :root
+  var themeMap = {}; // modeName → {comment, seen: Set, lines}
 
   function addToRoot(entries) {
-    entries.forEach(function(e) {
+    entries.forEach(function (e) {
       if (!seenInRoot.has(e.name)) {
         seenInRoot.add(e.name);
         rootLines += e.line;
@@ -80,7 +82,7 @@ export function convertVariables(data, varMap, unit) {
       themeMap[modeName] = { comment: comment, seen: new Set(), lines: '' };
     }
     var bucket = themeMap[modeName];
-    entries.forEach(function(e) {
+    entries.forEach(function (e) {
       if (!bucket.seen.has(e.name)) {
         bucket.seen.add(e.name);
         bucket.lines += e.line;
@@ -88,8 +90,8 @@ export function convertVariables(data, varMap, unit) {
     });
   }
 
-  cols.forEach(function(col) {
-    var colVars = vars.filter(function(v) {
+  cols.forEach(function (col) {
+    var colVars = vars.filter(function (v) {
       return v.collectionId === col.id && v.resolvedType !== 'BOOLEAN';
     });
     if (colVars.length === 0) return;
@@ -98,7 +100,7 @@ export function convertVariables(data, varMap, unit) {
 
     var isMultiMode = modes.length > 1;
 
-    modes.forEach(function(mode, modeIdx) {
+    modes.forEach(function (mode, modeIdx) {
       var entries = buildVarEntries(colVars, mode, varMap, unit);
       if (entries.length === 0) return;
 
@@ -122,7 +124,7 @@ export function convertVariables(data, varMap, unit) {
   });
 
   // Flatten themeMap → themeBlocks array
-  var themeBlocks = Object.keys(themeMap).map(function(mn) {
+  var themeBlocks = Object.keys(themeMap).map(function (mn) {
     return { modeName: mn, comment: themeMap[mn].comment, lines: themeMap[mn].lines };
   });
 
@@ -136,7 +138,7 @@ export function convertFlatVars(vars, varMap, unit) {
   if (!vars || vars.length === 0) return '';
   var lines = '';
   var seen = new Set();
-  vars.forEach(function(v) {
+  vars.forEach(function (v) {
     var name = toCssName(v.name);
     if (seen.has(name)) return;
     seen.add(name);

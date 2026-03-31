@@ -3,13 +3,16 @@ export function escapeHtml(s) {
 }
 
 export function toCssName(path) {
-  return '--' + path
-    .replace(/([a-z])([A-Z])/g, '$1-$2')   // camelCase → kebab-case
-    .replace(/\//g, '-')
-    .replace(/[^a-zA-Z0-9\-]/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '')
-    .toLowerCase();
+  return (
+    '--' +
+    path
+      .replace(/([a-z])([A-Z])/g, '$1-$2') // camelCase → kebab-case
+      .replace(/\//g, '-')
+      .replace(/[^a-zA-Z0-9-]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '')
+      .toLowerCase()
+  );
 }
 
 export function figmaColorToCSS(c) {
@@ -18,12 +21,20 @@ export function figmaColorToCSS(c) {
   var b = Math.round((c.b || 0) * 255);
   var a = c.a !== undefined ? c.a : 1;
   if (a >= 0.999) {
-    return '#' + [r, g, b].map(function(v) { return v.toString(16).padStart(2, '0'); }).join('').toUpperCase();
+    return (
+      '#' +
+      [r, g, b]
+        .map(function (v) {
+          return v.toString(16).padStart(2, '0');
+        })
+        .join('')
+        .toUpperCase()
+    );
   }
-  return 'rgba(' + r + ', ' + g + ', ' + b + ', ' + (Math.round(a * 100) / 100) + ')';
+  return 'rgba(' + r + ', ' + g + ', ' + b + ', ' + Math.round(a * 100) / 100 + ')';
 }
 
 export function toUnit(value, unit) {
-  if (unit === 'rem') return (Math.round(value / 16 * 1000) / 1000) + 'rem';
+  if (unit === 'rem') return Math.round((value / 16) * 1000) / 1000 + 'rem';
   return value + 'px';
 }
