@@ -61,7 +61,10 @@ Figma 플러그인은 **두 개의 격리된 실행 환경**으로 구성된다.
 | `export-icons`        | 선택 노드 SVG 추출        | `export-icons-result`         |
 | `export-icons-all`    | 전체 아이콘 SVG 추출       | `export-icons-all-result`     |
 | `extract-themes`      | 다크/라이트 테마 추출       | `extract-themes-result`       |
+| `extract-images`      | 이미지 에셋 추출           | `extract-images-result` / `extract-images-error` |
 | `generate-component`  | 컴포넌트 코드 생성         | `generate-component-result`   |
+| `clear-icon-cache`    | 아이콘 캐시 삭제           | `clear-icon-cache-done`       |
+| `token-cache-clear`   | 토큰 캐시 삭제            | `token-cache-cleared`         |
 | `resize`              | UI 크기 변경             | (응답 없음)                    |
 | `close`               | 플러그인 종료             | (응답 없음)                    |
 
@@ -71,6 +74,8 @@ Figma 플러그인은 **두 개의 격리된 실행 환경**으로 구성된다.
 |-----------------------|------------------------|-------------------------------|
 | `init-data`           | 컬렉션 목록 + 파일명       | 플러그인 시작 시                 |
 | `selection-changed`   | 선택 변경 알림            | `figma.on('selectionchange')` |
+| `cached-icon-data`    | 아이콘 캐시 자동 복원       | 플러그인 시작 시 (캐시 존재 시)    |
+| `cached-token-data`   | 토큰 캐시 자동 복원         | 플러그인 시작 시 (캐시 존재 시)    |
 
 ## 탭 구조와 책임 경계
 
@@ -81,13 +86,15 @@ Main Tabs (메인 탭 — 언더라인 스타일)
 ├── 명도대비(Contrast)  → WCAG AA 수동 검사 + 컬러 매트릭스
 │   └── Sub Tabs (pill 스타일): 수동 검사 | 컬러 매트릭스
 ├── 테마(Theme)        → 다크/라이트 모드 비교 + CSS 변수 복사
-└── 컴포넌트(Component) → 선택 노드 → HTML/React 코드 생성
+├── 컴포넌트(Component) → 선택 노드 → HTML/React 코드 생성
+└── 이미지(Images)     → 이미지 에셋 추출 + 포맷/배율 옵션 다운로드
 ```
 
 **탭별 데이터 의존성:**
 - 추출 탭: `code.ts`에서 직접 데이터 수신
 - 명도대비 탭: 추출 탭 결과(`extractedColors`)에 의존 (매트릭스 자동 생성)
-- 아이콘/테마/컴포넌트 탭: `code.ts`에 독립적으로 요청
+- 아이콘/테마/컴포넌트/이미지 탭: `code.ts`에 독립적으로 요청
+- 명도대비/테마/이미지 탭: 토큰 캐시(`cached-token-data`) 복원 시 자동 배너 표시
 
 ## 빌드 파이프라인
 

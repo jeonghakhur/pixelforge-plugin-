@@ -91,7 +91,7 @@ await page.evaluate((data) => {
 ## 작업 완료 후 필수 검증 체크리스트
 
 ### UI 레이아웃 검증
-- [ ] 모든 메인 탭(5개) 렌더링 확인
+- [ ] 모든 메인 탭(6개) 렌더링 확인
 - [ ] 탭 전환 시 패널 표시/숨김 동작
 - [ ] 헤더 높이 48px 고정
 - [ ] 액션 바 높이 60px 고정
@@ -130,9 +130,9 @@ test.describe('메인 탭 전환', () => {
     }, mockInitData);
   });
 
-  test('5개 메인 탭이 렌더링된다', async ({ page }) => {
+  test('6개 메인 탭이 렌더링된다', async ({ page }) => {
     const tabs = page.locator('.main-tab');
-    await expect(tabs).toHaveCount(5);
+    await expect(tabs).toHaveCount(6);
   });
 
   test('탭 클릭 시 해당 패널이 표시된다', async ({ page }) => {

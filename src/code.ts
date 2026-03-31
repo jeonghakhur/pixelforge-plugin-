@@ -218,6 +218,15 @@ function mapVariable(v: Variable, varUsage: Map<string, number>): VariableData {
   };
 }
 
+const TOKEN_CACHE_KEY = 'pf-token-cache';
+
+interface TokenCacheEntry {
+  data: ExtractedTokens;
+  savedAt: string;
+  figmaFileId: string;
+  figmaFileName: string;
+}
+
 interface NodeMeta {
   nodeId: string;
   nodeName: string;
@@ -273,6 +282,20 @@ async function sendCollections() {
     const cached = await figma.clientStorage.getAsync('lastIconData') as { data: unknown; savedAt: string } | undefined;
     if (cached?.data) {
       figma.ui.postMessage({ type: 'cached-icon-data', data: cached.data, savedAt: cached.savedAt });
+    }
+  } catch (_) {}
+
+  // 토큰 캐시 복원
+  try {
+    const tokenCache = await figma.clientStorage.getAsync(TOKEN_CACHE_KEY) as TokenCacheEntry | undefined;
+    if (tokenCache?.data) {
+      figma.ui.postMessage({
+        type: 'cached-token-data',
+        data: tokenCache.data,
+        savedAt: tokenCache.savedAt,
+        figmaFileId: tokenCache.figmaFileId,
+        figmaFileName: tokenCache.figmaFileName,
+      });
     }
   } catch (_) {}
 }
@@ -704,13 +727,20 @@ async function exportIcons(): Promise<{ name: string; kebab: string; pascal: str
 async function exportIconsAll(): Promise<{ name: string; kebab: string; pascal: string; variants: string[]; svg: string }[]> {
   const ICON_RE = /icon|ic[/\\]/i;
   const nodes = figma.currentPage.findAll((n) => {
-    if (n.type !== 'COMPONENT' && n.type !== 'INSTANCE' && n.type !== 'FRAME' && n.type !== 'GROUP' && n.type !== 'VECTOR' && n.type !== 'BOOLEAN_OPERATION') return false;
+    // COMPONENT만 대상: FRAME/GROUP은 구조 컨테이너라 제외
+    if (n.type !== 'COMPONENT') return false;
+    if (/\bIcon=false\b/i.test(n.name)) return false;
     const parentName = n.parent && 'name' in n.parent ? (n.parent as any).name as string : '';
+    // variant 속성 형태 ("Glyph=android", "Icon=Default" 등): 부모(COMPONENT_SET) 이름으로만 판단
+    // 일반 이름("arrow-left", "icon-close"): 이름 또는 부모 이름으로 판단
+    if (/=/.test(n.name)) return ICON_RE.test(parentName);
     return ICON_RE.test(n.name) || ICON_RE.test(parentName);
   });
   const results: { name: string; kebab: string; pascal: string; variants: string[]; svg: string }[] = [];
   const seen = new Set<string>();
   for (const node of nodes) {
+    // node.name 기준 중복 제거 — 다른 크기 variant는 별도 항목으로 유지
+    // "Glyph=android, Size=default" / "Glyph=android, Size=micro" → 둘 다 포함
     if (seen.has(node.name)) continue;
     seen.add(node.name);
     try {
@@ -763,7 +793,27 @@ async function extractThemes(): Promise<Record<string, { name: string; value: st
   return result;
 }
 
-async function generateComponent(): Promise<{ name: string; meta: NodeMeta; styles: Record<string, string> } | null> {
+type ComponentType = 'dialog' | 'button' | 'tabs' | 'checkbox' | 'switch' | 'tooltip' | 'accordion' | 'popover' | 'select' | 'layout';
+
+interface ExtractedTexts {
+  title: string;
+  description: string;
+  actions: string[];
+  all: string[];
+}
+
+interface GenerateComponentResult {
+  name: string;
+  meta: NodeMeta;
+  styles: Record<string, string>;
+  html: string;
+  jsx: string;
+  detectedType: ComponentType;
+  texts: ExtractedTexts;
+  childStyles: Record<string, Record<string, string>>;
+}
+
+async function generateComponent(): Promise<GenerateComponentResult | null> {
   const sel = figma.currentPage.selection;
   if (sel.length === 0) return null;
   const node = sel[0];
@@ -896,6 +946,70 @@ async function generateComponent(): Promise<{ name: string; meta: NodeMeta; styl
     return pad + '<div' + styleAttr + ' />';
   }
 
+  function detectComponentType(n: SceneNode): ComponentType {
+    const name = n.name.toLowerCase();
+    const patterns: Array<[string[], ComponentType]> = [
+      [['dialog', 'modal', 'confirm', 'alert', 'popup'], 'dialog'],
+      [['button', 'btn', 'cta', 'action'], 'button'],
+      [['tab', 'tabs'], 'tabs'],
+      [['checkbox', 'check'], 'checkbox'],
+      [['switch', 'toggle'], 'switch'],
+      [['tooltip', 'hint', 'tip'], 'tooltip'],
+      [['accordion', 'collapse', 'expand'], 'accordion'],
+      [['popover', 'dropdown', 'flyout'], 'popover'],
+      [['select', 'combobox', 'picker'], 'select'],
+    ];
+    for (const [keywords, type] of patterns) {
+      if (keywords.some((kw) => name.includes(kw))) return type;
+    }
+    if (!('children' in n)) return 'layout';
+    const children = (n as ChildrenMixin).children as SceneNode[];
+    const textNodes = children.filter((c) => c.type === 'TEXT');
+    const frameNodes = children.filter((c) => c.type === 'FRAME' || c.type === 'RECTANGLE');
+    // button: 1~2 children, 1 text, has solid fill
+    if (children.length <= 2 && textNodes.length === 1 && 'fills' in n) {
+      const fills = (n as any).fills;
+      if (Array.isArray(fills) && fills.some((f: any) => f.type === 'SOLID')) return 'button';
+    }
+    // tabs: horizontal layout with 2+ frame children
+    if ('layoutMode' in n && (n as FrameNode).layoutMode === 'HORIZONTAL' && frameNodes.length >= 2) return 'tabs';
+    // checkbox: small rect (≤24px) + text
+    const smallRect = frameNodes.find((f) => f.width <= 24 && f.height <= 24);
+    if (smallRect && textNodes.length >= 1) return 'checkbox';
+    // dialog: has overlay-like child (wide or semi-transparent)
+    const hasOverlay = frameNodes.some((f) => f.width > n.width * 0.8 || (f as any).opacity < 0.5);
+    if (hasOverlay) return 'dialog';
+    return 'layout';
+  }
+
+  function extractTexts(n: SceneNode): ExtractedTexts {
+    const collected: Array<{ text: string; y: number; x: number }> = [];
+    function collect(node: SceneNode) {
+      if (node.type === 'TEXT') {
+        collected.push({ text: (node as TextNode).characters, y: node.y, x: node.x });
+      } else if ('children' in node) {
+        (node as ChildrenMixin).children.forEach((c) => collect(c as SceneNode));
+      }
+    }
+    collect(n);
+    collected.sort((a, b) => a.y - b.y || a.x - b.x);
+    const all = collected.map((t) => t.text.trim()).filter(Boolean);
+    const nodeHeight = 'height' in n ? (n as any).height : 100;
+    const threshold = nodeHeight * 0.65;
+    const actions = collected.filter((t) => t.y > threshold).map((t) => t.text.trim()).filter(Boolean);
+    return { title: all[0] || '', description: all[1] || '', actions, all };
+  }
+
+  function getChildStyles(n: SceneNode): Record<string, Record<string, string>> {
+    const result: Record<string, Record<string, string>> = {};
+    if (!('children' in n)) return result;
+    (n as ChildrenMixin).children.forEach((child, i) => {
+      const c = child as SceneNode;
+      result[c.name || 'child-' + i] = getNodeStyles(c);
+    });
+    return result;
+  }
+
   const master = node.type === 'INSTANCE'
     ? (node as InstanceNode).mainComponent
     : null;
@@ -913,6 +1027,9 @@ async function generateComponent(): Promise<{ name: string; meta: NodeMeta; styl
     styles: getNodeStyles(node),
     html: nodeToHtml(node, 0),
     jsx: nodeToJsx(node, 0),
+    detectedType: detectComponentType(node),
+    texts: extractTexts(node),
+    childStyles: getChildStyles(node),
   };
 }
 
@@ -935,7 +1052,17 @@ figma.ui.onmessage = (msg: { type: string; options?: ExtractOptions; width?: num
       tokenTypes: ["variables", "spacing", "radius", "colors", "texts", "effects", "icons"],
     };
     extractAll(options)
-      .then((data) => figma.ui.postMessage({ type: "extract-result", data }))
+      .then(async (data) => {
+        figma.ui.postMessage({ type: "extract-result", data });
+        try {
+          await figma.clientStorage.setAsync(TOKEN_CACHE_KEY, {
+            data,
+            savedAt: new Date().toISOString(),
+            figmaFileId: figma.root.id,
+            figmaFileName: figma.root.name,
+          } as TokenCacheEntry);
+        } catch (_) {}
+      })
       .catch((e) => figma.ui.postMessage({ type: "extract-error", message: String(e) }));
   }
   if (msg.type === "extract-images") {
@@ -968,6 +1095,11 @@ figma.ui.onmessage = (msg: { type: string; options?: ExtractOptions; width?: num
     figma.clientStorage.deleteAsync('lastIconData')
       .then(() => figma.ui.postMessage({ type: 'clear-icon-cache-done' }))
       .catch(() => figma.ui.postMessage({ type: 'clear-icon-cache-done' }));
+  }
+  if (msg.type === "token-cache-clear") {
+    figma.clientStorage.deleteAsync(TOKEN_CACHE_KEY)
+      .then(() => figma.ui.postMessage({ type: 'token-cache-cleared' }))
+      .catch(() => figma.ui.postMessage({ type: 'token-cache-cleared' }));
   }
   if (msg.type === "extract-themes") {
     extractThemes()

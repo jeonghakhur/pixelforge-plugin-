@@ -843,6 +843,87 @@
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
   ::-webkit-scrollbar-thumb:hover { background: var(--surface2); }
+
+  /* ── Image Assets ── */
+  .image-options-bar {
+    padding: 12px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: 10px;
+    flex-shrink: 0;
+  }
+  .image-option-row {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .image-option-label {
+    font-size: 11px; color: var(--text-muted);
+    font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.04em; width: 38px; flex-shrink: 0;
+  }
+  .image-format-group, .image-scale-group {
+    display: flex; gap: 4px;
+  }
+  .image-format-btn, .image-scale-btn {
+    padding: 3px 10px; border-radius: var(--radius-pill);
+    border: 1px solid var(--border); background: transparent;
+    color: var(--text-secondary); font-size: 11px; font-weight: 500;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .image-format-btn:hover, .image-scale-btn:hover { border-color: var(--primary); color: var(--primary); }
+  .image-format-btn.active, .image-scale-btn.active {
+    background: var(--primary); color: #fff; border-color: var(--primary); font-weight: 600;
+  }
+  .image-list {
+    flex: 1; overflow-y: auto;
+    padding: 12px 16px;
+    display: flex; flex-direction: column; gap: 8px;
+    min-height: 0;
+  }
+  .image-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 12px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+  .image-thumb {
+    width: 56px; height: 56px; flex-shrink: 0;
+    border-radius: 6px; overflow: hidden;
+    background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid var(--border);
+  }
+  .image-thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .image-thumb-placeholder {
+    font-size: 22px; color: var(--text-muted);
+  }
+  .image-info { flex: 1; min-width: 0; }
+  .image-name {
+    font-size: 12px; font-weight: 600; color: var(--text-primary);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .image-size { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+  .image-files { font-size: 10px; color: var(--text-muted); margin-top: 3px; font-family: 'SF Mono', monospace; }
+  .image-dl-btn {
+    height: 28px; padding: 0 10px;
+    background: var(--surface2); color: var(--text-secondary);
+    border: 1px solid var(--border); border-radius: 6px;
+    font-size: 11px; cursor: pointer; transition: all 0.15s;
+    flex-shrink: 0; white-space: nowrap;
+  }
+  .image-dl-btn:hover { border-color: var(--primary); color: var(--primary); }
+  .image-empty, .image-idle, .image-detecting, .image-error-state {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 8px; padding: 32px 20px; text-align: center;
+  }
+  .image-state-icon { font-size: 32px; }
+  .image-state-title { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+  .image-state-hint { font-size: 11px; color: var(--text-muted); line-height: 1.5; max-width: 240px; }
+  .image-footer {
+    padding: 10px 16px;
+    background: var(--bg); border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
 </style>
 </head>
 <body>
@@ -867,6 +948,7 @@
   <button class="main-tab" data-tab="a11y" data-i18n="tabs.contrast">명도대비</button>
   <button class="main-tab" data-tab="themes" data-i18n="tabs.theme">테마</button>
   <button class="main-tab" data-tab="component" data-i18n="tabs.component">컴포넌트</button>
+  <button class="main-tab" data-tab="images" data-i18n="tabs.image">이미지</button>
 </div>
 
 <!-- ── Extract Panel ── -->
@@ -1002,6 +1084,13 @@
 <!-- ── Result View ── -->
 <div id="view-result" class="hidden" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
 
+  <!-- 토큰 캐시 배지 -->
+  <div id="tokenCacheBadge" class="hidden" style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text-muted);padding:4px 12px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;">
+    <span data-i18n="extract.cacheRestoredFrom">캐시에서 복원:</span>
+    <span id="tokenCacheSavedAt" style="flex:1;"></span>
+    <button id="tokenCacheClearBtn" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;padding:0 2px;line-height:1;" title="캐시 삭제">×</button>
+  </div>
+
   <div class="result-body">
 
     <!-- Stat Cards -->
@@ -1134,7 +1223,11 @@
             <button id="iconCacheClearBtn" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:13px;padding:0 2px;line-height:1;" title="캐시 삭제">×</button>
           </span>
         </div>
-        <button class="btn-ghost" id="iconDownloadAllBtn" style="height:28px;padding:0 10px;font-size:11px;" data-i18n="icon.downloadAll">전체 SVG 다운로드</button>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="btn-ghost" id="iconDownloadSvgBtn" style="height:28px;padding:0 10px;font-size:11px;" data-i18n="icon.downloadSvg">SVG 파일</button>
+          <button class="btn-ghost" id="iconDownloadSvgCodeBtn" style="height:28px;padding:0 10px;font-size:11px;" data-i18n="icon.downloadSvgCode">SVG 코드</button>
+          <button class="btn-ghost" id="iconDownloadReactBtn" style="height:28px;padding:0 10px;font-size:11px;" data-i18n="icon.downloadReact">React</button>
+        </div>
       </div>
       <div id="iconList" class="icon-grid"></div>
 
@@ -1144,6 +1237,10 @@
 
 <!-- ── Accessibility Panel ── -->
 <div class="tab-panel" id="panel-a11y" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
+  <div id="a11yCacheBanner" class="hidden" style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);padding:4px 12px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;">
+    <span data-i18n="extract.cacheRestoredFrom">캐시에서 복원:</span>
+    <span id="a11yCacheBannerDate"></span>
+  </div>
   <div class="a11y-subtabs">
     <button class="a11y-subtab active" data-a11y-sub="manual" data-i18n="contrast.manual">수동 검사</button>
     <button class="a11y-subtab" data-a11y-sub="matrix" data-i18n="contrast.matrix">컬러 매트릭스</button>
@@ -1212,6 +1309,10 @@
 
 <!-- ── Theme Panel ── -->
 <div class="tab-panel" id="panel-themes" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
+  <div id="themesCacheBanner" class="hidden" style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);padding:4px 12px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;">
+    <span data-i18n="extract.cacheRestoredFrom">캐시에서 복원:</span>
+    <span id="themesCacheBannerDate"></span>
+  </div>
   <div class="tab-body">
     <div class="section-card" style="margin-bottom:0;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
@@ -1319,6 +1420,7 @@
         <div style="display:flex;gap:4px;">
           <button class="comp-style-btn active" data-comp-style="css-modules">CSS Modules</button>
           <button class="comp-style-btn" data-comp-style="styled">Styled-Components</button>
+          <button class="comp-style-btn" data-comp-style="html">HTML</button>
         </div>
       </div>
 
@@ -1394,6 +1496,90 @@
         <div id="compRegistryCount" style="font-size:11px;color:var(--text-muted);"></div>
         <button class="btn-ghost" id="compExportAllBtn" style="height:28px;padding:0 10px;font-size:11px;" data-i18n="component.exportAll">전체 내보내기</button>
       </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Images Panel ── -->
+<div class="tab-panel" id="panel-images" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
+  <div id="imagesCacheBanner" class="hidden" style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);padding:4px 12px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;">
+    <span data-i18n="extract.cacheRestoredFrom">캐시에서 복원:</span>
+    <span id="imagesCacheBannerDate"></span>
+  </div>
+
+  <!-- 옵션 바 -->
+  <div class="image-options-bar">
+    <div class="image-option-row">
+      <span class="image-option-label" data-i18n="image.format">포맷</span>
+      <div class="image-format-group">
+        <button class="image-format-btn active" data-fmt="PNG">PNG</button>
+        <button class="image-format-btn" data-fmt="JPG">JPG</button>
+      </div>
+    </div>
+    <div class="image-option-row">
+      <span class="image-option-label" data-i18n="image.scale">배율</span>
+      <div class="image-scale-group">
+        <button class="image-scale-btn active" data-scale="1">1×</button>
+        <button class="image-scale-btn active" data-scale="2">2×</button>
+        <button class="image-scale-btn" data-scale="3">3×</button>
+      </div>
+    </div>
+    <div class="image-option-row">
+      <span class="image-option-label" data-i18n="image.scope">범위</span>
+      <div class="radio-group">
+        <label class="radio-item">
+          <input type="radio" name="imgScope" value="all" checked>
+          <span class="radio-label" data-i18n="image.allPage">전체 페이지</span>
+        </label>
+        <label class="radio-item">
+          <input type="radio" name="imgScope" value="selection">
+          <span class="radio-label" data-i18n="image.selection">선택 레이어</span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- 탐지 버튼 -->
+  <div style="padding:10px 16px;flex-shrink:0;">
+    <button class="btn-primary" id="detectImagesBtn" style="width:100%;" data-i18n="image.detectBtn">이미지 탐지하기</button>
+  </div>
+
+  <!-- 상태: idle -->
+  <div id="imgStateIdle" class="image-idle">
+    <div class="image-state-icon">🖼</div>
+    <div class="image-state-title" data-i18n="image.idleTitle">이미지 에셋 탐지</div>
+    <div class="image-state-hint" data-i18n="image.idle">위 버튼을 클릭하여 이미지 에셋을 탐지하세요.</div>
+  </div>
+
+  <!-- 상태: detecting -->
+  <div id="imgStateDetecting" class="image-detecting hidden">
+    <div class="spinner"></div>
+    <div class="image-state-title" data-i18n="image.detecting">이미지를 탐지하고 있습니다...</div>
+  </div>
+
+  <!-- 상태: empty -->
+  <div id="imgStateEmpty" class="image-empty hidden">
+    <div class="image-state-icon">📭</div>
+    <div class="image-state-title" data-i18n="image.empty">이미지 에셋을 찾을 수 없습니다.</div>
+    <div class="image-state-hint" data-i18n="image.emptyHint">IMAGE fill이 적용된 노드가 없거나 선택 범위에 포함되지 않았습니다.</div>
+  </div>
+
+  <!-- 상태: error -->
+  <div id="imgStateError" class="image-error-state hidden">
+    <div class="image-state-icon">⚠️</div>
+    <div class="image-state-title" id="imgErrorMsg"></div>
+    <button class="btn-ghost" id="imgRetryBtn" style="margin-top:8px;" data-i18n="image.retry">다시 시도</button>
+  </div>
+
+  <!-- 상태: list -->
+  <div id="imgStateList" class="hidden" style="flex:1;overflow:hidden;display:flex;flex-direction:column;min-height:0;">
+    <div id="imgList" class="image-list"></div>
+    <div class="image-footer">
+      <button class="btn-primary" id="imgDownloadAllBtn" style="width:100%;" disabled>
+        <span data-i18n="image.downloadAll">전체 ZIP 다운로드</span>
+        <span id="imgDownloadAllCount"></span>
+      </button>
     </div>
   </div>
 

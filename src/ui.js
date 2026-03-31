@@ -26,6 +26,9 @@ var i18n = {
       errorPrefix: '오류: ', extractFail: '추출 실패',
       layerSelected: '개 레이어 선택됨', more: '외 ',
       tokenHint: 'Spacing·Radius = FLOAT Variables 자동 감지 / Shadow = Effect Styles 포함',
+      cacheRestoredFrom: '캐시에서 복원:',
+      cacheCleared: '캐시가 삭제됐습니다',
+      cacheClearConfirm: '추출 캐시를 삭제할까요? 다음 추출 전까지 복원할 수 없습니다.',
     },
     icon: {
       title: '아이콘 SVG 추출', allMode: '전체 추출', selMode: '선택 추출',
@@ -116,6 +119,9 @@ var i18n = {
       errorPrefix: 'Error: ', extractFail: 'Extraction failed',
       layerSelected: ' layers selected', more: '+ ',
       tokenHint: 'Spacing·Radius = Auto-detected FLOAT Variables / Shadow = Included in Effect Styles',
+      cacheRestoredFrom: 'Restored from cache:',
+      cacheCleared: 'Cache cleared',
+      cacheClearConfirm: 'Delete extraction cache? Cannot be restored until next extraction.',
     },
     icon: {
       title: 'Icon SVG Export', allMode: 'All Icons', selMode: 'Selection',
@@ -233,6 +239,7 @@ document.querySelectorAll('.lang-btn').forEach(function(btn) {
 
 // ── State ──
 var extractedData = null;
+var tokenCacheInfo = null; // { savedAt, figmaFileId, figmaFileName }
 var collections = [];
 var activeTab = 'json';
 var cssUnit = 'px';
@@ -677,6 +684,9 @@ window.onmessage = function(event) {
     renderResult(msg.data);
     populateA11yColors();
     buildExtractedColors();
+    tokenCacheInfo = { savedAt: new Date().toISOString(), figmaFileId: null, figmaFileName: null };
+    showTokenCacheBadge(tokenCacheInfo.savedAt, null);
+    applyTokenCacheToTabs(msg.data);
   }
   if (msg.type === 'extract-error') {
     showView('filter');
@@ -734,15 +744,22 @@ window.onmessage = function(event) {
     var d = msg.data;
     if (d) {
       var name = compToPascalCase((d.name || 'Component').split('/').pop());
+      // 자동 감지 타입을 드롭다운에 반영
+      if (d.detectedType && d.detectedType !== 'layout') {
+        compState.componentType = d.detectedType;
+        var _typeSelectEl = $('compTypeSelect');
+        if (_typeSelectEl) _typeSelectEl.value = d.detectedType;
+        updateTypeHint(d.detectedType);
+      }
       var tsx, css;
       if (compState.styleMode === 'html') {
         tsx = d.html || '<div></div>';
         css = '';
       } else if (compState.styleMode === 'css-modules') {
-        tsx = buildCSSModulesTSX(name, compState.componentType, compState.useTs);
-        css = buildCSSModulesCSS(d.styles || {}, compState.componentType);
+        tsx = buildRadixCSSModules(d, name, compState.useTs);
+        css = buildRadixCSS(d);
       } else {
-        tsx = buildStyledTSX(name, compState.componentType, compState.useTs);
+        tsx = buildRadixStyled(d, name, compState.useTs);
         css = '';
       }
       showGeneratedResult(tsx, css, compState.styleMode);
@@ -787,6 +804,23 @@ window.onmessage = function(event) {
   if (msg.type === 'extract-images-error') {
     $('imgErrorMsg').textContent = t('image.error') + (msg.message || '');
     setImgState('imgStateError');
+  }
+  // Token cache
+  if (msg.type === 'cached-token-data') {
+    renderResult(msg.data);
+    populateA11yColors();
+    buildExtractedColors();
+    tokenCacheInfo = { savedAt: msg.savedAt, figmaFileId: msg.figmaFileId, figmaFileName: msg.figmaFileName };
+    showTokenCacheBadge(msg.savedAt, msg.figmaFileName);
+    applyTokenCacheToTabs(msg.data);
+  }
+  if (msg.type === 'token-cache-cleared') {
+    tokenCacheInfo = null;
+    hideTokenCacheBadge();
+    hideCacheBannerInTab('a11y');
+    hideCacheBannerInTab('themes');
+    hideCacheBannerInTab('images');
+    showToast(t('extract.cacheCleared'));
   }
   // Component-specific selection handling (lastSelection already updated above)
   if (msg.type === 'selection-changed') {
@@ -853,19 +887,53 @@ var iconDetailTab = 'svg';
 // ── SVG 색상 치환 ──
 function replaceSvgColor(svg, mode, value) {
   var KEEP = /^(none|transparent|currentColor)$/i;
-  return svg
-    .replace(/fill="([^"]*)"/g, function(_, v) {
-      if (KEEP.test(v)) return 'fill="' + v + '"';
-      if (mode === 'currentColor') return 'fill="currentColor"';
-      if (mode === 'cssVar') return 'fill="var(' + value + ')"';
-      return 'fill="' + value + '"';
-    })
-    .replace(/stroke="([^"]*)"/g, function(_, v) {
-      if (KEEP.test(v)) return 'stroke="' + v + '"';
-      if (mode === 'currentColor') return 'stroke="currentColor"';
-      if (mode === 'cssVar') return 'stroke="var(' + value + ')"';
-      return 'stroke="' + value + '"';
-    });
+
+  // <clipPath>...</clipPath> 블록은 클리핑 마스크 정의용 — fill 변환 제외
+  // 블록 밖 구간만 치환하기 위해 split 후 홀수 인덱스(블록 내부)는 원본 유지
+  function replaceOutsideClipPath(str, replacer) {
+    return str.split(/(<clipPath[\s\S]*?<\/clipPath>)/g).map(function(chunk, i) {
+      return i % 2 === 0 ? replacer(chunk) : chunk;
+    }).join('');
+  }
+
+  return replaceOutsideClipPath(svg, function(chunk) {
+    return chunk
+      .replace(/fill="([^"]*)"/g, function(_, v) {
+        if (KEEP.test(v)) return 'fill="' + v + '"';
+        if (mode === 'currentColor') return 'fill="currentColor"';
+        if (mode === 'cssVar') return 'fill="var(' + value + ')"';
+        return 'fill="' + value + '"';
+      })
+      .replace(/stroke="([^"]*)"/g, function(_, v) {
+        if (KEEP.test(v)) return 'stroke="' + v + '"';
+        if (mode === 'currentColor') return 'stroke="currentColor"';
+        if (mode === 'cssVar') return 'stroke="var(' + value + ')"';
+        return 'stroke="' + value + '"';
+      });
+  });
+}
+
+// void 요소 self-closing 보장: <path ...> → <path ... />
+// formatXml 전후 두 단계로 처리 (단일 줄 + 여러 줄 속성 분리 케이스)
+function applySelfClosing(svg) {
+  var VOID_RE = /<(path|circle|ellipse|line|polyline|polygon|rect|use|stop|animate|animateTransform)(\b[^>]*)>/g;
+  // step 1: 단일 줄 void 요소
+  var result = svg.replace(VOID_RE, function(m, tag, attrs) {
+    return attrs.endsWith('/') ? m : '<' + tag + attrs + ' />';
+  });
+  // step 2: 여러 줄로 분리된 경우 — 단독 ">" 줄을 "/>" 로 교체
+  var VOID_TAGS = /^<(path|circle|ellipse|line|polyline|polygon|rect|use|stop|animate|animateTransform)\b/;
+  var inVoid = false;
+  return result.split('\n').map(function(line) {
+    var t = line.trim();
+    if (VOID_TAGS.test(t)) { inVoid = true; }
+    if (inVoid) {
+      if (/\/>$/.test(t)) { inVoid = false; return line; }
+      if (t === '>') { inVoid = false; return line.replace('>', '/>'); }
+      if (/>$/.test(t) && !/<\//.test(t)) { inVoid = false; return line.slice(0, line.lastIndexOf('>')) + '/>'; }
+    }
+    return line;
+  }).join('\n');
 }
 
 // ── XML/SVG 포맷터 ──
@@ -921,6 +989,32 @@ function formatXml(xml) {
   }).join('\n');
 }
 
+// 아이콘 목록에서 Size variant 값 수집 → ["default", "micro"]
+function collectIconSizes(icons) {
+  var sizes = new Set();
+  icons.forEach(function(icon) {
+    (icon.variants || []).forEach(function(v) {
+      var m = v.match(/^size-(.+)$/);
+      if (m) sizes.add(m[1]);
+    });
+  });
+  return Array.from(sizes).sort();
+}
+
+// size 이름 → 실제 px 맵핑: SVG viewBox에서 읽음
+function collectIconSizePx(icons) {
+  var map = {}; // { default: 16, micro: 12, ... }
+  icons.forEach(function(icon) {
+    var vb = icon.svg.match(/viewBox="0 0 (\d+(?:\.\d+)?)/);
+    var px = vb ? Math.round(parseFloat(vb[1])) : 16;
+    (icon.variants || []).forEach(function(v) {
+      var m = v.match(/^size-(.+)$/);
+      if (m && !(m[1] in map)) map[m[1]] = px;
+    });
+  });
+  return map;
+}
+
 // icon의 전체 className 문자열 생성: "icon-glyph-android size-default"
 function iconClassNames(icon) {
   var base = 'icon-' + icon.kebab;
@@ -957,8 +1051,13 @@ function prepareSvg(processedSvg, classNames) {
   }
 
   // 2. JSX <svg> 태그 빌드 (항상 속성 줄 나눔)
+  // base 클래스에서 size variant 제거 — size는 prop으로만 적용
+  var baseCls = classNames.split(' ').filter(function(c) { return !/^size-/.test(c); }).join(' ');
   var jsxProps = [
-    'className={["' + classNames + '", size, color, className].filter(Boolean).join(" ")}',
+    'width={16}',
+    'height={16}',
+    'className={[' + JSON.stringify(baseCls) + ', size && "size-" + size, className].filter(Boolean).join(" ")}',
+    'style={color ? { color } : undefined}',
     '{...props}'
   ].concat(xmlAttrs);
   var svgOpen = '<svg\n' + jsxProps.map(function(p) { return '  ' + p; }).join('\n') + '\n>';
@@ -971,31 +1070,7 @@ function prepareSvg(processedSvg, classNames) {
   inner = inner.replace(/\b(fill-rule|clip-rule|stroke-width|stroke-linecap|stroke-linejoin|stroke-dasharray|stroke-dashoffset|stroke-miterlimit|stop-color|stop-opacity|font-size|font-family|text-anchor|dominant-baseline)(?==)/g,
     function(attr) { return JSX_ATTR[attr] || attr; });
 
-  // void 요소 자기닫힘 보장: <path ...> → <path ... />
-  // step 1: 단일 줄 void 요소 self-closing
-  inner = inner.replace(
-    /<(path|circle|ellipse|line|polyline|polygon|rect|use|stop|animate|animateTransform)(\b[^>]*)>/g,
-    function(m, tag, attrs) {
-      return attrs.endsWith('/') ? m : '<' + tag + attrs + ' />';
-    }
-  );
-
-  var formatted = formatXml(inner);
-
-  // step 2: formatXml 이후 속성이 여러 줄로 분리된 경우 — 단독 ">" 줄을 "/>" 로 교체
-  // 앞 줄이 void 태그 속성임을 추적
-  var VOID_TAGS = /^<(path|circle|ellipse|line|polyline|polygon|rect|use|stop|animate|animateTransform)\b/;
-  var inVoid = false;
-  formatted = formatted.split('\n').map(function(line) {
-    var t = line.trim();
-    if (VOID_TAGS.test(t)) { inVoid = true; }
-    if (inVoid) {
-      if (/\/>$/.test(t)) { inVoid = false; return line; }       // 이미 self-close
-      if (t === '>') { inVoid = false; return line.replace('>', '/>'); } // 단독 ">"
-      if (/>$/.test(t) && !/<\//.test(t)) { inVoid = false; return line.slice(0, line.lastIndexOf('>')) + '/>'; }
-    }
-    return line;
-  }).join('\n');
+  var formatted = applySelfClosing(formatXml(inner));
 
   var formattedInner = formatted.split('\n').map(function(l) { return '  ' + l; }).join('\n');
 
@@ -1003,12 +1078,17 @@ function prepareSvg(processedSvg, classNames) {
 }
 
 // React 컴포넌트 body (preview & file 공통)
-function buildReactBody(name, baseCls, variantClasses, formattedSvg, trailingNewline) {
+// iconSizes: ["default", "micro"] → size?: "default" | "micro"
+// iconSizes: []                   → size?: string (fallback)
+function buildReactBody(name, baseCls, variantClasses, formattedSvg, iconSizes, trailingNewline) {
+  var sizeType = iconSizes && iconSizes.length > 0
+    ? iconSizes.map(function(s) { return '"' + s + '"'; }).join(' | ')
+    : 'string';
   var indentedSvg = formattedSvg.split('\n').map(function(l) { return '  ' + l; }).join('\n');
   return 'import type { SVGProps } from "react";\n\n'
     + 'interface ' + name + 'Props extends Omit<SVGProps<SVGSVGElement>, "color"> {\n'
-    + '  size?: string;\n'
-    + '  color?: string;\n'
+    + '  size?: ' + sizeType + ';\n'
+    + '  color?: string; // CSS color 값 — style.color 로 적용됨 (fill="currentColor" 상속)\n'
     + '}\n\n'
     + 'export const ' + name + ' = ({ size, color, className, ...props }: ' + name + 'Props) => (\n'
     + indentedSvg + '\n'
@@ -1016,34 +1096,51 @@ function buildReactBody(name, baseCls, variantClasses, formattedSvg, trailingNew
 }
 
 // ── React 컴포넌트 생성 ──
-// 모달 미리보기용
+// 모달 미리보기용 — 전체 iconData 기준으로 sizes 수집
 function buildReactComponent(icon, processedSvg) {
   var name = 'Icon' + icon.pascal;
   var cls = iconClassNames(icon);
-  return buildReactBody(name, 'icon-' + icon.kebab, icon.variants || [], prepareSvg(processedSvg, cls), false);
+  var sizes = collectIconSizes(iconData);
+  return buildReactBody(name, 'icon-' + icon.kebab, icon.variants || [], prepareSvg(processedSvg, cls), sizes, false);
 }
 
 // ZIP 다운로드용 개별 React 파일 생성
-function buildReactFile(icon, processedSvg) {
+function buildReactFile(icon, processedSvg, iconSizes) {
   var name = 'Icon' + icon.pascal;
   var cls = iconClassNames(icon);
-  return buildReactBody(name, 'icon-' + icon.kebab, icon.variants || [], prepareSvg(processedSvg, cls), true);
+  return buildReactBody(name, 'icon-' + icon.kebab, icon.variants || [], prepareSvg(processedSvg, cls), iconSizes, true);
 }
 
 // ZIP 전체 CSS 파일 생성
-function buildIconsCss(icons) {
-  var header = '/* PixelForge Icon CSS — ' + new Date().toISOString().slice(0, 10) + ' */\n'
-    + '/* Usage: <span class="icon icon-android"></span> */\n\n'
+// allIcons: 사이즈 수집용 전체 목록, icons: CSS 클래스 생성용 (중복제거된) 목록
+function buildIconsCss(icons, allIcons) {
+  var date = new Date().toISOString().slice(0, 10);
+  var sizePxMap = collectIconSizePx(allIcons || icons);
+  var sizeEntries = Object.keys(sizePxMap).sort();
+
+  var sizeClasses = sizeEntries.length
+    ? sizeEntries.map(function(name) {
+        var px = sizePxMap[name];
+        return '.size-' + name + ' { width: ' + px + 'px; height: ' + px + 'px; }';
+      }).join('\n') + '\n\n'
+    : '';
+
+  var header = '/* PixelForge Icon CSS — ' + date + ' */\n'
+    + '/* Usage: <span class="icon icon-android size-default"></span> */\n\n'
     + '.icon {\n'
     + '  display: inline-block;\n'
-    + '  width: var(--icon-size, 1em);\n'
-    + '  height: var(--icon-size, 1em);\n'
+    + '  width: 1em;\n'
+    + '  height: 1em;\n'
     + '  background-color: currentColor;\n'
     + '  mask-repeat: no-repeat;\n'
-    + '  mask-size: 100% 100%;\n'
+    + '  mask-size: contain;\n'
+    + '  mask-position: center;\n'
     + '  -webkit-mask-repeat: no-repeat;\n'
-    + '  -webkit-mask-size: 100% 100%;\n'
-    + '}\n\n';
+    + '  -webkit-mask-size: contain;\n'
+    + '  -webkit-mask-position: center;\n'
+    + '}\n\n'
+    + sizeClasses;
+
   var classes = icons.map(function(icon) {
     var cls = 'icon-' + icon.kebab;
     return '.' + cls + ' {\n'
@@ -1051,43 +1148,107 @@ function buildIconsCss(icons) {
       + '  -webkit-mask-image: url("../svg/icon-' + icon.kebab + '.svg");\n'
       + '}';
   }).join('\n\n');
+
   return header + classes + '\n';
+}
+
+// ZIP 레지스트리 파일 (Icon.tsx)
+function buildIconRegistryFile(icons, iconSizes) {
+  if (!icons || icons.length === 0) return '';
+
+  // kebab 기준 중복 제거
+  var seen = new Set();
+  var uniq = icons.filter(function(icon) {
+    if (seen.has(icon.kebab)) return false;
+    seen.add(icon.kebab);
+    return true;
+  });
+
+  var imports = uniq.map(function(icon) {
+    return 'import { Icon' + icon.pascal + ' } from "./Icon' + icon.pascal + '";';
+  }).join('\n');
+
+  var iconNameType = uniq.map(function(icon) {
+    return '"' + icon.kebab + '"';
+  }).join(' | ');
+
+  var iconSizeType = iconSizes && iconSizes.length > 0
+    ? iconSizes.map(function(s) { return '"' + s + '"'; }).join(' | ')
+    : 'string';
+
+  // 하이픈 포함 키는 반드시 따옴표로 감쌈
+  var mapEntries = uniq.map(function(icon) {
+    return '  "' + icon.kebab + '": Icon' + icon.pascal + ',';
+  }).join('\n');
+
+  return 'import type { SVGProps, ComponentType } from "react";\n'
+    + imports + '\n\n'
+    + 'export type IconName = ' + iconNameType + ';\n'
+    + 'export type IconSize = ' + iconSizeType + ';\n\n'
+    + 'interface IconProps extends Omit<SVGProps<SVGSVGElement>, "color"> {\n'
+    + '  name: IconName;\n'
+    + '  size?: IconSize;\n'
+    + '  color?: string;\n'
+    + '}\n\n'
+    + 'const ICON_MAP: Record<IconName, ComponentType<Omit<IconProps, "name">>> = {\n'
+    + mapEntries + '\n'
+    + '};\n\n'
+    + 'export const Icon = ({ name, size, color, className, ...props }: IconProps) => {\n'
+    + '  const Comp = ICON_MAP[name];\n'
+    + '  return Comp ? <Comp size={size} color={color} className={className} {...props} /> : null;\n'
+    + '};\n';
 }
 
 // ZIP 배럴 파일 (index.ts)
 function buildIndexFile(icons) {
-  return icons.map(function(icon) {
+  var exports = icons.map(function(icon) {
     return 'export { Icon' + icon.pascal + ' } from "./Icon' + icon.pascal + '";';
-  }).join('\n') + '\n';
+  });
+  exports.push('export { Icon, type IconName, type IconSize } from "./Icon";');
+  return exports.join('\n') + '\n';
 }
 
 // SVG ZIP: svg/ + css/
 async function downloadSvgZip(icons) {
+  // kebab 기준 중복제거 — 같은 아이콘의 여러 size variant 중 첫 번째만 저장
+  var seenKebab = new Set();
+  var uniqIcons = icons.filter(function(icon) {
+    if (seenKebab.has(icon.kebab)) return false;
+    seenKebab.add(icon.kebab);
+    return true;
+  });
   var zip = new JSZip();
   var svgFolder = zip.folder('svg');
   var cssFolder = zip.folder('css');
-  icons.forEach(function(icon) {
-    svgFolder.file('icon-' + icon.kebab + '.svg', cleanSvg(icon.svg));
+  uniqIcons.forEach(function(icon) {
+    svgFolder.file('icon-' + icon.kebab + '.svg', replaceSvgColor(cleanSvg(icon.svg), iconColorMode, iconColorValue));
   });
-  cssFolder.file('icons.css', buildIconsCss(icons));
+  cssFolder.file('icons.css', buildIconsCss(uniqIcons, icons));
   var blob = await zip.generateAsync({ type: 'blob' });
   var url = URL.createObjectURL(blob);
   var a = document.createElement('a');
-  a.href = url; a.download = 'icons-svg-' + icons.length + '.zip';
+  a.href = url; a.download = 'icons-svg-' + uniqIcons.length + '.zip';
   a.click(); URL.revokeObjectURL(url);
 }
 
 // SVG 코드 ZIP: icons.ts (SVG 문자열 상수 export) + index.ts
 async function downloadSvgCodeZip(icons) {
   var date = new Date().toISOString().slice(0, 10);
+  var svgMap = {};
   var items = icons.map(function(icon) {
-    var rawSvg = formatXml(cleanSvg(icon.svg));
-    var indented = rawSvg.split('\n').map(function(l) { return '      ' + l; }).join('\n');
+    var rawSvg = applySelfClosing(formatXml(replaceSvgColor(cleanSvg(icon.svg), iconColorMode, iconColorValue)));
     var fullCls = iconClassNames(icon);
+    // SVG 태그에 class 추가 — React 버전과 동일한 클래스명
+    rawSvg = rawSvg.replace(/^<svg\b/, '<svg class="' + fullCls + '"');
+    // 크기별 고유 key: 사이즈 variant가 있으면 "icon-android--size-default" 형태
+    var sizeVariant = (icon.variants || []).find(function(v) { return /^size-/.test(v); });
+    var dataKey = 'icon-' + icon.kebab + (sizeVariant ? '--' + sizeVariant : '');
+    svgMap[dataKey] = rawSvg;
+    var indented = rawSvg.split('\n').map(function(l) { return '      ' + l; }).join('\n');
     var variantBadges = (icon.variants || []).map(function(v) {
       return '<span class="variant-badge">' + v + '</span>';
     }).join('');
-    return '    <div class="icon-item" data-name="icon-' + icon.kebab + '" title="클릭하여 SVG 복사">\n'
+    return '    <div class="icon-item" data-name="' + dataKey + '" title="클릭하여 SVG 복사">\n'
       + '      <div class="' + fullCls + ' icon-node">\n'
       + indented + '\n'
       + '      </div>\n'
@@ -1135,6 +1296,7 @@ async function downloadSvgCodeZip(icons) {
     + '  </div>\n'
     + '  <div id="toast"></div>\n'
     + '  <script>\n'
+    + '    var SVG_DATA = ' + JSON.stringify(svgMap) + ';\n'
     + '    var toast = document.getElementById("toast");\n'
     + '    var toastTimer;\n'
     + '    function showToast(msg) {\n'
@@ -1146,9 +1308,8 @@ async function downloadSvgCodeZip(icons) {
     + '    document.querySelector(".icon-grid").addEventListener("click", function(e) {\n'
     + '      var item = e.target.closest(".icon-item");\n'
     + '      if (!item) return;\n'
-    + '      var node = item.querySelector(".icon-node");\n'
-    + '      var svg = node ? node.innerHTML.trim() : "";\n'
     + '      var name = item.dataset.name;\n'
+    + '      var svg = SVG_DATA[name] || "";\n'
     + '      navigator.clipboard.writeText(svg).then(function() {\n'
     + '        item.classList.add("copied");\n'
     + '        setTimeout(function() { item.classList.remove("copied"); }, 1500);\n'
@@ -1162,18 +1323,28 @@ async function downloadSvgCodeZip(icons) {
   var blob = new Blob([html], { type: 'text/html' });
   var url = URL.createObjectURL(blob);
   var a = document.createElement('a');
-  a.href = url; a.download = 'icons-' + icons.length + '.html';
+  a.href = url; a.download = 'icons-preview-' + icons.length + '.html';
   a.click(); URL.revokeObjectURL(url);
 }
 
 // React ZIP: react/ (tsx 개별 파일 + index.ts)
 async function downloadReactZip(icons) {
+  // kebab 기준 중복 제거 — index.ts / Icon.tsx 모두 동일 목록 사용
+  var seenKebab = new Set();
+  icons = icons.filter(function(icon) {
+    if (seenKebab.has(icon.kebab)) return false;
+    seenKebab.add(icon.kebab);
+    return true;
+  });
+
   var zip = new JSZip();
   var reactFolder = zip.folder('react');
+  var iconSizes = collectIconSizes(icons);
   icons.forEach(function(icon) {
     var processed = replaceSvgColor(cleanSvg(icon.svg), iconColorMode, iconColorValue);
-    reactFolder.file('Icon' + icon.pascal + '.tsx', buildReactFile(icon, processed));
+    reactFolder.file('Icon' + icon.pascal + '.tsx', buildReactFile(icon, processed, iconSizes));
   });
+  reactFolder.file('Icon.tsx', buildIconRegistryFile(icons, iconSizes));
   reactFolder.file('index.ts', buildIndexFile(icons));
   var blob = await zip.generateAsync({ type: 'blob' });
   var url = URL.createObjectURL(blob);
@@ -1364,6 +1535,55 @@ function hideCacheBadge() {
 $('iconCacheClearBtn').addEventListener('click', function() {
   parent.postMessage({ pluginMessage: { type: 'clear-icon-cache' } }, '*');
 });
+
+// ── Token Cache Badge & Banners ──
+function showTokenCacheBadge(savedAt, fileName) {
+  var badge = $('tokenCacheBadge');
+  var dateEl = $('tokenCacheSavedAt');
+  if (!badge || !dateEl) return;
+  var d = new Date(savedAt);
+  var fmt = d.getFullYear() + '-'
+    + String(d.getMonth() + 1).padStart(2, '0') + '-'
+    + String(d.getDate()).padStart(2, '0') + ' '
+    + String(d.getHours()).padStart(2, '0') + ':'
+    + String(d.getMinutes()).padStart(2, '0');
+  dateEl.textContent = fileName ? fileName + ' · ' + fmt : fmt;
+  badge.classList.remove('hidden');
+}
+function hideTokenCacheBadge() {
+  var badge = $('tokenCacheBadge');
+  if (badge) badge.classList.add('hidden');
+}
+function showCacheBannerInTab(tabId, savedAt) {
+  var banner = $(tabId + 'CacheBanner');
+  var dateEl = $(tabId + 'CacheBannerDate');
+  if (!banner || !savedAt) return;
+  if (dateEl) {
+    var d = new Date(savedAt);
+    dateEl.textContent = d.getFullYear() + '-'
+      + String(d.getMonth() + 1).padStart(2, '0') + '-'
+      + String(d.getDate()).padStart(2, '0');
+  }
+  banner.classList.remove('hidden');
+}
+function hideCacheBannerInTab(tabId) {
+  var banner = $(tabId + 'CacheBanner');
+  if (banner) banner.classList.add('hidden');
+}
+function applyTokenCacheToTabs(data) {
+  if (data.styles && data.styles.colors && data.styles.colors.length > 0) {
+    showCacheBannerInTab('a11y', tokenCacheInfo && tokenCacheInfo.savedAt);
+  }
+  showCacheBannerInTab('themes', tokenCacheInfo && tokenCacheInfo.savedAt);
+  showCacheBannerInTab('images', tokenCacheInfo && tokenCacheInfo.savedAt);
+}
+var _tokenCacheClearBtn = $('tokenCacheClearBtn');
+if (_tokenCacheClearBtn) {
+  _tokenCacheClearBtn.addEventListener('click', function() {
+    if (!confirm(t('extract.cacheClearConfirm'))) return;
+    parent.postMessage({ pluginMessage: { type: 'token-cache-clear' } }, '*');
+  });
+}
 
 function renderIconResults(data) {
   iconData = data;
@@ -2013,6 +2233,137 @@ function wrapJsxWithStyled(name, jsxBody, useTs) {
   var p = useTs ? '{ children }: ' + name + 'Props' : '{ children }';
   return "import styled from 'styled-components';\n\n" + pt + "export const " + name + " = (" + p + ") => (\n" + jsxBody + "\n);";
 }
+// ─── Radix UI 코드 생성 함수 (shadcn/ui 컨셉) ───────────────────────────────
+
+function buildDialogCSSModules(d, name, useTs) {
+  var pt = useTs ? 'interface ' + name + 'Props {\n  open: boolean;\n  onOpenChange: (open: boolean) => void;\n}\n\n' : '';
+  var p = useTs ? '{ open, onOpenChange }: ' + name + 'Props' : '{ open, onOpenChange }';
+  var title = d.texts.title || 'Dialog Title';
+  var desc = d.texts.description ? '\n        <Dialog.Description className={styles.description}>\n          ' + d.texts.description + '\n        </Dialog.Description>' : '';
+  var cancel = (d.texts.actions && d.texts.actions[0]) || 'Cancel';
+  var confirm = (d.texts.actions && d.texts.actions[1]) || 'Confirm';
+  return "import * as Dialog from '@radix-ui/react-dialog';\nimport styles from './" + name + ".module.css';\n\n" + pt + "export const " + name + " = (" + p + ") => (\n  <Dialog.Root open={open} onOpenChange={onOpenChange}>\n    <Dialog.Portal>\n      <Dialog.Overlay className={styles.overlay} />\n      <Dialog.Content className={styles.content} aria-describedby={undefined}>\n        <Dialog.Title className={styles.title}>" + title + "</Dialog.Title>" + desc + "\n        <div className={styles.footer}>\n          <Dialog.Close asChild>\n            <button className={styles.cancelBtn}>" + cancel + "</button>\n          </Dialog.Close>\n          <button className={styles.confirmBtn}>" + confirm + "</button>\n        </div>\n      </Dialog.Content>\n    </Dialog.Portal>\n  </Dialog.Root>\n);";
+}
+function buildButtonCSSModules(d, name, useTs) {
+  var pt = useTs ? 'interface ' + name + 'Props {\n  onClick?: () => void;\n  disabled?: boolean;\n  children?: React.ReactNode;\n}\n\n' : '';
+  var p = useTs ? '{ onClick, disabled, children }: ' + name + 'Props' : '{ onClick, disabled, children }';
+  var label = (d.texts && d.texts.title) || name;
+  return "import styles from './" + name + ".module.css';\n\n" + pt + "export const " + name + " = (" + p + ") => (\n  <button\n    className={styles.root}\n    onClick={onClick}\n    disabled={disabled}\n    type=\"button\"\n  >\n    {children ?? '" + label + "'}\n  </button>\n);";
+}
+function buildTabsCSSModules(d, name, useTs) {
+  var labels = d.texts && d.texts.all ? d.texts.all.filter(function(t) { return t.length < 30; }) : [];
+  if (labels.length < 2) labels = ['Tab 1', 'Tab 2'];
+  var pt = useTs ? 'interface ' + name + 'Props {\n  defaultValue?: string;\n}\n\n' : '';
+  var p = useTs ? "{ defaultValue = '" + labels[0] + "' }: " + name + 'Props' : "{ defaultValue = '" + labels[0] + "' }";
+  var triggers = labels.map(function(l, i) { return "      <Tabs.Trigger className={styles.trigger} value=\"tab" + (i+1) + "\">" + l + "</Tabs.Trigger>"; }).join('\n');
+  var contents = labels.map(function(l, i) { return "    <Tabs.Content className={styles.content} value=\"tab" + (i+1) + "\">\n      {/* " + l + " 내용 */}\n    </Tabs.Content>"; }).join('\n');
+  return "import * as Tabs from '@radix-ui/react-tabs';\nimport styles from './" + name + ".module.css';\n\n" + pt + "export const " + name + " = (" + p + ") => (\n  <Tabs.Root className={styles.root} defaultValue={defaultValue}>\n    <Tabs.List className={styles.list}>\n" + triggers + "\n    </Tabs.List>\n" + contents + "\n  </Tabs.Root>\n);";
+}
+function buildCheckboxCSSModules(d, name, useTs) {
+  var label = (d.texts && d.texts.title) || name;
+  var pt = useTs ? 'interface ' + name + 'Props {\n  checked?: boolean;\n  onCheckedChange?: (checked: boolean) => void;\n}\n\n' : '';
+  var p = useTs ? '{ checked, onCheckedChange }: ' + name + 'Props' : '{ checked, onCheckedChange }';
+  return "import * as Checkbox from '@radix-ui/react-checkbox';\nimport styles from './" + name + ".module.css';\n\n" + pt + "export const " + name + " = (" + p + ") => (\n  <label className={styles.root}>\n    <Checkbox.Root className={styles.checkbox} checked={checked} onCheckedChange={onCheckedChange}>\n      <Checkbox.Indicator className={styles.indicator}>\n        <svg viewBox=\"0 0 16 16\" width=\"12\" height=\"12\">\n          <path d=\"M2 8l4 4 8-8\" stroke=\"currentColor\" strokeWidth=\"2\" fill=\"none\" />\n        </svg>\n      </Checkbox.Indicator>\n    </Checkbox.Root>\n    <span className={styles.label}>" + label + "</span>\n  </label>\n);";
+}
+function buildSwitchCSSModules(d, name, useTs) {
+  var label = (d.texts && d.texts.title) || name;
+  var pt = useTs ? 'interface ' + name + 'Props {\n  checked?: boolean;\n  onCheckedChange?: (checked: boolean) => void;\n}\n\n' : '';
+  var p = useTs ? '{ checked, onCheckedChange }: ' + name + 'Props' : '{ checked, onCheckedChange }';
+  return "import * as Switch from '@radix-ui/react-switch';\nimport styles from './" + name + ".module.css';\n\n" + pt + "export const " + name + " = (" + p + ") => (\n  <label className={styles.root}>\n    <span className={styles.label}>" + label + "</span>\n    <Switch.Root className={styles.switch} checked={checked} onCheckedChange={onCheckedChange}>\n      <Switch.Thumb className={styles.thumb} />\n    </Switch.Root>\n  </label>\n);";
+}
+function buildSelectCSSModules(d, name, useTs) {
+  var placeholder = (d.texts && d.texts.title) || 'Select...';
+  var opts = d.texts && d.texts.all ? d.texts.all.slice(1).filter(function(t) { return t.length < 40; }) : [];
+  if (opts.length === 0) opts = ['Option 1', 'Option 2', 'Option 3'];
+  var pt = useTs ? 'interface ' + name + 'Props {\n  value?: string;\n  onValueChange?: (value: string) => void;\n}\n\n' : '';
+  var p = useTs ? '{ value, onValueChange }: ' + name + 'Props' : '{ value, onValueChange }';
+  var items = opts.map(function(o) { var v = o.toLowerCase().replace(/\s+/g, '-'); return "      <Select.Item className={styles.item} value=\"" + v + "\">\n        <Select.ItemText>" + o + "</Select.ItemText>\n      </Select.Item>"; }).join('\n');
+  return "import * as Select from '@radix-ui/react-select';\nimport styles from './" + name + ".module.css';\n\n" + pt + "export const " + name + " = (" + p + ") => (\n  <Select.Root value={value} onValueChange={onValueChange}>\n    <Select.Trigger className={styles.trigger}>\n      <Select.Value placeholder=\"" + placeholder + "\" />\n    </Select.Trigger>\n    <Select.Portal>\n      <Select.Content className={styles.content}>\n        <Select.Viewport>\n" + items + "\n        </Select.Viewport>\n      </Select.Content>\n    </Select.Portal>\n  </Select.Root>\n);";
+}
+function buildTooltipCSSModules(d, name, useTs) {
+  var content = (d.texts && d.texts.title) || 'Tooltip content';
+  var trigger = (d.texts && d.texts.all && d.texts.all[1]) || '?';
+  var pt = useTs ? 'interface ' + name + 'Props {\n  children?: React.ReactNode;\n}\n\n' : '';
+  var p = useTs ? '{ children }: ' + name + 'Props' : '{ children }';
+  return "import * as Tooltip from '@radix-ui/react-tooltip';\nimport styles from './" + name + ".module.css';\n\n" + pt + "export const " + name + " = (" + p + ") => (\n  <Tooltip.Provider>\n    <Tooltip.Root>\n      <Tooltip.Trigger asChild>\n        <button className={styles.trigger}>{children ?? '" + trigger + "'}</button>\n      </Tooltip.Trigger>\n      <Tooltip.Portal>\n        <Tooltip.Content className={styles.content} sideOffset={4}>\n          " + content + "\n          <Tooltip.Arrow className={styles.arrow} />\n        </Tooltip.Content>\n      </Tooltip.Portal>\n    </Tooltip.Root>\n  </Tooltip.Provider>\n);";
+}
+function buildAccordionCSSModules(d, name, useTs) {
+  var items = d.texts && d.texts.all ? d.texts.all.filter(function(t) { return t.length < 50; }) : [];
+  if (items.length < 2) items = ['Item 1', 'Item 2'];
+  var pt = useTs ? 'interface ' + name + 'Props {\n  defaultValue?: string;\n}\n\n' : '';
+  var p = useTs ? '{ defaultValue }: ' + name + 'Props' : '{ defaultValue }';
+  var accItems = items.map(function(l, i) { var v = 'item-' + (i+1); return "    <Accordion.Item className={styles.item} value=\"" + v + "\">\n      <Accordion.Trigger className={styles.trigger}>" + l + "</Accordion.Trigger>\n      <Accordion.Content className={styles.content}>\n        {/* " + l + " 내용 */}\n      </Accordion.Content>\n    </Accordion.Item>"; }).join('\n');
+  return "import * as Accordion from '@radix-ui/react-accordion';\nimport styles from './" + name + ".module.css';\n\n" + pt + "export const " + name + " = (" + p + ") => (\n  <Accordion.Root className={styles.root} type=\"single\" defaultValue={defaultValue} collapsible>\n" + accItems + "\n  </Accordion.Root>\n);";
+}
+function buildPopoverCSSModules(d, name, useTs) {
+  var triggerLabel = (d.texts && d.texts.title) || 'Open';
+  var content = (d.texts && d.texts.description) || 'Popover content';
+  var pt = useTs ? 'interface ' + name + 'Props {\n  children?: React.ReactNode;\n}\n\n' : '';
+  var p = useTs ? '{ children }: ' + name + 'Props' : '{ children }';
+  return "import * as Popover from '@radix-ui/react-popover';\nimport styles from './" + name + ".module.css';\n\n" + pt + "export const " + name + " = (" + p + ") => (\n  <Popover.Root>\n    <Popover.Trigger asChild>\n      <button className={styles.trigger}>" + triggerLabel + "</button>\n    </Popover.Trigger>\n    <Popover.Portal>\n      <Popover.Content className={styles.content} sideOffset={4}>\n        {children ?? <p>" + content + "</p>}\n        <Popover.Close className={styles.closeBtn} aria-label=\"Close\">×</Popover.Close>\n        <Popover.Arrow className={styles.arrow} />\n      </Popover.Content>\n    </Popover.Portal>\n  </Popover.Root>\n);";
+}
+function buildLayoutCSSModules(d, name, useTs) {
+  var tag = getSemanticTag(name);
+  var pt = useTs ? 'interface ' + name + 'Props {\n  children?: React.ReactNode;\n}\n\n' : '';
+  var p = useTs ? '{ children }: ' + name + 'Props' : '{ children }';
+  return "import styles from './" + name + ".module.css';\n\n" + pt + "export const " + name + " = (" + p + ") => (\n  <" + tag + " className={styles.root}>\n    {children}\n  </" + tag + ">\n);";
+}
+function buildRadixCSSModules(d, name, useTs) {
+  var type = (d && d.detectedType) || 'layout';
+  switch (type) {
+    case 'dialog':    return buildDialogCSSModules(d, name, useTs);
+    case 'button':    return buildButtonCSSModules(d, name, useTs);
+    case 'tabs':      return buildTabsCSSModules(d, name, useTs);
+    case 'checkbox':  return buildCheckboxCSSModules(d, name, useTs);
+    case 'switch':    return buildSwitchCSSModules(d, name, useTs);
+    case 'select':    return buildSelectCSSModules(d, name, useTs);
+    case 'tooltip':   return buildTooltipCSSModules(d, name, useTs);
+    case 'accordion': return buildAccordionCSSModules(d, name, useTs);
+    case 'popover':   return buildPopoverCSSModules(d, name, useTs);
+    default:          return buildLayoutCSSModules(d, name, useTs);
+  }
+}
+function buildRadixCSS(d) {
+  var type = (d && d.detectedType) || 'layout';
+  var rootCss = stylesToCSSProps(d.styles);
+  if (type === 'dialog') {
+    return ".overlay {\n  position: fixed;\n  inset: 0;\n  background: rgba(0,0,0,0.5);\n}\n\n.content {\n" + rootCss + "\n  position: fixed;\n  top: 50%;\n  left: 50%;\n  transform: translate(-50%,-50%);\n}\n\n.title {\n  font-size: 18px;\n  font-weight: 600;\n  margin-bottom: 8px;\n}\n\n.description {\n  color: var(--text-secondary);\n  margin-bottom: 16px;\n}\n\n.footer {\n  display: flex;\n  gap: 8px;\n  justify-content: flex-end;\n  margin-top: 16px;\n}\n\n.cancelBtn {\n  padding: 6px 14px;\n  border: 1px solid var(--border);\n  border-radius: var(--radius-sm, 4px);\n  background: none;\n  cursor: pointer;\n}\n\n.confirmBtn {\n  padding: 6px 14px;\n  background: var(--color-primary, #2d7ff9);\n  color: #fff;\n  border: none;\n  border-radius: var(--radius-sm, 4px);\n  cursor: pointer;\n}";
+  }
+  if (type === 'tabs') {
+    return ".root {\n" + rootCss + "\n}\n\n.list {\n  display: flex;\n  border-bottom: 1px solid var(--border);\n}\n\n.trigger {\n  padding: 8px 16px;\n  border: none;\n  background: none;\n  cursor: pointer;\n  border-bottom: 2px solid transparent;\n}\n\n.trigger[data-state='active'] {\n  border-bottom-color: var(--color-primary, #2d7ff9);\n  font-weight: 600;\n}\n\n.content {\n  padding: 16px 0;\n}";
+  }
+  if (type === 'checkbox') {
+    return ".root {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  cursor: pointer;\n}\n\n.checkbox {\n  width: 18px;\n  height: 18px;\n  border: 2px solid var(--border);\n  border-radius: 3px;\n  background: var(--surface);\n}\n\n.checkbox[data-state='checked'] {\n  background: var(--color-primary, #2d7ff9);\n  border-color: var(--color-primary, #2d7ff9);\n}\n\n.indicator {\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  color: #fff;\n}\n\n.label {\n  font-size: 14px;\n}";
+  }
+  if (type === 'switch') {
+    return ".root {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n}\n\n.switch {\n  width: 42px;\n  height: 24px;\n  border-radius: 12px;\n  background: var(--border);\n  position: relative;\n  cursor: pointer;\n  border: none;\n}\n\n.switch[data-state='checked'] {\n  background: var(--color-primary, #2d7ff9);\n}\n\n.thumb {\n  display: block;\n  width: 18px;\n  height: 18px;\n  border-radius: 50%;\n  background: #fff;\n  position: absolute;\n  top: 3px;\n  left: 3px;\n  transition: transform 150ms;\n}\n\n.thumb[data-state='checked'] {\n  transform: translateX(18px);\n}";
+  }
+  return ".root {\n" + rootCss + "\n}";
+}
+function buildRadixStyled(d, name, useTs) {
+  var type = (d && d.detectedType) || 'layout';
+  if (type === 'dialog') {
+    var pt = useTs ? 'interface ' + name + 'Props {\n  open: boolean;\n  onOpenChange: (open: boolean) => void;\n}\n\n' : '';
+    var p = useTs ? '{ open, onOpenChange }: ' + name + 'Props' : '{ open, onOpenChange }';
+    var title = (d.texts && d.texts.title) || 'Dialog Title';
+    var cancel = (d.texts && d.texts.actions && d.texts.actions[0]) || 'Cancel';
+    var confirm = (d.texts && d.texts.actions && d.texts.actions[1]) || 'Confirm';
+    return "import * as Dialog from '@radix-ui/react-dialog';\nimport styled from 'styled-components';\n\nconst Overlay = styled(Dialog.Overlay)`\n  position: fixed; inset: 0; background: rgba(0,0,0,0.5);\n`;\nconst Content = styled(Dialog.Content)`\n" + stylesToCSSProps(d.styles) + "\n  position: fixed; top: 50%; left: 50%;\n  transform: translate(-50%,-50%);\n`;\n\n" + pt + "export const " + name + " = (" + p + ") => (\n  <Dialog.Root open={open} onOpenChange={onOpenChange}>\n    <Dialog.Portal>\n      <Overlay />\n      <Content aria-describedby={undefined}>\n        <Dialog.Title>" + title + "</Dialog.Title>\n        <div style={{display:'flex',gap:'8px',justifyContent:'flex-end',marginTop:'16px'}}>\n          <Dialog.Close asChild><button>" + cancel + "</button></Dialog.Close>\n          <button>" + confirm + "</button>\n        </div>\n      </Content>\n    </Dialog.Portal>\n  </Dialog.Root>\n);";
+  }
+  if (type === 'button') {
+    var pt2 = useTs ? 'interface ' + name + 'Props {\n  onClick?: () => void;\n  disabled?: boolean;\n  children?: React.ReactNode;\n}\n\n' : '';
+    var p2 = useTs ? '{ onClick, disabled, children }: ' + name + 'Props' : '{ onClick, disabled, children }';
+    var label = (d.texts && d.texts.title) || name;
+    return "import styled from 'styled-components';\n\nconst StyledButton = styled.button`\n" + stylesToCSSProps(d.styles) + "\n  cursor: pointer;\n  &:hover { opacity: 0.9; }\n  &:disabled { opacity: 0.5; cursor: not-allowed; }\n`;\n\n" + pt2 + "export const " + name + " = (" + p2 + ") => (\n  <StyledButton onClick={onClick} disabled={disabled} type=\"button\">\n    {children ?? '" + label + "'}\n  </StyledButton>\n);";
+  }
+  var tag = getSemanticTag(name);
+  var pt3 = useTs ? 'interface ' + name + 'Props {\n  children?: React.ReactNode;\n}\n\n' : '';
+  var p3 = useTs ? '{ children }: ' + name + 'Props' : '{ children }';
+  return "import styled from 'styled-components';\n\nconst Wrapper = styled." + tag + "`\n" + stylesToCSSProps(d.styles) + "\n`;\n\n" + pt3 + "export const " + name + " = (" + p3 + ") => (\n  <Wrapper>{children}</Wrapper>\n);";
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 function stylesToCSSProps(styles) {
   if (!styles) return '';
   return Object.keys(styles).map(function(k) { return '  ' + k + ': ' + styles[k] + ';'; }).join('\n');
