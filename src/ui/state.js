@@ -10,4 +10,6 @@ export var state = {
   tokenCacheInfo: null, // { savedAt, figmaFileId, figmaFileName }
   extractedColors: [], // {name, hex}[] — a11y matrix용
   lastSelection: { count: 0, names: [], nodeTypes: [], meta: null },
+  figmaFileKey: '',    // init-data에서 수신, 컴포넌트 DB 동기화용
+  figmaFileName: '',   // init-data에서 수신
 };

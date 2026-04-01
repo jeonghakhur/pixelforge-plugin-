@@ -420,6 +420,7 @@ async function sendCollections() {
     type: 'init-data',
     collections,
     fileName: figma.root.name,
+    figmaFileKey: figma.fileKey || figma.root.id,
     selection: await getSelectionInfo(),
   });
 
@@ -451,6 +452,18 @@ async function sendCollections() {
         figmaFileName: tokenCache.figmaFileName,
       });
     }
+  } catch (_) {}
+
+  // PixelForge 연결 설정 복원
+  try {
+    const pfSettings = (await figma.clientStorage.getAsync('pf-settings')) as
+      | { url: string; key: string }
+      | undefined;
+    figma.ui.postMessage({
+      type: 'settings-data',
+      url: pfSettings?.url ?? '',
+      key: pfSettings?.key ?? '',
+    });
   } catch (_) {}
 }
 
@@ -643,7 +656,7 @@ async function extractAll(options: ExtractOptions): Promise<ExtractedTokens> {
     styles: { colors, texts, textStyles, headings, fonts, effects },
     icons,
     meta: {
-      figmaFileKey: figma.fileKey ?? '',
+      figmaFileKey: figma.fileKey || figma.root.id,
       extractedAt: new Date().toISOString(),
       fileName: figma.root.name,
       sourceMode: isSelectionMode ? 'selection' : 'all',
@@ -1180,6 +1193,8 @@ interface GenerateComponentResult {
   meta: NodeMeta;
   styles: Record<string, string>;
   html: string;
+  htmlClass: string;
+  htmlCss: string;
   jsx: string;
   detectedType: ComponentType;
   texts: ExtractedTexts;
@@ -1290,9 +1305,16 @@ function inferRadixColor(node: SceneNode, colorMap: Map<string, string>): string
 
 function inferRadixSize(node: SceneNode): RadixProps['size'] {
   if (!('height' in node)) return '2';
-  const h = (node as FrameNode).height;
-  const pt = 'paddingTop' in node ? ((node as FrameNode).paddingTop ?? 0) : 0;
-  // height 기반
+  // GROUP/COMPONENT_SET은 여러 variant를 담는 컨테이너라 전체 height로 size를 추론하면 안 됨.
+  // 자식 중 첫 번째 FRAME/COMPONENT를 찾아 그 height로 추론.
+  let targetNode: SceneNode = node;
+  if ((node.type === 'GROUP' || node.type === 'COMPONENT_SET') && 'children' in node) {
+    const firstChild = (node as ChildrenMixin).children.find(
+      (c) => c.type === 'FRAME' || c.type === 'COMPONENT' || c.type === 'INSTANCE'
+    ) as SceneNode | undefined;
+    if (firstChild && 'height' in firstChild) targetNode = firstChild;
+  }
+  const h = (targetNode as FrameNode).height;
   if (h <= 24) return '1';
   if (h <= 32) return '2';
   if (h <= 40) return '3';
@@ -1488,6 +1510,63 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
     }
   }
 
+  function buildHtmlWithClasses(root: SceneNode): { html: string; css: string } {
+    const cssMap: Record<string, Record<string, string>> = {};
+    let counter = 0;
+
+    function toClass(n: SceneNode, indent: number): string {
+      try {
+        const pad = '  '.repeat(indent);
+        if (n.type === 'TEXT') {
+          const text = safeGetText(n);
+          if (!text) return '';
+          const cls = counter === 0 ? 'root-text' : 'text-' + counter;
+          counter++;
+          cssMap[cls] = {};
+          return (
+            pad +
+            '<span class="' +
+            cls +
+            '">' +
+            text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') +
+            '</span>'
+          );
+        }
+        const cls = counter === 0 ? 'root' : 'el-' + counter;
+        counter++;
+        const styles = getNodeStyles(n);
+        if (Object.keys(styles).length > 0) {
+          cssMap[cls] = styles;
+        }
+        if ('children' in n && (n as ChildrenMixin).children.length > 0) {
+          const kids = (n as ChildrenMixin).children
+            .filter((c) => (c as SceneNode).visible !== false)
+            .map((c) => toClass(c as SceneNode, indent + 1))
+            .filter(Boolean)
+            .join('\n');
+          if (!kids) return pad + '<div class="' + cls + '"></div>';
+          return pad + '<div class="' + cls + '">\n' + kids + '\n' + pad + '</div>';
+        }
+        return pad + '<div class="' + cls + '"></div>';
+      } catch (_) {
+        return '';
+      }
+    }
+
+    const html = toClass(root, 0);
+    const css = Object.entries(cssMap)
+      .filter(([, props]) => Object.keys(props).length > 0)
+      .map(([cls, props]) => {
+        const body = Object.entries(props)
+          .map(([k, v]) => '  ' + k + ': ' + v + ';')
+          .join('\n');
+        return '.' + cls + ' {\n' + body + '\n}';
+      })
+      .join('\n\n');
+
+    return { html, css };
+  }
+
   function nodeToJsx(n: SceneNode, indent: number): string {
     try {
       const pad = '  '.repeat(indent);
@@ -1647,6 +1726,8 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
     rootStyles['height'] = Math.round(node.height) + 'px';
   }
 
+  const htmlClassResult = buildHtmlWithClasses(node);
+
   return {
     name: node.name,
     meta: {
@@ -1659,6 +1740,8 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
     } as NodeMeta,
     styles: rootStyles,
     html: nodeToHtml(node, 0),
+    htmlClass: htmlClassResult.html,
+    htmlCss: htmlClassResult.css,
     jsx: nodeToJsx(node, 0),
     detectedType: detectComponentType(node),
     texts: extractTexts(node),
@@ -1799,6 +1882,11 @@ figma.ui.onmessage = (msg: {
       })
       .then(() => figma.ui.postMessage({ type: 'registry-deleted' }))
       .catch((e) => figma.ui.postMessage({ type: 'registry-error', message: String(e) }));
+  }
+  if (msg.type === 'set-settings') {
+    figma.clientStorage
+      .setAsync('pf-settings', { url: (msg as any).url ?? '', key: (msg as any).key ?? '' })
+      .catch(() => {});
   }
   if (msg.type === 'close') {
     figma.closePlugin();

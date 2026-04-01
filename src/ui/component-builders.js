@@ -156,6 +156,199 @@ function _pt(name, body, useTs) {
   return useTs ? 'interface ' + name + 'Props {\n' + body + '\n}\n\n' : '';
 }
 
+// ─── HTML/JSX 파싱 — Figma 구조에서 variant 정보 추출 ──────────────────────────
+
+/**
+ * Figma HTML 문자열에서 색상·크기 변형 정보를 추출한다.
+ * 반환: { colorVariants: [{name, cssVar}], sizeVariants: [{name, padding, gap}], borderRadius }
+ */
+function parseVariantsFromHtml(html) {
+  if (!html) return { colorVariants: [], sizeVariants: [], borderRadius: '' };
+
+  var colorVariants = [];
+  var sizeVariants  = [];
+  var seenVars      = {};
+  var seenPaddings  = {};
+
+  // ── 색상 변형: background-color:var(--x) 바로 뒤에 오는 <span>텍스트 패턴 ──
+  // ex) background-color: var(--blue-bright); ... ><span>Primary</span>
+  var colorRe = /background-color:\s*(var\([^)]+\))[^>]*>(?:\s*<[^/][^>]*>\s*)*\s*<span>([^<]+)<\/span>/g;
+  var m;
+  while ((m = colorRe.exec(html)) !== null) {
+    var cssVar = m[1];
+    var raw    = m[2].trim().toLowerCase().replace(/\s+/g, '-');
+    if (!seenVars[cssVar]) {
+      seenVars[cssVar] = true;
+      colorVariants.push({ name: raw, cssVar: cssVar });
+    }
+  }
+
+  // ── 크기 변형: style 속성에서 padding + gap 함께 추출 ────────────────────────
+  // ex) style="...; gap: 10px; padding: 7px 12px 7px 12px"
+  var styleAttrRe = /style="([^"]+)"/g;
+  while ((m = styleAttrRe.exec(html)) !== null) {
+    var styleStr = m[1];
+    var pMatch = styleStr.match(/padding:\s*([\d.]+px\s+[\d.]+px(?:\s+[\d.]+px\s+[\d.]+px)?)/);
+    if (!pMatch) continue;
+    var raw = pMatch[1].trim();
+    // CSS shorthand 정규화: "Apx Bpx Apx Bpx" → "Apx Bpx"
+    var parts = raw.split(/\s+/);
+    var p = (parts.length === 4 && parts[0] === parts[2] && parts[1] === parts[3])
+      ? parts[0] + ' ' + parts[1]
+      : raw;
+    if (seenPaddings[p]) continue;
+    seenPaddings[p] = true;
+    var gMatch = styleStr.match(/gap:\s*([\d.]+px)/);
+    sizeVariants.push({ padding: p, gap: gMatch ? gMatch[1] : null });
+  }
+  // 세로(첫 번째) padding 값 기준 오름차순 → small/medium/large 순서 보장
+  sizeVariants.sort(function(a, b) {
+    return parseFloat(a.padding) - parseFloat(b.padding);
+  });
+  var sizeLabels = ['small', 'medium', 'large', 'xlarge'];
+  sizeVariants = sizeVariants.map(function(v, i) {
+    return { name: sizeLabels[i] || ('size-' + (i + 1)), padding: v.padding, gap: v.gap };
+  });
+
+  // ── root border-radius 추출 ───────────────────────────────────────────────
+  var brMatch = html.match(/border-radius:\s*([\d.]+px)/);
+  var borderRadius = brMatch ? brMatch[1] : '';
+
+  return { colorVariants: colorVariants, sizeVariants: sizeVariants, borderRadius: borderRadius };
+}
+
+/**
+ * 파싱된 variant 정보로 CSS module 내용을 생성한다.
+ */
+function buildButtonCSS(parsed) {
+  var lines = [];
+
+  // .root — 구조/공통 스타일 (Radix 기본 시각 스타일 초기화)
+  lines.push('.root {');
+  lines.push('  all: unset;');
+  lines.push('  box-sizing: border-box;');
+  lines.push('  display: inline-flex;');
+  lines.push('  align-items: center;');
+  lines.push('  justify-content: center;');
+  lines.push('  cursor: pointer;');
+  if (parsed.borderRadius) lines.push('  border-radius: ' + parsed.borderRadius + ';');
+  lines.push('}');
+  lines.push('');
+
+  if (parsed.colorVariants.length > 0) {
+    lines.push('/* Color variants */');
+    parsed.colorVariants.forEach(function(v) {
+      lines.push('.' + v.name + ' { background-color: ' + v.cssVar + '; }');
+    });
+    lines.push('');
+  }
+
+  if (parsed.sizeVariants.length > 0) {
+    lines.push('/* Size variants */');
+    parsed.sizeVariants.forEach(function(v) {
+      var decls = 'padding: ' + v.padding + ';';
+      if (v.gap) decls += ' gap: ' + v.gap + ';';
+      lines.push('.' + v.name + ' { ' + decls + ' }');
+    });
+    lines.push('');
+  }
+
+  lines.push('.root:disabled,');
+  lines.push('.root[disabled] {');
+  lines.push('  opacity: 0.4;');
+  lines.push('  cursor: not-allowed;');
+  lines.push('}');
+
+  return lines.join('\n');
+}
+
+/**
+ * texts.all에서 디자인 시스템 사이즈 라벨을 추출한다.
+ * ex) ["xsmall","small","default","large","xlarge","xxlarge"]
+ */
+var KNOWN_SIZE_LABELS = [
+  'xsmall','xs','small','sm','default','base','normal',
+  'medium','md','large','lg','xlarge','xl','xxlarge','xxl','2xl','3xl','4xl',
+];
+function parseSizeLabelsFromTexts(texts) {
+  var all = (texts && texts.all) || [];
+  var result = [];
+  var seen = {};
+  all.forEach(function(t) {
+    var lower = (t || '').toLowerCase().trim();
+    if (KNOWN_SIZE_LABELS.indexOf(lower) !== -1 && !seen[lower]) {
+      seen[lower] = true;
+      result.push(lower);
+    }
+  });
+  return result;
+}
+
+/**
+ * texts.all에서 굵기(weight) 라벨을 추출한다.
+ */
+var KNOWN_WEIGHT_LABELS = ['thin','light','regular','normal','medium','semibold','bold','extrabold','black'];
+function parseWeightLabelsFromTexts(texts) {
+  var all = (texts && texts.all) || [];
+  var result = [];
+  var seen = {};
+  all.forEach(function(t) {
+    var lower = (t || '').toLowerCase().trim();
+    if (KNOWN_WEIGHT_LABELS.indexOf(lower) !== -1 && !seen[lower]) {
+      seen[lower] = true;
+      result.push(lower);
+    }
+  });
+  return result;
+}
+
+/**
+ * 사이즈 라벨 배열 → CSS module 내용 생성 (typography 전용).
+ * font 값은 Figma HTML에서 추출 불가이므로 CSS 변수 참조 형태로 생성.
+ */
+function buildTypographyCSS(sizeLabels, weightLabels) {
+  var lines = ['.root { }', ''];
+  if (sizeLabels.length > 0) {
+    lines.push('/* Size variants — map to your design system typography tokens */');
+    sizeLabels.forEach(function(s) {
+      lines.push('.' + s + ' { font-size: var(--font-size-' + s + '); }');
+    });
+    lines.push('');
+  }
+  if (weightLabels.length > 0) {
+    lines.push('/* Weight variants */');
+    weightLabels.forEach(function(w) {
+      lines.push('.' + w + ' { font-weight: var(--font-weight-' + w + '); }');
+    });
+    lines.push('');
+  }
+  return lines.join('\n').trimEnd();
+}
+
+/**
+ * Badge/Callout 등 배경색 변형 컴포넌트용 CSS 생성.
+ * Button의 buildButtonCSS와 동일 패턴, size 없이 color만.
+ */
+function buildColorVariantCSS(parsed, extraRootCss) {
+  var lines = [];
+  lines.push('.root {');
+  lines.push('  all: unset;');
+  lines.push('  box-sizing: border-box;');
+  lines.push('  display: inline-flex;');
+  lines.push('  align-items: center;');
+  if (parsed.borderRadius) lines.push('  border-radius: ' + parsed.borderRadius + ';');
+  if (extraRootCss) lines.push(extraRootCss);
+  lines.push('}');
+  lines.push('');
+  if (parsed.colorVariants.length > 0) {
+    lines.push('/* Color variants */');
+    parsed.colorVariants.forEach(function(v) {
+      lines.push('.' + v.name + ' { background-color: ' + v.cssVar + '; }');
+    });
+  }
+  return lines.join('\n');
+}
+
 // ─── CSS Modules 빌더 — Radix Themes 기준 ───────────────────────────────────
 
 function _rp(d) {
@@ -163,29 +356,65 @@ function _rp(d) {
 }
 
 function buildButtonCSSModules(d, name, useTs) {
-  var rp = _rp(d);
-  var variant = rp.variant || 'solid';
-  var color = rp.color;
-  var size = rp.size || '2';
-  var label = (d.texts && d.texts.title) || name;
-  var colorProp = color ? '\n    color="' + color + '"' : '';
+  var parsed = parseVariantsFromHtml(d.html || '');
+  var colorVs = parsed.colorVariants;
+  var sizeVs  = parsed.sizeVariants;
+
+  // variant union: Figma에서 추출된 색상 변형 이름
+  var variantNames = colorVs.length > 0
+    ? colorVs.map(function(v) { return v.name; })
+    : ['default'];
+  var variantUnion = variantNames.map(function(n) { return '"' + n + '"'; }).join(' | ');
+  var defaultVariant = variantNames[0];
+
+  // size union: Figma에서 추출된 크기 변형 이름
+  var sizeNames = sizeVs.length > 0
+    ? sizeVs.map(function(v) { return v.name; })
+    : ['medium'];
+  var sizeUnion = sizeNames.map(function(n) { return '"' + n + '"'; }).join(' | ');
+  // 중간값을 기본 크기로 사용
+  var defaultSize = sizeNames[Math.floor(sizeNames.length / 2)] || sizeNames[0];
+
+  // children 기본 텍스트: texts.all에서 짧고 '/' 없는 텍스트 우선
+  var candidateTexts = (d.texts && d.texts.all) || [];
+  var buttonLabel = candidateTexts.find(function(t) {
+    return t && t.length < 30 && !t.includes('/');
+  }) || defaultVariant;
+
+  var propsBody = [
+    '  onClick?: () => void;',
+    '  disabled?: boolean;',
+    '  variant?: ' + variantUnion + ';',
+    '  size?: ' + sizeUnion + ';',
+    '  children?: React.ReactNode;',
+  ].join('\n');
+
+  var destructure = useTs
+    ? '{ onClick, disabled, variant = "' + defaultVariant + '", size = "' + defaultSize + '", children }: ' + name + 'Props'
+    : '{ onClick, disabled, variant = "' + defaultVariant + '", size = "' + defaultSize + '", children }';
+
   return (
     _imp('Button') + "\nimport styles from './" + name + ".module.css';\n\n" +
-    _pt(name, '  onClick?: () => void;\n  disabled?: boolean;\n  variant?: "solid" | "soft" | "outline" | "ghost";\n  size?: "1" | "2" | "3" | "4";\n  color?: string;\n  children?: React.ReactNode;', useTs) +
-    'export const ' + name + ' = (' +
-    (useTs ? '{ onClick, disabled, variant = "' + variant + '", size = "' + size + '", color' + (color ? ' = "' + color + '"' : '') + ', children }: ' + name + 'Props' : '{ onClick, disabled, variant = "' + variant + '", size = "' + size + '", color' + (color ? ' = "' + color + '"' : '') + ', children }') +
-    ') => (\n  <Button\n    variant={variant}' + colorProp +
-    '\n    size={size}\n    onClick={onClick}\n    disabled={disabled}\n    className={styles.root}\n  >\n    {children ?? \'' + label + '\'}\n  </Button>\n);'
+    _pt(name, propsBody, useTs) +
+    'export const ' + name + ' = (' + destructure + ') => (\n' +
+    '  <Button\n' +
+    '    onClick={onClick}\n' +
+    '    disabled={disabled}\n' +
+    '    className={`${styles.root} ${styles[variant]} ${styles[size]}`}\n' +
+    '  >\n' +
+    '    {children ?? \'' + buttonLabel + '\'}\n' +
+    '  </Button>\n' +
+    ');'
   );
 }
 
 function buildIconButtonCSSModules(d, name, useTs) {
   return (
     _imp('IconButton') + "\nimport styles from './" + name + ".module.css';\n\n" +
-    _pt(name, '  onClick?: () => void;\n  variant?: "solid" | "soft" | "outline" | "ghost";\n  size?: "1" | "2" | "3" | "4";\n  children?: React.ReactNode;', useTs) +
+    _pt(name, '  onClick?: () => void;\n  disabled?: boolean;\n  children?: React.ReactNode;', useTs) +
     'export const ' + name + ' = (' +
-    (useTs ? '{ onClick, variant = "soft", size = "2", children }: ' + name + 'Props' : '{ onClick, variant = "soft", size = "2", children }') +
-    ") => (\n  <IconButton variant={variant} size={size} onClick={onClick} className={styles.root}>\n    {children ?? '\\u2605'}\n  </IconButton>\n);"
+    (useTs ? '{ onClick, disabled, children }: ' + name + 'Props' : '{ onClick, disabled, children }') +
+    ") => (\n  <IconButton onClick={onClick} disabled={disabled} className={styles.root}>\n    {children ?? '\\u2605'}\n  </IconButton>\n);"
   );
 }
 
@@ -263,7 +492,7 @@ function buildCheckboxCSSModules(d, name, useTs) {
     _pt(name, '  checked?: boolean;\n  onCheckedChange?: (checked: boolean) => void;\n  label?: string;', useTs) +
     'export const ' + name + ' = (' +
     (useTs ? '{ checked, onCheckedChange, label = "' + label + '" }: ' + name + 'Props' : '{ checked, onCheckedChange, label = "' + label + '" }') +
-    ') => (\n  <Text as="label" size="2">\n    <Flex gap="2" align="center">\n      <Checkbox checked={checked} onCheckedChange={onCheckedChange} />\n      {label}\n    </Flex>\n  </Text>\n);'
+    ') => (\n  <Text as="label">\n    <Flex gap="2" align="center">\n      <Checkbox checked={checked} onCheckedChange={onCheckedChange} />\n      {label}\n    </Flex>\n  </Text>\n);'
   );
 }
 
@@ -274,7 +503,7 @@ function buildSwitchCSSModules(d, name, useTs) {
     _pt(name, '  checked?: boolean;\n  onCheckedChange?: (checked: boolean) => void;\n  label?: string;', useTs) +
     'export const ' + name + ' = (' +
     (useTs ? '{ checked, onCheckedChange, label = "' + label + '" }: ' + name + 'Props' : '{ checked, onCheckedChange, label = "' + label + '" }') +
-    ') => (\n  <Text as="label" size="2">\n    <Flex gap="2" align="center">\n      <Switch checked={checked} onCheckedChange={onCheckedChange} />\n      {label}\n    </Flex>\n  </Text>\n);'
+    ') => (\n  <Text as="label">\n    <Flex gap="2" align="center">\n      <Switch checked={checked} onCheckedChange={onCheckedChange} />\n      {label}\n    </Flex>\n  </Text>\n);'
   );
 }
 
@@ -339,7 +568,7 @@ function buildTooltipCSSModules(d, name, useTs) {
     _pt(name, '  content?: string;\n  children?: React.ReactNode;', useTs) +
     'export const ' + name + ' = (' +
     (useTs ? '{ content = "' + content + '", children }: ' + name + 'Props' : '{ content = "' + content + '", children }') +
-    ') => (\n  <Tooltip content={content}>\n    {children ?? <IconButton variant="ghost" size="1">?</IconButton>}\n  </Tooltip>\n);'
+    ') => (\n  <Tooltip content={content}>\n    {children ?? <IconButton>?</IconButton>}\n  </Tooltip>\n);'
   );
 }
 
@@ -359,11 +588,11 @@ function buildHoverCardCSSModules(d, name, useTs) {
   var triggerText = (d.texts && d.texts.title) || 'Hover me';
   var desc = (d.texts && d.texts.description) || 'Description';
   return (
-    _imp('HoverCard, Flex, Text, Avatar') + '\n\n' +
+    _imp('HoverCard, Flex, Text, Avatar') + "\nimport styles from './" + name + ".module.css';\n\n" +
     _pt(name, '  trigger?: React.ReactNode;', useTs) +
     'export const ' + name + ' = (' +
     (useTs ? '{ trigger }: ' + name + 'Props' : '{ trigger }') +
-    ') => (\n  <HoverCard.Root>\n    <HoverCard.Trigger>\n      {trigger ?? <Text>' + triggerText + '</Text>}\n    </HoverCard.Trigger>\n    <HoverCard.Content maxWidth="300px">\n      <Flex gap="3">\n        <Avatar size="3" fallback="U" radius="full" />\n        <Flex direction="column" gap="1">\n          <Text size="2" weight="bold">' + triggerText + '</Text>\n          <Text size="1" color="gray">' + desc + '</Text>\n        </Flex>\n      </Flex>\n    </HoverCard.Content>\n  </HoverCard.Root>\n);'
+    ') => (\n  <HoverCard.Root>\n    <HoverCard.Trigger>\n      {trigger ?? <Text>' + triggerText + '</Text>}\n    </HoverCard.Trigger>\n    <HoverCard.Content maxWidth="300px">\n      <Flex gap="3">\n        <Avatar fallback="U" radius="full" />\n        <Flex direction="column" gap="1">\n          <Text className={styles.title}>' + triggerText + '</Text>\n          <Text className={styles.description}>' + desc + '</Text>\n        </Flex>\n      </Flex>\n    </HoverCard.Content>\n  </HoverCard.Root>\n);'
   );
 }
 
@@ -405,22 +634,39 @@ function buildSegmentedControlCSSModules(d, name, useTs) {
 function buildAvatarCSSModules(d, name, useTs) {
   var fallback = (d.texts && d.texts.title && d.texts.title.slice(0, 2).toUpperCase()) || name.slice(0, 2).toUpperCase();
   return (
-    _imp('Avatar') + '\n\n' +
-    _pt(name, '  src?: string;\n  fallback?: string;\n  size?: "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9";', useTs) +
+    _imp('Avatar') + "\nimport styles from './" + name + ".module.css';\n\n" +
+    _pt(name, '  src?: string;\n  fallback?: string;', useTs) +
     'export const ' + name + ' = (' +
-    (useTs ? '{ src, fallback = "' + fallback + '", size = "3" }: ' + name + 'Props' : '{ src, fallback = "' + fallback + '", size = "3" }') +
-    ') => (\n  <Avatar src={src} fallback={fallback} size={size} radius="full" />\n);'
+    (useTs ? '{ src, fallback = "' + fallback + '" }: ' + name + 'Props' : '{ src, fallback = "' + fallback + '" }') +
+    ') => (\n  <Avatar src={src} fallback={fallback} radius="full" className={styles.root} />\n);'
   );
 }
 
 function buildBadgeCSSModules(d, name, useTs) {
-  var label = (d.texts && d.texts.title) || name;
+  var parsed = parseVariantsFromHtml(d.html || '');
+  var colorVs = parsed.colorVariants;
+  var colorNames = colorVs.length > 0 ? colorVs.map(function(v) { return v.name; }) : ['default'];
+  var colorUnion = colorNames.map(function(n) { return '"' + n + '"'; }).join(' | ');
+  var defaultColor = colorNames[0];
+  var candidateTexts = (d.texts && d.texts.all) || [];
+  var badgeLabel = candidateTexts.find(function(t) {
+    return t && t.length < 20 && !t.includes('/');
+  }) || defaultColor;
+  var propsBody = [
+    '  color?: ' + colorUnion + ';',
+    '  children?: React.ReactNode;',
+  ].join('\n');
+  var destructure = useTs
+    ? '{ color = "' + defaultColor + '", children }: ' + name + 'Props'
+    : '{ color = "' + defaultColor + '", children }';
   return (
-    _imp('Badge') + '\n\n' +
-    _pt(name, '  label?: string;\n  color?: string;\n  variant?: "solid" | "soft" | "outline" | "surface";', useTs) +
-    'export const ' + name + ' = (' +
-    (useTs ? '{ label = "' + label + '", color, variant = "soft" }: ' + name + 'Props' : '{ label = "' + label + '", color, variant = "soft" }') +
-    ') => (\n  <Badge color={color} variant={variant}>{label}</Badge>\n);'
+    _imp('Badge') + "\nimport styles from './" + name + ".module.css';\n\n" +
+    _pt(name, propsBody, useTs) +
+    'export const ' + name + ' = (' + destructure + ') => (\n' +
+    '  <Badge className={`${styles.root} ${styles[color]}`}>\n' +
+    '    {children ?? \'' + badgeLabel + '\'}\n' +
+    '  </Badge>\n' +
+    ');'
   );
 }
 
@@ -434,31 +680,78 @@ function buildCardCSSModules(d, name, useTs) {
     'export const ' + name + ' = (' +
     (useTs ? '{ title, description, children }: ' + name + 'Props' : '{ title, description, children }') +
     ') => (\n  <Card className={styles.root}>\n    <Flex direction="column" gap="2">\n' +
-    (title ? '      {title && <Heading size="4">{title}</Heading>}\n' : '') +
-    (description ? '      {description && <Text size="2" color="gray">{description}</Text>}\n' : '') +
+    (title ? '      {title && <Heading className={styles.cardTitle}>{title}</Heading>}\n' : '') +
+    (description ? '      {description && <Text className={styles.cardDescription}>{description}</Text>}\n' : '') +
     '      {children}\n    </Flex>\n  </Card>\n);'
   );
 }
 
 function buildHeadingCSSModules(d, name, useTs) {
-  var title = (d.texts && d.texts.title) || name;
+  var sizes = parseSizeLabelsFromTexts(d.texts);
+  var sizeUnion = sizes.length > 0
+    ? sizes.map(function(s) { return '"' + s + '"'; }).join(' | ')
+    : '"1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"';
+  var defaultSize = sizes.indexOf('default') !== -1 ? 'default'
+    : sizes.length > 0 ? sizes[Math.floor(sizes.length / 2)] : '4';
+  var propsBody = [
+    '  as?: "h1" | "h2" | "h3" | "h4" | "h5" | "h6";',
+    '  size?: ' + sizeUnion + ';',
+    '  children?: React.ReactNode;',
+    '  className?: string;',
+  ].join('\n');
+  var destructure = useTs
+    ? '{ as = "h2", size = "' + defaultSize + '", children, className }: ' + name + 'Props'
+    : '{ as = "h2", size = "' + defaultSize + '", children, className }';
   return (
     _imp('Heading') + "\nimport styles from './" + name + ".module.css';\n\n" +
-    _pt(name, '  as?: "h1" | "h2" | "h3" | "h4" | "h5" | "h6";\n  size?: "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9";\n  children?: React.ReactNode;\n  className?: string;', useTs) +
-    'export const ' + name + ' = (' +
-    (useTs ? '{ as = "h2", size = "6", children, className }: ' + name + 'Props' : '{ as = "h2", size = "6", children, className }') +
-    ') => (\n  <Heading\n    as={as}\n    size={size}\n    className={`${styles.root}${className ? " " + className : ""}`}\n  >\n    {children ?? "' + title + '"}\n  </Heading>\n);'
+    _pt(name, propsBody, useTs) +
+    'export const ' + name + ' = (' + destructure + ') => (\n' +
+    '  <Heading\n' +
+    '    as={as}\n' +
+    '    className={`${styles.root} ${styles[size]}${className ? " " + className : ""}`}\n' +
+    '  >\n' +
+    '    {children ?? "Heading"}\n' +
+    '  </Heading>\n' +
+    ');'
   );
 }
 
 function buildTextCSSModules(d, name, useTs) {
-  var body = (d.texts && d.texts.title) || 'Body text';
+  var sizes = parseSizeLabelsFromTexts(d.texts);
+  var weights = parseWeightLabelsFromTexts(d.texts);
+  var sizeUnion = sizes.length > 0
+    ? sizes.map(function(s) { return '"' + s + '"'; }).join(' | ')
+    : '"xs" | "sm" | "base" | "lg" | "xl"';
+  var weightUnion = weights.length > 0
+    ? weights.map(function(w) { return '"' + w + '"'; }).join(' | ')
+    : '"light" | "regular" | "medium" | "bold"';
+  var defaultSize = sizes.indexOf('default') !== -1 ? 'default'
+    : sizes.indexOf('base') !== -1 ? 'base'
+    : sizes.length > 0 ? sizes[Math.floor(sizes.length / 2)] : 'base';
+  var defaultWeight = weights.indexOf('regular') !== -1 ? 'regular'
+    : weights.indexOf('normal') !== -1 ? 'normal'
+    : weights.length > 0 ? weights[0] : 'regular';
+  var propsBody = [
+    '  as?: "p" | "span" | "div" | "label";',
+    '  size?: ' + sizeUnion + ';',
+    '  weight?: ' + weightUnion + ';',
+    '  children?: React.ReactNode;',
+    '  className?: string;',
+  ].join('\n');
+  var destructure = useTs
+    ? '{ as = "p", size = "' + defaultSize + '", weight = "' + defaultWeight + '", children, className }: ' + name + 'Props'
+    : '{ as = "p", size = "' + defaultSize + '", weight = "' + defaultWeight + '", children, className }';
   return (
     _imp('Text') + "\nimport styles from './" + name + ".module.css';\n\n" +
-    _pt(name, '  as?: "p" | "span" | "div" | "label";\n  size?: "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9";\n  weight?: "light" | "regular" | "medium" | "bold";\n  children?: React.ReactNode;\n  className?: string;', useTs) +
-    'export const ' + name + ' = (' +
-    (useTs ? '{ as = "p", size = "3", weight = "regular", children, className }: ' + name + 'Props' : '{ as = "p", size = "3", weight = "regular", children, className }') +
-    ') => (\n  <Text\n    as={as}\n    size={size}\n    weight={weight}\n    className={`${styles.root}${className ? " " + className : ""}`}\n  >\n    {children ?? "' + body + '"}\n  </Text>\n);'
+    _pt(name, propsBody, useTs) +
+    'export const ' + name + ' = (' + destructure + ') => (\n' +
+    '  <Text\n' +
+    '    as={as}\n' +
+    '    className={`${styles.root} ${styles[size]} ${styles[weight]}${className ? " " + className : ""}`}\n' +
+    '  >\n' +
+    '    {children ?? "Text"}\n' +
+    '  </Text>\n' +
+    ');'
   );
 }
 
@@ -470,17 +763,17 @@ function buildInputCSSModules(d, name, useTs) {
     _pt(name, '  value?: string;\n  onChange?: (value: string) => void;\n  placeholder?: string;\n  label?: string;\n  disabled?: boolean;', useTs) +
     'export const ' + name + ' = (' +
     (useTs ? '{ value, onChange, placeholder = "' + placeholder + '", label = "' + label + '", disabled }: ' + name + 'Props' : '{ value, onChange, placeholder = "' + placeholder + '", label = "' + label + '", disabled }') +
-    ') => (\n  <Flex direction="column" gap="1" className={styles.root}>\n    <Text as="label" size="2" weight="medium">{label}</Text>\n    <TextField.Root\n      value={value}\n      onChange={(e) => onChange?.(e.target.value)}\n      placeholder={placeholder}\n      disabled={disabled}\n    />\n  </Flex>\n);'
+    ') => (\n  <Flex direction="column" gap="1" className={styles.root}>\n    <Text as="label" className={styles.label}>{label}</Text>\n    <TextField.Root\n      value={value}\n      onChange={(e) => onChange?.(e.target.value)}\n      placeholder={placeholder}\n      disabled={disabled}\n    />\n  </Flex>\n);'
   );
 }
 
 function buildSeparatorCSSModules(d, name, useTs) {
   return (
-    _imp('Separator') + '\n\n' +
-    _pt(name, '  orientation?: "horizontal" | "vertical";\n  size?: "1" | "2" | "3" | "4";', useTs) +
+    _imp('Separator') + "\nimport styles from './" + name + ".module.css';\n\n" +
+    _pt(name, '  orientation?: "horizontal" | "vertical";', useTs) +
     'export const ' + name + ' = (' +
-    (useTs ? '{ orientation = "horizontal", size = "4" }: ' + name + 'Props' : '{ orientation = "horizontal", size = "4" }') +
-    ') => (\n  <Separator orientation={orientation} size={size} />\n);'
+    (useTs ? '{ orientation = "horizontal" }: ' + name + 'Props' : '{ orientation = "horizontal" }') +
+    ') => (\n  <Separator orientation={orientation} className={styles.root} />\n);'
   );
 }
 
@@ -510,17 +803,17 @@ function buildScrollAreaCSSModules(d, name, useTs) {
     _pt(name, '  children?: React.ReactNode;', useTs) +
     'export const ' + name + ' = (' +
     (useTs ? '{ children }: ' + name + 'Props' : '{ children }') +
-    ') => (\n  <ScrollArea size="2" scrollbars="vertical" className={styles.root} style={{ maxHeight: 300 }}>\n    {children}\n  </ScrollArea>\n);'
+    ') => (\n  <ScrollArea scrollbars="vertical" className={styles.root} style={{ maxHeight: 300 }}>\n    {children}\n  </ScrollArea>\n);'
   );
 }
 
 function buildSpinnerCSSModules(d, name, useTs) {
   return (
     _imp('Spinner') + '\n\n' +
-    _pt(name, '  size?: "1" | "2" | "3";\n  loading?: boolean;', useTs) +
+    _pt(name, '  loading?: boolean;', useTs) +
     'export const ' + name + ' = (' +
-    (useTs ? '{ size = "2", loading = true }: ' + name + 'Props' : '{ size = "2", loading = true }') +
-    ') => (\n  <Spinner size={size} loading={loading} />\n);'
+    (useTs ? '{ loading = true }: ' + name + 'Props' : '{ loading = true }') +
+    ') => (\n  <Spinner loading={loading} />\n);'
   );
 }
 
@@ -561,13 +854,30 @@ function buildDataListCSSModules(d, name, useTs) {
 }
 
 function buildCalloutCSSModules(d, name, useTs) {
-  var text = (d.texts && d.texts.title) || 'Callout message';
+  var parsed = parseVariantsFromHtml(d.html || '');
+  var colorVs = parsed.colorVariants;
+  var colorNames = colorVs.length > 0 ? colorVs.map(function(v) { return v.name; }) : ['info', 'warning', 'error', 'success'];
+  var colorUnion = colorNames.map(function(n) { return '"' + n + '"'; }).join(' | ');
+  var defaultColor = colorNames[0];
+  var candidateTexts = (d.texts && d.texts.all) || [];
+  var calloutText = candidateTexts.find(function(t) {
+    return t && t.length > 5 && t.length < 80 && !t.includes('/');
+  }) || 'Callout message';
+  var propsBody = [
+    '  color?: ' + colorUnion + ';',
+    '  children?: React.ReactNode;',
+  ].join('\n');
+  var destructure = useTs
+    ? '{ color = "' + defaultColor + '", children }: ' + name + 'Props'
+    : '{ color = "' + defaultColor + '", children }';
   return (
-    _imp('Callout') + '\n\n' +
-    _pt(name, '  color?: string;\n  variant?: "soft" | "surface" | "outline";\n  children?: React.ReactNode;', useTs) +
-    'export const ' + name + ' = (' +
-    (useTs ? '{ color = "blue", variant = "soft", children }: ' + name + 'Props' : '{ color = "blue", variant = "soft", children }') +
-    ') => (\n  <Callout.Root color={color} variant={variant}>\n    <Callout.Text>{children ?? "' + text + '"}</Callout.Text>\n  </Callout.Root>\n);'
+    _imp('Callout') + "\nimport styles from './" + name + ".module.css';\n\n" +
+    _pt(name, propsBody, useTs) +
+    'export const ' + name + ' = (' + destructure + ') => (\n' +
+    '  <Callout.Root className={`${styles.root} ${styles[color]}`}>\n' +
+    '    <Callout.Text>{children ?? "' + calloutText + '"}</Callout.Text>\n' +
+    '  </Callout.Root>\n' +
+    ');'
   );
 }
 
@@ -586,11 +896,11 @@ function buildTableCSSModules(d, name, useTs) {
 function buildCodeCSSModules(d, name, useTs) {
   var content = (d.texts && d.texts.title) || 'console.log()';
   return (
-    _imp('Code') + '\n\n' +
-    _pt(name, '  variant?: "soft" | "outline" | "ghost";\n  children?: React.ReactNode;', useTs) +
+    _imp('Code') + "\nimport styles from './" + name + ".module.css';\n\n" +
+    _pt(name, '  children?: React.ReactNode;', useTs) +
     'export const ' + name + ' = (' +
-    (useTs ? '{ variant = "soft", children }: ' + name + 'Props' : '{ variant = "soft", children }') +
-    ') => (\n  <Code variant={variant}>{children ?? "' + content + '"}</Code>\n);'
+    (useTs ? '{ children }: ' + name + 'Props' : '{ children }') +
+    ') => (\n  <Code className={styles.root}>{children ?? "' + content + '"}</Code>\n);'
   );
 }
 
@@ -673,7 +983,7 @@ function buildCheckboxGroupCSSModules(d, name, useTs) {
     : [];
   if (opts.length < 2) opts = ['Option 1', 'Option 2'];
   var items = opts.map(function (o) {
-    return '    <Checkbox /><Text size="2">' + o + '</Text>';
+    return '    <Text as="label" size="2">\n      <Flex gap="2" align="center">\n        <Checkbox />\n        ' + o + '\n      </Flex>\n    </Text>';
   }).join('\n');
   return (
     _imp('Checkbox, Flex, Text') + '\n\n' +
@@ -845,18 +1155,63 @@ export function buildRadixCSS(d) {
 
   // Themes 컴포넌트 — props로 스타일링하므로 커스텀 CSS만
   if (entry && entry.themeComponent) {
-    // 이 타입들은 커스텀 CSS가 유의미함
-    if (type === 'card' || type === 'layout') {
-      return '.root {\n' + rootCss + '\n}';
+    // button — Figma HTML에서 추출한 variant CSS 생성
+    if (type === 'button') {
+      var parsed = parseVariantsFromHtml(d.html || '');
+      if (parsed.colorVariants.length > 0 || parsed.sizeVariants.length > 0) {
+        return buildButtonCSS(parsed);
+      }
+      // Figma 정보가 없으면 빈 root만
+      return '.root {\n  all: unset;\n  box-sizing: border-box;\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  cursor: pointer;\n}\n\n.root:disabled,\n.root[disabled] {\n  opacity: 0.4;\n  cursor: not-allowed;\n}';
     }
-    // heading/text — 타이포그래피 커스텀만
+    // heading — texts에서 사이즈 라벨 추출 → typography CSS 클래스
     if (type === 'heading') {
-      var headingCss = stylesToCSSProps(filterTypographyStyles(d.styles));
-      return headingCss ? '.root {\n' + headingCss + '\n}' : '/* Radix Themes handles styling via props */';
+      var hSizes = parseSizeLabelsFromTexts(d.texts);
+      return buildTypographyCSS(hSizes, []);
     }
+    // text — texts에서 사이즈·굵기 라벨 추출
     if (type === 'text') {
-      var textCss = stylesToCSSProps(filterTypographyStyles(d.styles));
-      return textCss ? '.root {\n' + textCss + '\n}' : '/* Radix Themes handles styling via props */';
+      var tSizes = parseSizeLabelsFromTexts(d.texts);
+      var tWeights = parseWeightLabelsFromTexts(d.texts);
+      return buildTypographyCSS(tSizes, tWeights);
+    }
+    // badge/callout — HTML에서 색상 변형 추출
+    if (type === 'badge' || type === 'callout') {
+      var bcParsed = parseVariantsFromHtml(d.html || '');
+      if (bcParsed.colorVariants.length > 0) return buildColorVariantCSS(bcParsed, '  padding: 2px 8px;');
+      return '.root { }\n\n/* Color variants — 디자인 토큰으로 채워주세요 */';
+    }
+    // icon-button
+    if (type === 'icon-button') {
+      return '.root {\n  all: unset;\n  box-sizing: border-box;\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  cursor: pointer;\n  width: 32px;\n  height: 32px;\n  border-radius: var(--radius-2, 4px);\n  background-color: var(--color-surface);\n}\n\n.root:disabled,\n.root[disabled] {\n  opacity: 0.4;\n  cursor: not-allowed;\n}';
+    }
+    // avatar
+    if (type === 'avatar') {
+      return '.root {\n  width: 40px;\n  height: 40px;\n  border-radius: 50%;\n  overflow: hidden;\n  background-color: var(--color-surface-alt);\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n}';
+    }
+    // separator
+    if (type === 'separator') {
+      return '.root {\n  border: none;\n  border-top: 1px solid var(--border);\n  width: 100%;\n  margin: 0;\n}';
+    }
+    // code
+    if (type === 'code') {
+      return '.root {\n  font-family: monospace;\n  font-size: 0.875em;\n  background-color: var(--code-bg, rgba(0,0,0,0.06));\n  padding: 2px 6px;\n  border-radius: var(--radius-1, 3px);\n}';
+    }
+    // hover-card
+    if (type === 'hover-card') {
+      return '.title {\n  font-size: var(--font-size-sm, 14px);\n  font-weight: var(--font-weight-bold, 700);\n}\n\n.description {\n  font-size: var(--font-size-xs, 12px);\n  color: var(--color-text-secondary);\n}';
+    }
+    // input
+    if (type === 'input') {
+      return '.root { }\n\n.label {\n  font-size: var(--font-size-sm, 14px);\n  font-weight: var(--font-weight-medium, 500);\n}';
+    }
+    // card
+    if (type === 'card') {
+      return '.root {\n' + (rootCss || '') + '\n}\n\n.cardTitle {\n  font-size: var(--font-size-lg, 18px);\n  font-weight: var(--font-weight-bold, 700);\n}\n\n.cardDescription {\n  font-size: var(--font-size-sm, 14px);\n  color: var(--color-text-secondary);\n}';
+    }
+    // layout — root 스타일 유지
+    if (type === 'layout') {
+      return '.root {\n' + rootCss + '\n}';
     }
     // 나머지 Themes 컴포넌트 — 커스텀 CSS 있으면 .root에만
     if (rootCss) {
@@ -922,10 +1277,10 @@ function _buildThemesStyled(d, name, useTs, type, hasCustom) {
     var comp = hasCustom ? 'StyledButton' : 'Button';
     return (
       _imp('Button') + '\n' + styledBlock +
-      _pt(name, '  onClick?: () => void;\n  disabled?: boolean;\n  variant?: "solid" | "soft" | "outline" | "ghost";\n  size?: "1" | "2" | "3" | "4";\n  children?: React.ReactNode;', useTs) +
+      _pt(name, '  onClick?: () => void;\n  disabled?: boolean;\n  children?: React.ReactNode;', useTs) +
       'export const ' + name + ' = (' +
-      (useTs ? '{ onClick, disabled, variant = "solid", size = "2", children }: ' + name + 'Props' : '{ onClick, disabled, variant = "solid", size = "2", children }') +
-      ') => (\n  <' + comp + ' variant={variant} size={size} onClick={onClick} disabled={disabled}>\n    {children ?? \'' + label + '\'}\n  </' + comp + '>\n);'
+      (useTs ? '{ onClick, disabled, children }: ' + name + 'Props' : '{ onClick, disabled, children }') +
+      ') => (\n  <' + comp + ' onClick={onClick} disabled={disabled}>\n    {children ?? \'' + label + '\'}\n  </' + comp + '>\n);'
     );
   }
 

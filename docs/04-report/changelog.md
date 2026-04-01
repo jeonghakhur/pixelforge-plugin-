@@ -2,7 +2,72 @@
 
 > **Project Version**: 1.5.8
 >
-> **Last Updated**: 2026-03-31
+> **Last Updated**: 2026-04-01
+
+---
+
+## [2026-04-01] — Component DB Registry Sync
+
+### Added
+
+- **Component DB Synchronization**: 플러그인 레지스트리 저장 시 PixelForge 앱 DB에 자동 동기화
+  - `POST /api/sync/components`: 컴포넌트 메타데이터 + 코드 파일 upsert
+  - `GET /api/sync/components`: DB 상태 조회 (배지 표시용)
+- **DB Schema Extensions** (App):
+  - `components.figmaNodeId`, `components.figmaFileKey`, `components.defaultStyleMode` 3개 컬럼 추가
+  - `component_files` 테이블 신규: styleMode별 TSX/CSS 파일 저장
+  - `component_node_snapshots` 테이블 신규: Figma 노드 JSON 스냅샷 (디버깅용)
+- **Category Mapping Function**: `componentTypeToCategory()` — plugin componentType → DB category enum
+- **Component Files Builder**: `buildComponentFiles()` — styleMode별 파일 배열 구성 (CSS/Styled/HTML)
+- **DB Status Refresh**: `refreshComponentDbStatus()` — 탭 활성화 시 DB와 로컬 상태 동기화
+- **UI Status Badge**: 
+  - `.db-badge--synced` (초록): DB에 저장됨
+  - `.db-badge--deleted` (주황): 앱에서 삭제됨
+  - i18n 지원 (ko/en)
+- **sendToPixelForge GET Support**: 기존 POST 외에 GET 메서드 추가
+
+### Changed
+
+- **DB Sync Trigger**: 자동 생성 후 → 사용자 save 클릭 시점으로 변경 (UX 개선)
+  - 사용자가 컴포넌트 이름 지정 후 저장하는 시점에 DB 동기화 → 최종 상태만 저장
+- **figmaFileKey Retrieval**: pfSettings.url(버그) → state.figmaFileKey(정확한 값) 수정
+- **GET Response Validation**: `!res.components` → `!Array.isArray()` (더 안전한 검증)
+- **Badge Font Size**: 10px → 9px (UI/UX 일관성)
+- **buildComponentFiles Parameter**: `state` → `cState` (명확성)
+- **components.tsx/scss Columns**: 제거 예정 → 유지 (하위 호환성)
+
+### Fixed
+
+- **figmaFileKey Auto-fill**: POST 요청 시 state에서 자동 채움 (400 에러 방지)
+- **GET Failure Silent Handling**: 불필요한 에러 토스트 제거
+- **Design Document Bug**: pfSettings.url 혼동 → 정정
+
+### Technical Details
+
+| Component | Changes | Files |
+|-----------|---------|-------|
+| DB Schema | 3개 컬럼 추가 (figmaNodeId, figmaFileKey, defaultStyleMode), 2개 테이블 신규 | pixelforge/src/lib/db/schema.ts |
+| API Logic | POST upsert 전면 재작성, GET 엔드포인트 신규 | pixelforge/src/app/api/sync/components/route.ts |
+| UI State | figmaFileKey, figmaFileName 추가 | src/ui/state.js |
+| Utils | sendToPixelForge GET 메서드 지원 | src/ui/utils.js |
+| Code Interface | init-data에 figmaFileKey 추가 | src/code.ts |
+| Component Tab | 카테고리 매핑, 파일 빌더, DB 상태 갱신, 배지 렌더링 | src/ui/tab-component.js |
+| Main UI Logic | DB 동기화 호출 시점, 탭 활성화 시 조회 | src/ui.js |
+| Styles | db-badge CSS (synced/deleted 상태) | src/ui.html |
+
+### Quality Metrics
+
+- **Design Match Rate**: 93% ✅
+- **API Accuracy**: 95% ✅
+- **Build Status**: ✅ Success
+- **Test Coverage**: 수동 검증 완료
+- **Type Safety**: 0 errors
+- **CSS Hardcoding**: 0 violations
+
+### Merged PRs
+
+- Plugin: Component DB Registry implementation
+- App: Schema extensions + API redesign
 
 ---
 

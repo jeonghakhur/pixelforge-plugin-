@@ -5,10 +5,10 @@ import { buildVarMap, convertVariables, convertFlatVars } from '../converters/va
 import { convertColorStyles } from '../converters/color-styles.js';
 import { convertTextStyles, convertFonts } from '../converters/typography.js';
 import { convertEffectStyles } from '../converters/effects.js';
-import { highlightCSS } from '../converters/highlight.js';
+import { highlightCSS, highlightJSON } from '../converters/highlight.js';
 import { state } from './state.js';
 import { lang, t } from './i18n.js';
-import { $, showToast, getScope } from './utils.js';
+import { $, showToast, getScope, sendToPixelForge } from './utils.js';
 
 // ── State ──
 var collections = [];
@@ -347,7 +347,7 @@ function updatePreview() {
   if (!state.extractedData) return;
   var filtered = getFilteredData();
   if (activeTab === 'json') {
-    previewPre.innerHTML = escapeHtml(JSON.stringify(filtered, null, 2));
+    previewPre.innerHTML = highlightJSON(JSON.stringify(filtered, null, 2));
   } else {
     previewPre.innerHTML = highlightCSS(generateCSS(filtered, cssUnit, activeStatTypes));
   }
@@ -420,6 +420,27 @@ downloadCssBtn.addEventListener('click', function () {
   URL.revokeObjectURL(url);
   showToast(t('extract.cssDownload'));
 });
+
+// ── PixelForge Send ──
+var pfSendExtractBtn = $('pfSendExtractBtn');
+if (pfSendExtractBtn) {
+  pfSendExtractBtn.addEventListener('click', async function () {
+    if (!state.extractedData) { showToast(t('extract.extractFail')); return; }
+    pfSendExtractBtn.disabled = true;
+    pfSendExtractBtn.textContent = t('settings.sending');
+    try {
+      var filtered = getFilteredData();
+      var result = await sendToPixelForge('/api/sync/tokens', {
+        tokens: filtered,
+        css: generateCSS(filtered, cssUnit, activeStatTypes),
+      });
+      if (result) showToast(t('settings.sendSuccess'));
+    } finally {
+      pfSendExtractBtn.disabled = false;
+      pfSendExtractBtn.textContent = t('settings.sendBtn');
+    }
+  });
+}
 
 // ── Result rendering ──
 export function renderResult(data) {

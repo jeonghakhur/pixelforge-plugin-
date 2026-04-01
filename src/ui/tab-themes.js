@@ -1,7 +1,7 @@
 'use strict';
 import { escapeHtml } from '../converters/utils.js';
 import { t } from './i18n.js';
-import { $, showToast, copyToClipboard } from './utils.js';
+import { $, showToast, copyToClipboard, sendToPixelForge } from './utils.js';
 
 // ══════════════════════════════════════════════
 // ── Theme Tab ──
@@ -168,12 +168,33 @@ if (themeCopyCssBtn) {
   });
 }
 
+// ── PixelForge Send ──
+var pfSendThemesBtn = $('pfSendThemesBtn');
+if (pfSendThemesBtn) {
+  pfSendThemesBtn.addEventListener('click', async function () {
+    if (!themeData) return;
+    pfSendThemesBtn.disabled = true;
+    pfSendThemesBtn.textContent = t('settings.sending');
+    try {
+      var result = await sendToPixelForge('/api/sync/themes', {
+        themes: themeData,
+        css: generateThemeCSS(),
+      });
+      if (result) showToast(t('settings.sendSuccess'));
+    } finally {
+      pfSendThemesBtn.disabled = false;
+      pfSendThemesBtn.textContent = t('settings.sendBtn');
+    }
+  });
+}
+
 export function onExtractThemesResult(data) {
   extractThemesBtn.disabled = false;
   extractThemesBtn.textContent = t('theme.extract');
   themeData = data;
   themeFilterBtn.disabled = false;
   if (themeCopyCssBtn) themeCopyCssBtn.disabled = false;
+  if (pfSendThemesBtn) pfSendThemesBtn.disabled = false;
   renderThemes();
 }
 

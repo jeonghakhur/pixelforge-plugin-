@@ -1,9 +1,10 @@
 'use strict';
 import JSZip from 'jszip';
 import { escapeHtml } from '../converters/utils.js';
+import { highlightTSX } from '../converters/highlight.js';
 import { state } from './state.js';
 import { lang, t } from './i18n.js';
-import { $, showToast, copyToClipboard, getScope } from './utils.js';
+import { $, showToast, copyToClipboard, getScope, sendToPixelForge } from './utils.js';
 
 // ══════════════════════════════════════════════
 // ── Icon Tab ──
@@ -749,7 +750,7 @@ function updateDetailCode() {
 
   var processed = replaceSvgColor(cleanSvg(icon.svg), iconColorMode, iconColorValue);
   var code = iconDetailTab === 'react' ? buildReactComponent(icon, processed) : processed;
-  $('iconDetailCode').textContent = code;
+  $('iconDetailCode').innerHTML = highlightTSX(code);
 
   // 썸네일 색상 반영 (custom 모드)
   if (iconColorMode === 'custom') {
@@ -852,9 +853,9 @@ export function hideCacheBadge() {
   var badge = $('iconCacheBadge');
   if (badge) badge.classList.add('hidden');
 }
-$('iconCacheClearBtn').addEventListener('click', function () {
+try { $('iconCacheClearBtn').addEventListener('click', function () {
   parent.postMessage({ pluginMessage: { type: 'clear-icon-cache' } }, '*');
-});
+}); } catch(e) { showToast('[icons init] iconCacheClearBtn: ' + e.message); }
 
 export function renderIconResults(data) {
   iconData = data;
@@ -886,7 +887,7 @@ function cleanSvg(svg) {
 }
 
 // 이벤트 위임: 아이콘 카드 클릭 + 복사 버튼
-$('iconList').addEventListener('click', function (e) {
+try { $('iconList').addEventListener('click', function (e) {
   var btn = e.target.closest('.icon-copy-btn');
   if (btn) {
     var idx = parseInt(btn.dataset.idx, 10);
@@ -908,24 +909,24 @@ $('iconList').addEventListener('click', function (e) {
   if (card) {
     selectIcon(parseInt(card.dataset.idx, 10));
   }
-});
+}); } catch(e) { showToast('[icons init] iconList: ' + e.message); }
 
 // ── 검색 이벤트 ──
 var iconSearchDebounceTimer = null;
-$('iconSearchInput').addEventListener('input', function () {
+try { $('iconSearchInput').addEventListener('input', function () {
   var q = this.value;
   $('iconSearchClear').classList.toggle('hidden', q === '');
   clearTimeout(iconSearchDebounceTimer);
   iconSearchDebounceTimer = setTimeout(function () {
     filterIcons(q);
   }, 150);
-});
-$('iconSearchClear').addEventListener('click', function () {
+}); } catch(e) { showToast('[icons init] iconSearchInput: ' + e.message); }
+try { $('iconSearchClear').addEventListener('click', function () {
   $('iconSearchInput').value = '';
   $('iconSearchClear').classList.add('hidden');
   filterIcons('');
   $('iconSearchInput').focus();
-});
+}); } catch(e) { showToast('[icons init] iconSearchClear: ' + e.message); }
 
 // ── 상세 패널 탭 ──
 document.addEventListener('click', function (e) {
@@ -939,7 +940,7 @@ document.addEventListener('click', function (e) {
 });
 
 // ── 색상 모드 변경 ──
-$('iconColorModeSelect').addEventListener('change', function () {
+try { $('iconColorModeSelect').addEventListener('change', function () {
   iconColorMode = this.value;
   $('iconColorVarInput').classList.toggle('hidden', iconColorMode !== 'cssVar');
   $('iconColorPicker').classList.toggle('hidden', iconColorMode !== 'custom');
@@ -947,15 +948,15 @@ $('iconColorModeSelect').addEventListener('change', function () {
   if (iconColorMode === 'cssVar') iconColorValue = $('iconColorVarInput').value || '--icon-color';
   if (iconColorMode === 'custom') iconColorValue = $('iconColorPicker').value;
   updateDetailCode();
-});
-$('iconColorVarInput').addEventListener('input', function () {
+}); } catch(e) { showToast('[icons init] iconColorModeSelect: ' + e.message); }
+try { $('iconColorVarInput').addEventListener('input', function () {
   iconColorValue = this.value || '--icon-color';
   updateDetailCode();
-});
-$('iconColorPicker').addEventListener('input', function () {
+}); } catch(e) { showToast('[icons init] iconColorVarInput: ' + e.message); }
+try { $('iconColorPicker').addEventListener('input', function () {
   iconColorValue = this.value;
   updateDetailCode();
-});
+}); } catch(e) { showToast('[icons init] iconColorPicker: ' + e.message); }
 
 // ── 상세 패널 닫기 / 복사 ──
 function closeIconModal() {
@@ -963,17 +964,18 @@ function closeIconModal() {
   $('iconDetailBackdrop').classList.add('hidden');
   renderIconGrid();
 }
-$('iconDetailClose').addEventListener('click', closeIconModal);
-$('iconDetailBackdrop').addEventListener('click', function (e) {
+try { $('iconDetailClose').addEventListener('click', closeIconModal);
+} catch(e) { showToast('[icons init] iconDetailClose: ' + e.message); }
+try { $('iconDetailBackdrop').addEventListener('click', function (e) {
   if (e.target === this) closeIconModal();
-});
-$('iconDetailCopyBtn').addEventListener('click', function () {
+}); } catch(e) { showToast('[icons init] iconDetailBackdrop: ' + e.message); }
+try { $('iconDetailCopyBtn').addEventListener('click', function () {
   copyToClipboard($('iconDetailCode').textContent);
   showToast(t('icon.detailCopied'));
-});
+}); } catch(e) { showToast('[icons init] iconDetailCopyBtn: ' + e.message); }
 
 // SVG ZIP 다운로드
-$('iconDownloadSvgBtn').addEventListener('click', function () {
+try { $('iconDownloadSvgBtn').addEventListener('click', function () {
   if (iconData.length === 0) {
     showToast(t('icon.noIcons'));
     return;
@@ -990,10 +992,10 @@ $('iconDownloadSvgBtn').addEventListener('click', function () {
       $('iconDownloadSvgBtn').disabled = false;
       $('iconDownloadSvgBtn').textContent = t('icon.downloadSvg');
     });
-});
+}); } catch(e) { showToast('[icons init] iconDownloadSvgBtn: ' + e.message); }
 
 // SVG 코드 다운로드
-$('iconDownloadSvgCodeBtn').addEventListener('click', function () {
+try { $('iconDownloadSvgCodeBtn').addEventListener('click', function () {
   if (iconData.length === 0) {
     showToast(t('icon.noIcons'));
     return;
@@ -1010,10 +1012,10 @@ $('iconDownloadSvgCodeBtn').addEventListener('click', function () {
       $('iconDownloadSvgCodeBtn').disabled = false;
       $('iconDownloadSvgCodeBtn').textContent = t('icon.downloadSvgCode');
     });
-});
+}); } catch(e) { showToast('[icons init] iconDownloadSvgCodeBtn: ' + e.message); }
 
 // React ZIP 다운로드
-$('iconDownloadReactBtn').addEventListener('click', function () {
+try { $('iconDownloadReactBtn').addEventListener('click', function () {
   if (iconData.length === 0) {
     showToast(t('icon.noIcons'));
     return;
@@ -1030,4 +1032,26 @@ $('iconDownloadReactBtn').addEventListener('click', function () {
       $('iconDownloadReactBtn').disabled = false;
       $('iconDownloadReactBtn').textContent = t('icon.downloadReact');
     });
-});
+}); } catch(e) { showToast('[icons init] iconDownloadReactBtn: ' + e.message); }
+
+// ── PixelForge Send ──
+var pfSendIconsBtn = $('pfSendIconsBtn');
+if (pfSendIconsBtn) {
+  pfSendIconsBtn.addEventListener('click', async function () {
+    if (!iconData || iconData.length === 0) {
+      showToast(t('icon.noIcons'));
+      return;
+    }
+    pfSendIconsBtn.disabled = true;
+    pfSendIconsBtn.textContent = t('settings.sending');
+    try {
+      var result = await sendToPixelForge('/api/sync/icons', {
+        icons: iconData.map(function (d) { return { name: d.name, svg: d.svg }; }),
+      });
+      if (result) showToast(t('settings.sendSuccess'));
+    } finally {
+      pfSendIconsBtn.disabled = false;
+      pfSendIconsBtn.textContent = t('settings.sendBtn');
+    }
+  });
+}

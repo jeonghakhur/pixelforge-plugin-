@@ -639,21 +639,56 @@
         white-space: pre-wrap;
         word-break: break-all;
       }
-      /* CSS Syntax Highlight */
+      /* Syntax Highlight — CSS */
       .cs {
         color: #c084fc;
         font-weight: 600;
-      } /* selector */
+      } /* css selector */
       .cp {
         color: #60a5fa;
-      } /* property */
+      } /* css property */
       .cv {
         color: #34d399;
-      } /* value */
+      } /* string value */
       .cc {
         color: rgba(255, 255, 255, 0.35);
         font-style: italic;
       } /* comment */
+      /* Syntax Highlight — JSON */
+      .cjk {
+        color: #60a5fa;
+      } /* json key */
+      .cn {
+        color: #fb923c;
+      } /* number */
+      .cb {
+        color: #c084fc;
+      } /* boolean / null */
+      /* Syntax Highlight — TSX */
+      .ck {
+        color: #c084fc;
+        font-weight: 600;
+      } /* keyword */
+      .ct {
+        color: #22d3ee;
+      } /* jsx tag */
+      /* Component code pre */
+      .comp-code-pre {
+        width: 100%;
+        height: 220px;
+        font-family: 'SF Mono', 'Fira Code', monospace;
+        font-size: 11px;
+        line-height: 1.6;
+        padding: 12px;
+        box-sizing: border-box;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        background: #111111;
+        color: #e2e8f0;
+        overflow: auto;
+        white-space: pre;
+        resize: vertical;
+      }
 
       /* ── Loading View ── */
       .loading-view {
@@ -1550,6 +1585,24 @@
         color: var(--text-muted);
         margin-top: 2px;
       }
+      .db-badge {
+        font-size: 9px;
+        padding: 1px 4px;
+        border-radius: 3px;
+        font-weight: 600;
+        margin-left: 4px;
+        vertical-align: middle;
+      }
+      .db-badge--synced {
+        background: var(--success-light, #e6f9f0);
+        color: var(--success, #1a7f4b);
+        border: 1px solid var(--success-border, #b3e6cc);
+      }
+      .db-badge--deleted {
+        background: var(--warning-light, #fff8e6);
+        color: var(--warning, #b36b00);
+        border: 1px solid var(--warning-border, #ffd580);
+      }
       .comp-registry-item-actions {
         display: flex;
         gap: 4px;
@@ -1749,6 +1802,8 @@
         background: var(--bg);
         border-top: 1px solid var(--border);
         flex-shrink: 0;
+        display: flex;
+        gap: 8px;
       }
     </style>
   </head>
@@ -2158,6 +2213,7 @@
           <button class="btn-ghost" id="copyBtn" data-i18n="extract.copy">📋 복사</button>
           <button class="btn-ghost" id="downloadJsonBtn">⬇ JSON</button>
           <button class="btn-ghost" id="downloadCssBtn">⬇ CSS</button>
+          <button class="btn-ghost" id="pfSendExtractBtn" data-i18n="settings.sendBtn">PixelForge로 전송</button>
         </div>
       </div>
     </div>
@@ -2355,6 +2411,14 @@
               >
                 React
               </button>
+              <button
+                class="btn-ghost"
+                id="pfSendIconsBtn"
+                style="height: 28px; padding: 0 10px; font-size: 11px"
+                data-i18n="settings.sendBtn"
+              >
+                PixelForge로 전송
+              </button>
             </div>
           </div>
           <div id="iconList" class="icon-grid"></div>
@@ -2466,6 +2530,15 @@
                 data-i18n="theme.copyCss"
               >
                 CSS 복사
+              </button>
+              <button
+                class="btn-ghost"
+                id="pfSendThemesBtn"
+                style="height: 32px; padding: 0 12px; font-size: 12px"
+                disabled
+                data-i18n="settings.sendBtn"
+              >
+                PixelForge로 전송
               </button>
               <button
                 class="btn-ghost"
@@ -2684,12 +2757,24 @@
             >
               스타일 방식
             </div>
-            <div style="display: flex; gap: 4px">
-              <button class="comp-style-btn active" data-comp-style="css-modules">
-                CSS Modules
-              </button>
-              <button class="comp-style-btn" data-comp-style="styled">Styled-Components</button>
-              <button class="comp-style-btn" data-comp-style="html">HTML</button>
+            <div style="display: flex; flex-direction: column; gap: 4px">
+              <div style="display: flex; gap: 4px">
+                <button class="comp-style-btn active" data-comp-style="css-modules">
+                  CSS Modules
+                </button>
+                <button class="comp-style-btn" data-comp-style="styled">Styled-Components</button>
+                <button class="comp-style-btn" data-comp-style="html">HTML</button>
+              </div>
+              <div id="compHtmlStyleOptions" style="display: none; gap: 16px; padding: 4px 2px; align-items: center;">
+                <label style="display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-primary); cursor: pointer;">
+                  <input type="radio" name="htmlStyleMode" value="inline" checked style="cursor: pointer; accent-color: var(--primary);">
+                  <span data-i18n="component.htmlModeInline">인라인</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-primary); cursor: pointer;">
+                  <input type="radio" name="htmlStyleMode" value="separated" style="cursor: pointer; accent-color: var(--primary);">
+                  <span data-i18n="component.htmlModeSeparated">CSS 분리</span>
+                </label>
+              </div>
             </div>
           </div>
 
@@ -2728,25 +2813,10 @@
           <div style="display: flex; gap: 4px; margin-bottom: 6px">
             <button class="comp-tab active" data-comp-code-tab="tsx">TSX</button>
             <button class="comp-tab" id="compCssTabBtn" data-comp-code-tab="css">CSS</button>
+            <button class="comp-tab" id="compNodeTabBtn" data-comp-code-tab="node">Node</button>
           </div>
           <div style="position: relative">
-            <textarea
-              id="compCode"
-              readonly
-              style="
-                width: 100%;
-                height: 220px;
-                font-family: 'SF Mono', 'Fira Code', monospace;
-                font-size: 11px;
-                line-height: 1.6;
-                padding: 12px;
-                border: 1px solid var(--border);
-                border-radius: var(--radius-sm);
-                background: #111111;
-                color: #e2e8f0;
-                resize: vertical;
-              "
-            ></textarea>
+            <pre id="compCode" class="comp-code-pre"></pre>
             <button
               class="btn-ghost"
               id="compCopyBtn"
@@ -2956,6 +3026,14 @@
             >
               전체 내보내기
             </button>
+            <button
+              class="btn-ghost"
+              id="pfSendComponentBtn"
+              style="height: 28px; padding: 0 10px; font-size: 11px"
+              data-i18n="settings.sendBtn"
+            >
+              PixelForge로 전송
+            </button>
           </div>
         </div>
       </div>
@@ -3068,10 +3146,11 @@
       >
         <div id="imgList" class="image-list"></div>
         <div class="image-footer">
-          <button class="btn-primary" id="imgDownloadAllBtn" style="width: 100%" disabled>
+          <button class="btn-primary" id="imgDownloadAllBtn" style="flex: 1" disabled>
             <span data-i18n="image.downloadAll">전체 ZIP 다운로드</span>
             <span id="imgDownloadAllCount"></span>
           </button>
+          <button class="btn-ghost" id="pfSendImagesBtn" style="flex-shrink: 0" disabled data-i18n="settings.sendBtn">PixelForge로 전송</button>
         </div>
       </div>
     </div>
@@ -3120,6 +3199,17 @@
           <button class="btn-primary" id="pfSaveBtn" style="flex: 1" data-i18n="settings.saveBtn">
             설정 저장
           </button>
+        </div>
+
+        <!-- ── 진단 패널 ── -->
+        <div style="border-top: 1px solid var(--border); padding-top: 12px; margin-top: 4px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+            <span style="font-size: 11px; font-weight: 600; color: var(--text-secondary);">진단 도구</span>
+            <button id="pfDiagBtn" class="btn-ghost" style="height: 24px; padding: 0 10px; font-size: 11px;">
+              진단 실행
+            </button>
+          </div>
+          <div id="pfDiagLog" style="display:none; font-size: 11px; font-family: monospace; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 8px; max-height: 160px; overflow-y: auto; line-height: 1.8;"></div>
         </div>
       </div>
     </div>

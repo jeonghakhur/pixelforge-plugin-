@@ -145,6 +145,10 @@ var i18n = {
       backToList: '← 목록으로',
       registryEmpty: '저장된 컴포넌트가 없습니다',
       exportAll: '전체 내보내기',
+      globalCssCopied: 'global.css 복사됨',
+      copyGlobalCss: '복사',
+      htmlModeInline: '인라인',
+      htmlModeSeparated: 'CSS 분리',
     },
     image: {
       format: '포맷',
@@ -328,6 +332,10 @@ var i18n = {
       backToList: '← Back',
       registryEmpty: 'No saved components',
       exportAll: 'Export All',
+      globalCssCopied: 'global.css copied',
+      copyGlobalCss: 'Copy',
+      htmlModeInline: 'Inline',
+      htmlModeSeparated: 'Separate CSS',
     },
     image: {
       format: 'Format',

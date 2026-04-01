@@ -2,7 +2,7 @@
 import JSZip from 'jszip';
 import { state } from './state.js';
 import { t } from './i18n.js';
-import { $, showToast, getScope } from './utils.js';
+import { $, showToast, getScope, sendToPixelForge } from './utils.js';
 import { escapeHtml } from '../converters/utils.js';
 
 // ══════════════════════════════════════════════
@@ -123,6 +123,8 @@ export function renderImageList(assets) {
     $('imgDownloadAllCount').textContent =
       ' ' + t('image.downloadAllCount').replace('{n}', nodeCount).replace('{m}', totalFiles);
   }
+  var sendBtn = $('pfSendImagesBtn');
+  if (sendBtn) sendBtn.disabled = totalFiles === 0;
 }
 
 // ── ZIP 유틸 (Store-only) ──
@@ -319,6 +321,27 @@ if (detectImagesBtn) {
 
 if (imgDownloadAllBtn) {
   imgDownloadAllBtn.addEventListener('click', downloadAllImagesZip);
+}
+
+// ── PixelForge Send ──
+var pfSendImagesBtn = $('pfSendImagesBtn');
+if (pfSendImagesBtn) {
+  pfSendImagesBtn.addEventListener('click', async function () {
+    if (!imageAssets || imageAssets.length === 0) return;
+    pfSendImagesBtn.disabled = true;
+    pfSendImagesBtn.textContent = t('settings.sending');
+    try {
+      var result = await sendToPixelForge('/api/sync/images', {
+        images: imageAssets.map(function (a) {
+          return { name: a.name, fileName: a.fileName, mimeType: a.mimeType, base64: a.base64, scale: a.scale };
+        }),
+      });
+      if (result) showToast(t('settings.sendSuccess'));
+    } finally {
+      pfSendImagesBtn.disabled = false;
+      pfSendImagesBtn.textContent = t('settings.sendBtn');
+    }
+  });
 }
 
 var imgRetryBtn = $('imgRetryBtn');

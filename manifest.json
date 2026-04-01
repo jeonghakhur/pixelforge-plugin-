@@ -6,5 +6,10 @@
   "ui": "dist/ui.html",
   "editorType": ["figma"],
   "documentAccess": "dynamic-page",
-  "enablePrivatePluginApi": false
+  "enablePrivatePluginApi": false,
+  "networkAccess": {
+    "allowedDomains": ["*"],
+    "devAllowedDomains": ["http://localhost:3000", "http://localhost:3001", "http://localhost:3002"],
+    "reasoning": "PixelForge 앱 서버로 디자인 토큰/아이콘/이미지/테마/컴포넌트 데이터를 전송하기 위해 네트워크 접근이 필요합니다."
+  }
 }

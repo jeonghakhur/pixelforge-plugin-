@@ -37,6 +37,8 @@ import {
   onCompSelectionChanged,
   updateTypeHint,
   renderRegistryList,
+  refreshComponentDbStatus,
+  getGlobalCss,
 } from './ui/tab-component.js';
 import {
   buildRadixCSSModules,
@@ -45,11 +47,12 @@ import {
   compToPascalCase,
 } from './ui/component-builders.js';
 import { imageAssets, setImgState, renderImageList } from './ui/tab-images.js';
-import { loadSettings } from './ui/tab-settings.js';
+import { loadSettings, onSettingsData, isPfConnected } from './ui/tab-settings.js';
 
 // ── scope 변경 → icon tab syncIconMode 연결 ──
 // tab-extract의 scope radio 리스너에서 window._syncIconMode()를 호출
 window._syncIconMode = syncIconMode;
+window._pfState = state; // 진단 도구용
 
 // ── lang 변경 → a11y matrix 재렌더 연결 ──
 registerLangChangeCallback(function () {
@@ -93,7 +96,10 @@ function switchMainTab(tab) {
     }
     renderA11yView();
   }
-  if (tab === 'component') updateCompSelInfo();
+  if (tab === 'component') {
+    updateCompSelInfo();
+    if (isPfConnected() && state.figmaFileKey) refreshComponentDbStatus();
+  }
 }
 
 mainTabs.forEach(function (t2) {
@@ -109,6 +115,8 @@ window.onmessage = function (event) {
 
   if (msg.type === 'init-data') {
     headerFile.textContent = msg.fileName || (lang === 'ko' ? 'Figma 파일' : 'Figma File');
+    state.figmaFileKey = msg.figmaFileKey || '';
+    state.figmaFileName = msg.fileName || '';
     renderCollections(msg.collections || []);
     if (msg.selection) {
       state.lastSelection = msg.selection;
@@ -209,8 +217,40 @@ window.onmessage = function (event) {
       }
       var tsx, css;
       if (compState.styleMode === 'html') {
-        tsx = d.html || '<div></div>';
-        css = '';
+        if (compState.htmlStyleMode === 'separated') {
+          var globalCss = getGlobalCss();
+          var styleParts = [];
+          if (globalCss) styleParts.push(globalCss);
+          if (d.htmlCss) {
+            if (styleParts.length) styleParts.push('');
+            styleParts.push(d.htmlCss);
+          }
+          var styleBlock = styleParts.length
+            ? '  <style>\n' + styleParts.join('\n') + '\n  </style>'
+            : '';
+          var headLines = [
+            '  <meta charset="UTF-8">',
+            '  <meta name="viewport" content="width=device-width, initial-scale=1.0">',
+          ];
+          if (styleBlock) headLines.push(styleBlock);
+          tsx = [
+            '<!DOCTYPE html>',
+            '<html lang="ko">',
+            '<head>',
+            headLines.join('\n'),
+            '</head>',
+            '<body>',
+            '',
+            d.htmlClass || '<div class="root"></div>',
+            '',
+            '</body>',
+            '</html>',
+          ].join('\n');
+          css = '';
+        } else {
+          tsx = d.html || '<div></div>';
+          css = '';
+        }
       } else if (compState.styleMode === 'css-modules') {
         tsx = buildRadixCSSModules(d, name, compState.useTs);
         css = buildRadixCSS(d);
@@ -218,7 +258,7 @@ window.onmessage = function (event) {
         tsx = buildRadixStyled(d, name, compState.useTs);
         css = '';
       }
-      showGeneratedResult(tsx, css, compState.styleMode);
+      showGeneratedResult(tsx, css, compState.styleMode, d);
     } else {
       showToast(t('component.cannotGenerate'));
     }
@@ -303,6 +343,11 @@ window.onmessage = function (event) {
     dbgA.download = 'image-nodes-debug.json';
     dbgA.click();
     URL.revokeObjectURL(dbgUrl);
+  }
+
+  // Settings
+  if (msg.type === 'settings-data') {
+    onSettingsData(msg.url, msg.key);
   }
 
   // Token cache

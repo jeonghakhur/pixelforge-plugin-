@@ -27,33 +27,46 @@ export function getScope() {
   return r ? r.value : 'all';
 }
 
+// ── PixelForge Settings (in-memory, loaded via clientStorage message) ──
+export var pfSettings = { url: '', key: '' };
+export function setPfSettings(url, key) {
+  pfSettings.url = url || '';
+  pfSettings.key = key || '';
+}
+
 // ── PixelForge Send ──
-export async function sendToPixelForge(endpoint, data) {
-  var url = localStorage.getItem('pf_url');
-  var key = localStorage.getItem('pf_key');
+// method: 'POST'(기본) | 'GET'
+// GET이면 data 무시, endpoint에 쿼리스트링 포함해서 전달
+export async function sendToPixelForge(endpoint, data, method) {
+  var url = pfSettings.url;
+  var key = pfSettings.key;
   if (!url || !key) {
-    showToast(t('settings.notConnected'));
-    return false;
+    if (method !== 'GET') showToast(t('settings.notConnected'));
+    return null;
   }
 
+  var reqMethod = method || 'POST';
+  var fullUrl = url.replace(/\/$/, '') + endpoint;
+
   try {
-    var meta = state.extractedData ? state.extractedData.meta : {};
-    var res = await fetch(url.replace(/\/$/, '') + endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-API-Key': key },
-      body: JSON.stringify(
-        Object.assign({}, data, {
-          figmaFileKey: meta.figmaFileKey || null,
-          figmaFileName: meta.fileName || null,
-        })
-      ),
-    });
+    var fetchOpts = { method: reqMethod, headers: { 'X-API-Key': key } };
+
+    if (reqMethod === 'POST') {
+      var meta = state.extractedData ? state.extractedData.meta : {};
+      // data에 이미 figmaFileKey가 있으면 우선, 없으면 meta에서 보완
+      var payload = Object.assign({}, data);
+      if (!payload.figmaFileKey) payload.figmaFileKey = (meta && meta.figmaFileKey) || state.figmaFileKey || null;
+      if (!payload.figmaFileName) payload.figmaFileName = (meta && meta.fileName) || state.figmaFileName || null;
+      fetchOpts.headers['Content-Type'] = 'application/json';
+      fetchOpts.body = JSON.stringify(payload);
+    }
+
+    var res = await fetch(fullUrl, fetchOpts);
     if (!res.ok) throw new Error('HTTP ' + res.status);
-    var result = await res.json();
-    return result;
+    return await res.json();
   } catch (e) {
-    showToast(t('settings.sendFail') + ': ' + e.message);
-    return false;
+    if (reqMethod !== 'GET') showToast(t('settings.sendFail') + ': ' + e.message);
+    return null;
   }
 }
 
