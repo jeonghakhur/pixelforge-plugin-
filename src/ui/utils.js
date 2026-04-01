@@ -1,5 +1,8 @@
 'use strict';
 
+import { t } from './i18n.js';
+import { state } from './state.js';
+
 // ── DOM helper ──
 export var $ = function (id) {
   return document.getElementById(id);
@@ -22,6 +25,36 @@ export function showToast(msg) {
 export function getScope() {
   var r = document.querySelector('input[name="scope"]:checked');
   return r ? r.value : 'all';
+}
+
+// ── PixelForge Send ──
+export async function sendToPixelForge(endpoint, data) {
+  var url = localStorage.getItem('pf_url');
+  var key = localStorage.getItem('pf_key');
+  if (!url || !key) {
+    showToast(t('settings.notConnected'));
+    return false;
+  }
+
+  try {
+    var meta = state.extractedData ? state.extractedData.meta : {};
+    var res = await fetch(url.replace(/\/$/, '') + endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-API-Key': key },
+      body: JSON.stringify(
+        Object.assign({}, data, {
+          figmaFileKey: meta.figmaFileKey || null,
+          figmaFileName: meta.fileName || null,
+        })
+      ),
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    var result = await res.json();
+    return result;
+  } catch (e) {
+    showToast(t('settings.sendFail') + ': ' + e.message);
+    return false;
+  }
 }
 
 // ── Clipboard ──

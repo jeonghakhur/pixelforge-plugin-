@@ -45,6 +45,7 @@ import {
   compToPascalCase,
 } from './ui/component-builders.js';
 import { imageAssets, setImgState, renderImageList } from './ui/tab-images.js';
+import { loadSettings } from './ui/tab-settings.js';
 
 // ── scope 변경 → icon tab syncIconMode 연결 ──
 // tab-extract의 scope radio 리스너에서 window._syncIconMode()를 호출
@@ -65,6 +66,7 @@ var tabPanels = {
   themes: $('panel-themes'),
   component: $('panel-component'),
   images: $('panel-images'),
+  settings: $('panel-settings'),
 };
 
 function switchMainTab(tab) {
@@ -336,6 +338,7 @@ window.onmessage = function (event) {
 
 // ── Init ──
 showView('filter');
+loadSettings();
 
 // Fallback: if no init-data arrives within 1s (non-Figma env)
 setTimeout(function () {
