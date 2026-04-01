@@ -1,6 +1,6 @@
 {
   "version": "2.0",
-  "lastUpdated": "2026-04-01T09:08:33.179Z",
+  "lastUpdated": "2026-04-01T09:21:04.357Z",
   "activeFeatures": [
     "pixelforge-plugin-",
     "converters",
@@ -75,7 +75,7 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-31T04:51:42.317Z",
-        "lastUpdated": "2026-04-01T04:34:12.915Z"
+        "lastUpdated": "2026-04-01T09:21:04.357Z"
       },
       "lastFile": "/Users/jeonghak/work/pixelforge-plugin-/src/converters/highlight.js"
     },
@@ -272,7 +272,7 @@
   "session": {
     "startedAt": "2026-03-30T05:13:36.824Z",
     "onboardingCompleted": false,
-    "lastActivity": "2026-04-01T09:08:33.179Z"
+    "lastActivity": "2026-04-01T09:21:04.357Z"
   },
   "history": [
     {
@@ -2768,6 +2768,48 @@
     {
       "timestamp": "2026-04-01T09:08:33.179Z",
       "feature": "ui",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-01T09:20:32.072Z",
+      "feature": "converters",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-01T09:20:37.204Z",
+      "feature": "converters",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-01T09:20:44.183Z",
+      "feature": "converters",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-01T09:20:49.038Z",
+      "feature": "converters",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-01T09:20:55.184Z",
+      "feature": "converters",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-01T09:21:00.043Z",
+      "feature": "converters",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-01T09:21:04.357Z",
+      "feature": "converters",
       "phase": "do",
       "action": "updated"
     }
