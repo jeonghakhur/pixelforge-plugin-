@@ -416,11 +416,18 @@ async function sendCollections() {
     modes: c.modes.map((m) => ({ modeId: m.modeId, name: m.name })),
     variableIds: [...c.variableIds],
   }));
+  let resolvedFileKey = figma.fileKey || '';
+  if (!resolvedFileKey) {
+    try {
+      const saved = (await figma.clientStorage.getAsync('figma-file-key')) as string | undefined;
+      if (saved) resolvedFileKey = saved;
+    } catch (_) {}
+  }
   figma.ui.postMessage({
     type: 'init-data',
     collections,
     fileName: figma.root.name,
-    figmaFileKey: figma.fileKey || figma.root.id,
+    figmaFileKey: resolvedFileKey,
     selection: await getSelectionInfo(),
   });
 
@@ -656,7 +663,7 @@ async function extractAll(options: ExtractOptions): Promise<ExtractedTokens> {
     styles: { colors, texts, textStyles, headings, fonts, effects },
     icons,
     meta: {
-      figmaFileKey: figma.fileKey || figma.root.id,
+      figmaFileKey: figma.fileKey || '',
       extractedAt: new Date().toISOString(),
       fileName: figma.root.name,
       sourceMode: isSelectionMode ? 'selection' : 'all',
@@ -1882,6 +1889,9 @@ figma.ui.onmessage = (msg: {
       })
       .then(() => figma.ui.postMessage({ type: 'registry-deleted' }))
       .catch((e) => figma.ui.postMessage({ type: 'registry-error', message: String(e) }));
+  }
+  if (msg.type === 'set-figma-file-key') {
+    figma.clientStorage.setAsync('figma-file-key', (msg as any).fileKey ?? '').catch(() => {});
   }
   if (msg.type === 'set-settings') {
     figma.clientStorage

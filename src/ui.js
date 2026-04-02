@@ -117,6 +117,8 @@ window.onmessage = function (event) {
     headerFile.textContent = msg.fileName || (lang === 'ko' ? 'Figma 파일' : 'Figma File');
     state.figmaFileKey = msg.figmaFileKey || '';
     state.figmaFileName = msg.fileName || '';
+    var figmaFileKeyDisplay = document.getElementById('figmaFileKeyDisplay');
+    if (figmaFileKeyDisplay) figmaFileKeyDisplay.value = state.figmaFileKey || '';
     renderCollections(msg.collections || []);
     if (msg.selection) {
       state.lastSelection = msg.selection;

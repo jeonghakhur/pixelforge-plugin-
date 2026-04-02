@@ -2,6 +2,7 @@
 
 import { t } from './i18n.js';
 import { $, showToast, setPfSettings, pfSettings } from './utils.js';
+import { state } from './state.js';
 
 // ── DOM ──
 var pfUrlInput = $('pfUrlInput');
@@ -163,6 +164,19 @@ if (pfDiagBtn) {
 
     diagLog('✅', '진단 완료');
     pfDiagBtn.disabled = false;
+  });
+}
+
+// ── Figma File Key 수동 저장 ──
+var figmaFileKeySaveBtn = $('figmaFileKeySaveBtn');
+var figmaFileKeyDisplay = $('figmaFileKeyDisplay');
+
+if (figmaFileKeySaveBtn) {
+  figmaFileKeySaveBtn.addEventListener('click', function () {
+    var fileKey = figmaFileKeyDisplay ? figmaFileKeyDisplay.value.trim() : '';
+    parent.postMessage({ pluginMessage: { type: 'set-figma-file-key', fileKey: fileKey } }, '*');
+    state.figmaFileKey = fileKey;
+    showToast(fileKey ? '파일 키가 저장되었습니다' : '파일 키가 초기화되었습니다');
   });
 }
 
