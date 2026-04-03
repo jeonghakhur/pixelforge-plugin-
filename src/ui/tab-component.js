@@ -574,6 +574,25 @@ if (_exportAllBtn)
 
 parent.postMessage({ pluginMessage: { type: 'registry-get' } }, '*');
 
+// ── Node JSON 다운로드 ──
+var compDownloadNodeBtn = $('compDownloadNodeBtn');
+if (compDownloadNodeBtn) {
+  compDownloadNodeBtn.addEventListener('click', function () {
+    if (!compState.nodeData) { showToast(t('component.selectFirst')); return; }
+    var nameVal = (($('compNameInput') && $('compNameInput').value) || '').trim()
+      || compToPascalCase(((compState.nodeData.meta && compState.nodeData.meta.nodeName) || 'component').split('/').pop());
+    var payload = { meta: compState.meta, data: compState.nodeData };
+    var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = nameVal + '.node.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast(nameVal + '.node.json 저장됨');
+  });
+}
+
 // ── PixelForge Send (현재 생성된 컴포넌트 단건 전송) ──
 var compSendBtn = $('compSendBtn');
 if (compSendBtn) {

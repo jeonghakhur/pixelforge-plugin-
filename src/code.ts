@@ -1192,9 +1192,19 @@ interface ExtractedTexts {
 }
 
 interface RadixProps {
-  variant?: 'solid' | 'soft' | 'outline' | 'ghost' | 'surface' | 'classic';
+  variant?: string;
   color?: string;
-  size?: '1' | '2' | '3' | '4';
+  size?: string;
+}
+
+/** 개별 variant 인스턴스의 스타일 정보 */
+interface VariantStyleEntry {
+  /** variantProperties: { size: 'xlarge', variant: 'Primary', state: 'rest' } */
+  properties: Record<string, string>;
+  /** 루트 노드 CSS */
+  styles: Record<string, string>;
+  /** 자식 요소 CSS */
+  childStyles: Record<string, Record<string, string>>;
 }
 
 interface GenerateComponentResult {
@@ -1209,26 +1219,92 @@ interface GenerateComponentResult {
   texts: ExtractedTexts;
   childStyles: Record<string, Record<string, string>>;
   radixProps: RadixProps;
+  /** COMPONENT_SET의 모든 variant 옵션 { size: ['xsmall','small',...], variant: ['Primary',...] } */
+  variantOptions?: Record<string, string[]>;
+  /** COMPONENT_SET 자식 각각의 variant 속성 + 스타일 */
+  variants?: VariantStyleEntry[];
+  /** 노드 전체 직렬화 (모든 속성 + 자식 재귀) */
+  fullNode?: SerializedNode;
+}
+
+interface SerializedNode {
+  id: string;
+  name: string;
+  type: string;
+  visible: boolean;
+  locked: boolean;
+  opacity: number;
+  blendMode: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation?: number;
+  // Layout
+  constraints?: { horizontal: string; vertical: string };
+  layoutMode?: string;
+  layoutAlign?: string;
+  layoutGrow?: number;
+  primaryAxisSizingMode?: string;
+  counterAxisSizingMode?: string;
+  primaryAxisAlignItems?: string;
+  counterAxisAlignItems?: string;
+  paddingLeft?: number;
+  paddingRight?: number;
+  paddingTop?: number;
+  paddingBottom?: number;
+  itemSpacing?: number;
+  // Appearance
+  cornerRadius?: number | 'mixed';
+  fills?: unknown[];
+  strokes?: unknown[];
+  strokeWeight?: number;
+  strokeAlign?: string;
+  effects?: unknown[];
+  // Typography
+  characters?: string;
+  fontSize?: number;
+  fontName?: unknown;
+  fontWeight?: number;
+  letterSpacing?: unknown;
+  lineHeight?: unknown;
+  textCase?: string;
+  textDecoration?: string;
+  textAlignHorizontal?: string;
+  textAlignVertical?: string;
+  // Component
+  description?: string;
+  key?: string;
+  remote?: boolean;
+  componentPropertyDefinitions?: unknown;
+  componentProperties?: unknown;
+  variantProperties?: unknown;
+  variantGroupProperties?: unknown;
+  reactions?: unknown[];
+  exportSettings?: unknown[];
+  // Children
+  children?: SerializedNode[];
 }
 
 // ── Radix Themes props 추론 ──────────────────────────────────────────────────
 
 function inferRadixVariant(node: SceneNode): RadixProps['variant'] {
-  if (!('fills' in node)) return 'solid';
-  const fills = (node.fills as readonly Paint[]).filter(
-    (f) => f.visible !== false && f.type === 'SOLID'
-  );
-  const strokes =
-    'strokes' in node ? (node.strokes as readonly Paint[]).filter((s) => s.visible !== false) : [];
-  if (fills.length === 0 && strokes.length === 0) return 'ghost';
-  if (fills.length === 0 && strokes.length > 0) return 'outline';
-  if (
-    fills.length > 0 &&
-    (fills[0] as SolidPaint).opacity !== undefined &&
-    (fills[0] as SolidPaint).opacity! < 0.3
-  )
-    return 'soft';
-  return 'solid';
+  // COMPONENT_SET: variantGroupProperties에서 첫 번째 variant 값 읽기
+  if (node.type === 'COMPONENT_SET') {
+    const props = (node as ComponentSetNode).variantGroupProperties ?? {};
+    const variantKey = Object.keys(props).find((k) => /variant|type|style|kind/i.test(k));
+    if (variantKey) {
+      const values = props[variantKey].values;
+      if (values.length > 0) return values[0];
+    }
+  }
+  // COMPONENT / INSTANCE: variantProperties에서 현재 값 읽기
+  if (node.type === 'COMPONENT' || node.type === 'INSTANCE') {
+    const props = (node as ComponentNode | InstanceNode).variantProperties ?? {};
+    const variantKey = Object.keys(props).find((k) => /variant|type|style|kind/i.test(k));
+    if (variantKey) return props[variantKey];
+  }
+  return undefined;
 }
 
 const FIGMA_TO_RADIX_COLOR: Record<string, string> = {
@@ -1313,21 +1389,159 @@ function inferRadixColor(node: SceneNode, colorMap: Map<string, string>): string
 }
 
 function inferRadixSize(node: SceneNode): RadixProps['size'] {
-  if (!('height' in node)) return '2';
-  // GROUP/COMPONENT_SET은 여러 variant를 담는 컨테이너라 전체 height로 size를 추론하면 안 됨.
-  // 자식 중 첫 번째 FRAME/COMPONENT를 찾아 그 height로 추론.
-  let targetNode: SceneNode = node;
-  if ((node.type === 'GROUP' || node.type === 'COMPONENT_SET') && 'children' in node) {
-    const firstChild = (node as ChildrenMixin).children.find(
-      (c) => c.type === 'FRAME' || c.type === 'COMPONENT' || c.type === 'INSTANCE'
-    ) as SceneNode | undefined;
-    if (firstChild && 'height' in firstChild) targetNode = firstChild;
+  // COMPONENT_SET: variantGroupProperties에서 size 키 읽기
+  if (node.type === 'COMPONENT_SET') {
+    const props = (node as ComponentSetNode).variantGroupProperties ?? {};
+    const sizeKey = Object.keys(props).find((k) => /^size$/i.test(k));
+    if (sizeKey) {
+      const values = props[sizeKey].values;
+      if (values.length > 0) return values[0];
+    }
   }
-  const h = (targetNode as FrameNode).height;
-  if (h <= 24) return '1';
-  if (h <= 32) return '2';
-  if (h <= 40) return '3';
-  return '4';
+  // COMPONENT / INSTANCE: variantProperties에서 현재 값 읽기
+  if (node.type === 'COMPONENT' || node.type === 'INSTANCE') {
+    const props = (node as ComponentNode | InstanceNode).variantProperties ?? {};
+    const sizeKey = Object.keys(props).find((k) => /^size$/i.test(k));
+    if (sizeKey) return props[sizeKey];
+  }
+  return undefined;
+}
+
+function safeSerialize(value: unknown): unknown {
+  if (typeof value === 'symbol') return 'mixed';
+  if (Array.isArray(value)) return value.map(safeSerialize);
+  if (value !== null && typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = safeSerialize(v);
+    }
+    return out;
+  }
+  return value;
+}
+
+function serializeFullNode(n: SceneNode): SerializedNode {
+  const base: SerializedNode = {
+    id: n.id,
+    name: n.name,
+    type: n.type,
+    visible: n.visible,
+    locked: n.locked,
+    opacity: 'opacity' in n ? (n as MinimalBlendMixin).opacity : 1,
+    blendMode: 'blendMode' in n ? String((n as MinimalBlendMixin).blendMode) : 'NORMAL',
+    x: 'x' in n ? (n as LayoutMixin).x : 0,
+    y: 'y' in n ? (n as LayoutMixin).y : 0,
+    width: 'width' in n ? (n as LayoutMixin).width : 0,
+    height: 'height' in n ? (n as LayoutMixin).height : 0,
+  };
+
+  if ('rotation' in n) base.rotation = (n as LayoutMixin).rotation;
+
+  if ('constraints' in n) {
+    const c = (n as ConstraintMixin).constraints;
+    base.constraints = { horizontal: c.horizontal, vertical: c.vertical };
+  }
+
+  // Auto-layout
+  if ('layoutMode' in n) {
+    const f = n as FrameNode;
+    base.layoutMode = f.layoutMode;
+    base.primaryAxisSizingMode = f.primaryAxisSizingMode;
+    base.counterAxisSizingMode = f.counterAxisSizingMode;
+    base.primaryAxisAlignItems = f.primaryAxisAlignItems;
+    base.counterAxisAlignItems = f.counterAxisAlignItems;
+    base.paddingLeft = f.paddingLeft;
+    base.paddingRight = f.paddingRight;
+    base.paddingTop = f.paddingTop;
+    base.paddingBottom = f.paddingBottom;
+    base.itemSpacing = f.itemSpacing;
+  }
+
+  if ('layoutAlign' in n)
+    base.layoutAlign = (n as SceneNodeMixin & { layoutAlign: string }).layoutAlign;
+  if ('layoutGrow' in n)
+    base.layoutGrow = (n as SceneNodeMixin & { layoutGrow: number }).layoutGrow;
+
+  // Appearance
+  if ('cornerRadius' in n) {
+    const cr = (n as CornerMixin).cornerRadius;
+    base.cornerRadius = typeof cr === 'symbol' ? 'mixed' : cr;
+  }
+  if ('fills' in n) base.fills = safeSerialize((n as GeometryMixin).fills) as unknown[];
+  if ('strokes' in n) base.strokes = safeSerialize((n as GeometryMixin).strokes) as unknown[];
+  if ('strokeWeight' in n) {
+    const sw = (n as GeometryMixin).strokeWeight;
+    base.strokeWeight = typeof sw === 'symbol' ? undefined : (sw as number);
+  }
+  if ('strokeAlign' in n) base.strokeAlign = (n as GeometryMixin).strokeAlign;
+  if ('effects' in n) base.effects = safeSerialize((n as BlendMixin).effects) as unknown[];
+
+  // Typography
+  if (n.type === 'TEXT') {
+    const t = n as TextNode;
+    base.characters = t.characters;
+    base.fontSize = typeof t.fontSize === 'number' ? t.fontSize : undefined;
+    base.fontName = t.fontName;
+    base.letterSpacing = t.letterSpacing;
+    base.lineHeight = t.lineHeight;
+    base.textCase = String(t.textCase);
+    base.textDecoration = String(t.textDecoration);
+    base.textAlignHorizontal = t.textAlignHorizontal;
+    base.textAlignVertical = t.textAlignVertical;
+  }
+
+  // Component metadata
+  if ('description' in n) base.description = (n as ComponentNode).description;
+  if ('key' in n) base.key = (n as ComponentNode).key;
+  if ('remote' in n) base.remote = (n as ComponentNode).remote;
+  if ('componentPropertyDefinitions' in n) {
+    // variant 컴포넌트(COMPONENT_SET 자식)에는 접근 불가
+    const isVariantChild = n.type === 'COMPONENT' && n.parent?.type === 'COMPONENT_SET';
+    if (!isVariantChild) {
+      try {
+        base.componentPropertyDefinitions = safeSerialize(
+          (n as ComponentNode).componentPropertyDefinitions
+        );
+      } catch (_) {
+        /* skip */
+      }
+    }
+  }
+  if ('componentProperties' in n) {
+    try {
+      base.componentProperties = safeSerialize((n as InstanceNode).componentProperties);
+    } catch (_) {
+      /* skip */
+    }
+  }
+  if ('variantProperties' in n) {
+    base.variantProperties = safeSerialize((n as ComponentNode).variantProperties);
+  }
+  if ('variantGroupProperties' in n) {
+    try {
+      base.variantGroupProperties = safeSerialize((n as ComponentSetNode).variantGroupProperties);
+    } catch (_) {
+      /* skip */
+    }
+  }
+  if ('reactions' in n) {
+    try {
+      base.reactions = safeSerialize((n as ReactionMixin).reactions) as unknown[];
+    } catch (_) {
+      /* skip */
+    }
+  }
+  if ('exportSettings' in n)
+    base.exportSettings = safeSerialize((n as ExportMixin).exportSettings) as unknown[];
+
+  // Children (recursive)
+  if ('children' in n) {
+    base.children = (n as ChildrenMixin).children.map((child) =>
+      serializeFullNode(child as SceneNode)
+    );
+  }
+
+  return base;
 }
 
 async function generateComponent(): Promise<GenerateComponentResult | null> {
@@ -1737,8 +1951,43 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
 
   const htmlClassResult = buildHtmlWithClasses(node);
 
+  // ── COMPONENT_SET 정보 수집 ───────────────────────────────────────────────
+  // COMPONENT(변형 인스턴스) 선택 시 부모 COMPONENT_SET에서
+  // 실제 variant 옵션과 컴포넌트 이름을 가져온다
+  let componentSetName: string | null = null;
+  let variantOptions: Record<string, string[]> | undefined;
+
+  const parentSet =
+    node.type === 'COMPONENT' && node.parent?.type === 'COMPONENT_SET'
+      ? (node.parent as ComponentSetNode)
+      : node.type === 'COMPONENT_SET'
+        ? (node as unknown as ComponentSetNode)
+        : null;
+
+  let variants: VariantStyleEntry[] | undefined;
+
+  if (parentSet) {
+    componentSetName = parentSet.name;
+    const props = parentSet.variantGroupProperties ?? {};
+    variantOptions = {};
+    for (const [key, val] of Object.entries(props)) {
+      variantOptions[key.toLowerCase()] = val.values;
+    }
+
+    // 자식 COMPONENT 각각의 스타일 수집
+    variants = (parentSet.children as ComponentNode[]).map((child) => ({
+      properties: Object.fromEntries(
+        Object.entries(child.variantProperties ?? {}).map(([k, v]) => [k.toLowerCase(), v])
+      ),
+      styles: getNodeStyles(child),
+      childStyles: getChildStyles(child),
+    }));
+  }
+
+  const effectiveName = componentSetName ?? node.name;
+
   return {
-    name: node.name,
+    name: effectiveName,
     meta: {
       nodeId: node.id,
       nodeName: node.name,
@@ -1760,6 +2009,9 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
       color: inferRadixColor(node, colorMap),
       size: inferRadixSize(node),
     },
+    variantOptions,
+    variants,
+    fullNode: serializeFullNode(node),
   };
 }
 
