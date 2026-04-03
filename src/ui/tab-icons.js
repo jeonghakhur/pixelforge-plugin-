@@ -234,12 +234,12 @@ function prepareSvg(processedSvg, classNames) {
     })
     .join(' ');
   var jsxProps = [
-    'width={typeof size === "number" ? size : 16}',
-    'height={typeof size === "number" ? size : 16}',
+    'width={typeof size === "number" ? size : (size ? undefined : 16)}',
+    'height={typeof size === "number" ? size : (size ? undefined : 16)}',
     'className={["icon", ' +
       JSON.stringify(baseCls) +
       ', typeof size === "string" && "size-" + size, className].filter(Boolean).join(" ")}',
-    'style={color ? { color } : undefined}',
+    'style={{ ...(color ? { color } : {}), ...style }}',
     '{...props}',
   ].concat(xmlAttrs);
   var svgOpen =
@@ -309,7 +309,7 @@ function buildReactBody(name, baseCls, variantClasses, formattedSvg, iconSizes, 
     '}\n\n' +
     'export const ' +
     name +
-    ' = ({ size, color, className, ...props }: ' +
+    ' = ({ size, color, className, style, ...props }: ' +
     name +
     'Props) => (\n' +
     indentedSvg +
@@ -866,6 +866,8 @@ export function renderIconResults(data) {
   $('iconCount').textContent = data.length;
   $('iconResults').classList.remove('hidden');
   $('iconDetailBackdrop').classList.add('hidden');
+  var iconResultBar = $('iconResultBar');
+  if (iconResultBar) iconResultBar.classList.toggle('hidden', data.length === 0);
 
   // 검색바 표시 (아이콘이 있을 때만)
   var searchRow = $('iconSearchRow');
@@ -974,6 +976,14 @@ try { $('iconDetailCopyBtn').addEventListener('click', function () {
   showToast(t('icon.detailCopied'));
 }); } catch(e) { showToast('[icons init] iconDetailCopyBtn: ' + e.message); }
 
+// 전체 SVG 복사
+try { $('iconCopyAllBtn').addEventListener('click', function () {
+  if (iconData.length === 0) { showToast(t('icon.noIcons')); return; }
+  var json = JSON.stringify(iconData.map(function (ic) { return { name: ic.name, svg: ic.svg }; }), null, 2);
+  copyToClipboard(json);
+  showToast(t('icon.copySvg'));
+}); } catch(e) { showToast('[icons init] iconCopyAllBtn: ' + e.message); }
+
 // SVG ZIP 다운로드
 try { $('iconDownloadSvgBtn').addEventListener('click', function () {
   if (iconData.length === 0) {
@@ -993,26 +1003,6 @@ try { $('iconDownloadSvgBtn').addEventListener('click', function () {
       $('iconDownloadSvgBtn').textContent = t('icon.downloadSvg');
     });
 }); } catch(e) { showToast('[icons init] iconDownloadSvgBtn: ' + e.message); }
-
-// SVG 코드 다운로드
-try { $('iconDownloadSvgCodeBtn').addEventListener('click', function () {
-  if (iconData.length === 0) {
-    showToast(t('icon.noIcons'));
-    return;
-  }
-  $('iconDownloadSvgCodeBtn').disabled = true;
-  $('iconDownloadSvgCodeBtn').textContent = t('icon.extracting');
-  downloadSvgCodeZip(iconData)
-    .then(function () {
-      $('iconDownloadSvgCodeBtn').disabled = false;
-      $('iconDownloadSvgCodeBtn').textContent = t('icon.downloadSvgCode');
-      showToast(t('icon.downloadSvgCodeDone'));
-    })
-    .catch(function () {
-      $('iconDownloadSvgCodeBtn').disabled = false;
-      $('iconDownloadSvgCodeBtn').textContent = t('icon.downloadSvgCode');
-    });
-}); } catch(e) { showToast('[icons init] iconDownloadSvgCodeBtn: ' + e.message); }
 
 // React ZIP 다운로드
 try { $('iconDownloadReactBtn').addEventListener('click', function () {

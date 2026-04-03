@@ -1075,8 +1075,8 @@ function buildLayoutCSSModules(d, name, useTs) {
 
 // ─── buildRadixCSSModules 메인 디스패처 ──────────────────────────────────────
 
-export function buildRadixCSSModules(d, name, useTs) {
-  var type = (d && d.detectedType) || 'layout';
+export function buildRadixCSSModules(d, name, useTs, overrideType) {
+  var type = overrideType || (d && d.detectedType) || 'layout';
   switch (type) {
     // Interactive — Single
     case 'button':            return buildButtonCSSModules(d, name, useTs);
@@ -1233,8 +1233,8 @@ export function buildRadixCSS(d) {
 
 // ─── buildRadixStyled — Radix Themes 기준 ───────────────────────────────────
 
-export function buildRadixStyled(d, name, useTs) {
-  var type = (d && d.detectedType) || 'layout';
+export function buildRadixStyled(d, name, useTs, overrideType) {
+  var type = overrideType || (d && d.detectedType) || 'layout';
   var entry = RADIX_COMPONENT_REGISTRY[type];
   var rootCss = stylesToCSSProps(d.styles);
   var hasCustom = rootCss && rootCss.trim().length > 0;

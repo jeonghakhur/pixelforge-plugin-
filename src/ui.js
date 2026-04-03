@@ -211,11 +211,18 @@ window.onmessage = function (event) {
     var d = msg.data;
     if (d) {
       var name = compToPascalCase((d.name || 'Component').split('/').pop());
-      if (d.detectedType && d.detectedType !== 'layout') {
+      // 사용자가 수동 선택한 타입이 없을 때만 자동 감지 적용
+      var _typeSelectEl = $('compTypeSelect');
+      var userSelectedType = _typeSelectEl ? _typeSelectEl.value : compState.componentType;
+      var wasDefault = !userSelectedType || userSelectedType === 'layout';
+      if (wasDefault && d.detectedType && d.detectedType !== 'layout') {
         compState.componentType = d.detectedType;
-        var _typeSelectEl = $('compTypeSelect');
         if (_typeSelectEl) _typeSelectEl.value = d.detectedType;
         updateTypeHint(d.detectedType);
+      } else {
+        // 사용자 선택 타입 유지
+        compState.componentType = userSelectedType;
+        updateTypeHint(userSelectedType);
       }
       var tsx, css;
       if (compState.styleMode === 'html') {
@@ -254,10 +261,10 @@ window.onmessage = function (event) {
           css = '';
         }
       } else if (compState.styleMode === 'css-modules') {
-        tsx = buildRadixCSSModules(d, name, compState.useTs);
+        tsx = buildRadixCSSModules(d, name, compState.useTs, compState.componentType);
         css = buildRadixCSS(d);
       } else {
-        tsx = buildRadixStyled(d, name, compState.useTs);
+        tsx = buildRadixStyled(d, name, compState.useTs, compState.componentType);
         css = '';
       }
       showGeneratedResult(tsx, css, compState.styleMode, d);

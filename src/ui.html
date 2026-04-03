@@ -1064,7 +1064,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        background: var(--bg);
+        background: #ffffff;
         border-radius: 6px;
       }
       .icon-card-preview svg {
@@ -1233,7 +1233,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        background: var(--surface);
+        background: #ffffff;
         border-radius: 4px;
         color: var(--text-primary);
         flex-shrink: 0;
@@ -2386,43 +2386,17 @@
                 </button>
               </span>
             </div>
-            <div style="display: flex; gap: 6px; flex-wrap: wrap">
-              <button
-                class="btn-ghost"
-                id="iconDownloadSvgBtn"
-                style="height: 28px; padding: 0 10px; font-size: 11px"
-                data-i18n="icon.downloadSvg"
-              >
-                SVG 파일
-              </button>
-              <button
-                class="btn-ghost"
-                id="iconDownloadSvgCodeBtn"
-                style="height: 28px; padding: 0 10px; font-size: 11px"
-                data-i18n="icon.downloadSvgCode"
-              >
-                SVG 코드
-              </button>
-              <button
-                class="btn-ghost"
-                id="iconDownloadReactBtn"
-                style="height: 28px; padding: 0 10px; font-size: 11px"
-                data-i18n="icon.downloadReact"
-              >
-                React
-              </button>
-              <button
-                class="btn-ghost"
-                id="pfSendIconsBtn"
-                style="height: 28px; padding: 0 10px; font-size: 11px"
-                data-i18n="settings.sendBtn"
-              >
-                PixelForge로 전송
-              </button>
-            </div>
+            <div></div>
           </div>
           <div id="iconList" class="icon-grid"></div>
         </div>
+      </div>
+      <!-- Icon Result Bar -->
+      <div id="iconResultBar" class="result-bar hidden">
+        <button class="btn-ghost" id="iconCopyAllBtn">📋 복사</button>
+        <button class="btn-ghost" id="iconDownloadSvgBtn" data-i18n="icon.downloadSvg">⬇ SVG</button>
+        <button class="btn-ghost" id="iconDownloadReactBtn" data-i18n="icon.downloadReact">⬇ React</button>
+        <button class="btn-ghost" id="pfSendIconsBtn" data-i18n="settings.sendBtn">PixelForge로 전송</button>
       </div>
     </div>
 
@@ -2758,12 +2732,21 @@
               스타일 방식
             </div>
             <div style="display: flex; flex-direction: column; gap: 4px">
-              <div style="display: flex; gap: 4px">
+              <div style="display: flex; align-items: center; gap: 4px">
                 <button class="comp-style-btn active" data-comp-style="css-modules">
                   CSS Modules
                 </button>
                 <button class="comp-style-btn" data-comp-style="styled">Styled-Components</button>
                 <button class="comp-style-btn" data-comp-style="html">HTML</button>
+                <label style="display: flex; align-items: center; gap: 4px; cursor: pointer; margin-left: auto; flex-shrink: 0">
+                  <input
+                    type="checkbox"
+                    id="compTsCheck"
+                    checked
+                    style="accent-color: var(--primary); width: 14px; height: 14px; cursor: pointer"
+                  />
+                  <span style="font-size: 11px; color: var(--text-secondary)">TypeScript</span>
+                </label>
               </div>
               <div id="compHtmlStyleOptions" style="display: none; gap: 16px; padding: 4px 2px; align-items: center;">
                 <label style="display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-primary); cursor: pointer;">
@@ -2776,26 +2759,6 @@
                 </label>
               </div>
             </div>
-          </div>
-
-          <!-- TypeScript -->
-          <div
-            style="
-              display: flex;
-              align-items: center;
-              justify-content: flex-end;
-              margin-bottom: 12px;
-            "
-          >
-            <label style="display: flex; align-items: center; gap: 4px; cursor: pointer">
-              <input
-                type="checkbox"
-                id="compTsCheck"
-                checked
-                style="accent-color: var(--primary); width: 14px; height: 14px; cursor: pointer"
-              />
-              <span style="font-size: 11px; color: var(--text-secondary)">TypeScript</span>
-            </label>
           </div>
 
           <button
@@ -2834,32 +2797,6 @@
             </button>
           </div>
 
-          <!-- 저장 폼 -->
-          <div style="display: flex; gap: 6px; margin-top: 8px; align-items: center">
-            <input
-              type="text"
-              id="compNameInput"
-              placeholder="컴포넌트명 (예: PrimaryButton)"
-              style="
-                flex: 1;
-                padding: 7px 10px;
-                border: 1px solid var(--border);
-                border-radius: var(--radius-sm);
-                background: var(--surface2);
-                color: var(--text-primary);
-                font-size: 12px;
-                outline: none;
-              "
-            />
-            <button
-              class="btn-primary"
-              id="compSaveBtn"
-              style="height: 34px; padding: 0 14px; font-size: 12px; white-space: nowrap"
-              data-i18n="component.saveBtn"
-            >
-              레지스트리 저장
-            </button>
-          </div>
         </div>
       </div>
 
@@ -3036,6 +2973,41 @@
             </button>
           </div>
         </div>
+      </div>
+      <!-- Component Result Bar -->
+      <div id="compResultBar" class="result-bar hidden" style="align-items: center;">
+        <input
+          type="text"
+          id="compNameInput"
+          placeholder="컴포넌트명 (예: PrimaryButton)"
+          style="
+            flex: 1;
+            padding: 7px 10px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: var(--surface2);
+            color: var(--text-primary);
+            font-size: 12px;
+            outline: none;
+            min-width: 0;
+          "
+        />
+        <button
+          class="btn-ghost"
+          id="compSaveBtn"
+          style="white-space: nowrap; flex-shrink: 0"
+          data-i18n="component.saveBtn"
+        >
+          레지스트리 저장
+        </button>
+        <button
+          class="btn-ghost"
+          id="compSendBtn"
+          style="white-space: nowrap; flex-shrink: 0"
+          data-i18n="settings.sendBtn"
+        >
+          PixelForge로 전송
+        </button>
       </div>
     </div>
 

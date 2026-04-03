@@ -110,6 +110,8 @@ export function showGeneratedResult(tsx, css, styleMode, nodeData) {
   });
   $('compCode').innerHTML = highlightTSX(tsx);
   $('compResult').classList.remove('hidden');
+  var compResultBar = $('compResultBar');
+  if (compResultBar) compResultBar.classList.remove('hidden');
   if (compState.meta) {
     var parts = compState.meta.nodeName.split('/');
     $('compNameInput').value = compToPascalCase(parts[parts.length - 1]);
@@ -570,6 +572,41 @@ if (_exportAllBtn)
   });
 
 parent.postMessage({ pluginMessage: { type: 'registry-get' } }, '*');
+
+// ── PixelForge Send (현재 생성된 컴포넌트 단건 전송) ──
+var compSendBtn = $('compSendBtn');
+if (compSendBtn) {
+  compSendBtn.addEventListener('click', async function () {
+    if (!compState.meta) { showToast(t('component.selectFirst')); return; }
+    var nameVal = (($('compNameInput') && $('compNameInput').value) || '').trim();
+    if (!nameVal) { showToast(lang === 'ko' ? '컴포넌트명을 입력하세요' : 'Enter component name'); return; }
+    compSendBtn.disabled = true;
+    compSendBtn.textContent = t('settings.sending');
+    try {
+      var key = compState.meta.masterId || compState.meta.nodeId;
+      var res = await sendToPixelForge('/api/sync/components', {
+        figmaFileKey: state.figmaFileKey || null,
+        figmaFileName: state.figmaFileName || null,
+        component: {
+          name: nameVal,
+          category: componentTypeToCategory(compState.componentType),
+          description: 'Figma: ' + (compState.meta.nodeName || ''),
+          figmaNodeId: key,
+          defaultStyleMode: compState.styleMode,
+          nodeSnapshot: compState.nodeData ? {
+            figmaNodeData: JSON.stringify(compState.nodeData),
+            figmaVersion: null,
+            trigger: 'generate',
+          } : null,
+        },
+      });
+      if (res) showToast(t('settings.sendSuccess'));
+    } finally {
+      compSendBtn.disabled = false;
+      compSendBtn.textContent = t('settings.sendBtn');
+    }
+  });
+}
 
 // ── PixelForge Send (전체 레지스트리 동기화) ──
 var pfSendComponentBtn = $('pfSendComponentBtn');
