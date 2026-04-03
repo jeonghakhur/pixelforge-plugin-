@@ -238,9 +238,10 @@ document.querySelectorAll('[data-comp-code-tab]').forEach(function (btn) {
     } else if (compState.activeCodeTab === 'css') {
       $('compCode').innerHTML = highlightCSS(compState.generatedCss);
     } else if (compState.activeCodeTab === 'node') {
-      $('compCode').innerHTML = escapeHtml(
-        compState.nodeData ? JSON.stringify(compState.nodeData, null, 2) : '{}'
-      );
+      $('compCode').innerHTML = escapeHtml(JSON.stringify({
+        meta: compState.meta,
+        data: compState.nodeData,
+      }, null, 2));
     }
   });
 });
@@ -254,7 +255,7 @@ if (_compCopyBtn)
     } else if (compState.activeCodeTab === 'css') {
       content = compState.generatedCss;
     } else {
-      content = compState.nodeData ? JSON.stringify(compState.nodeData, null, 2) : '{}';
+      content = JSON.stringify({ meta: compState.meta, data: compState.nodeData }, null, 2);
     }
     copyToClipboard(content);
     showToast(t('component.copied'));
@@ -577,28 +578,20 @@ parent.postMessage({ pluginMessage: { type: 'registry-get' } }, '*');
 var compSendBtn = $('compSendBtn');
 if (compSendBtn) {
   compSendBtn.addEventListener('click', async function () {
-    if (!compState.meta) { showToast(t('component.selectFirst')); return; }
+    // 현재 선택 없으면 마지막 생성된 nodeData.meta 폴백
+    var meta = compState.meta || (compState.nodeData && compState.nodeData.meta) || null;
+    if (!meta) { showToast(t('component.selectFirst')); return; }
     var nameVal = (($('compNameInput') && $('compNameInput').value) || '').trim();
-    if (!nameVal) { showToast(lang === 'ko' ? '컴포넌트명을 입력하세요' : 'Enter component name'); return; }
+    if (!nameVal) {
+      nameVal = compToPascalCase((meta.nodeName || 'Component').split('/').pop());
+    }
     compSendBtn.disabled = true;
     compSendBtn.textContent = t('settings.sending');
     try {
-      var key = compState.meta.masterId || compState.meta.nodeId;
       var res = await sendToPixelForge('/api/sync/components', {
         figmaFileKey: state.figmaFileKey || null,
         figmaFileName: state.figmaFileName || null,
-        component: {
-          name: nameVal,
-          category: componentTypeToCategory(compState.componentType),
-          description: 'Figma: ' + (compState.meta.nodeName || ''),
-          figmaNodeId: key,
-          defaultStyleMode: compState.styleMode,
-          nodeSnapshot: compState.nodeData ? {
-            figmaNodeData: JSON.stringify(compState.nodeData),
-            figmaVersion: null,
-            trigger: 'generate',
-          } : null,
-        },
+        data: Object.assign({}, compState.nodeData, { name: nameVal }),
       });
       if (res) showToast(t('settings.sendSuccess'));
     } finally {

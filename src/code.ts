@@ -417,7 +417,9 @@ async function sendCollections() {
     variableIds: [...c.variableIds],
   }));
   let resolvedFileKey = figma.fileKey || '';
-  if (!resolvedFileKey) {
+  const isInvalidKey =
+    !resolvedFileKey || resolvedFileKey === '0:0' || resolvedFileKey.startsWith('0:');
+  if (isInvalidKey) {
     try {
       const saved = (await figma.clientStorage.getAsync('figma-file-key')) as string | undefined;
       if (saved) resolvedFileKey = saved;
