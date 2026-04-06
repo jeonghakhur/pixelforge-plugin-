@@ -112,6 +112,7 @@ interface ExtractOptions {
     | 'floats'
   >;
   useVisualParser?: boolean;
+  figmaFileKey?: string;
 }
 
 interface ExtractedTokens {
@@ -397,6 +398,7 @@ interface NodeMeta {
   masterId: string | null;
   masterName: string | null;
   figmaFileId: string;
+  figmaFileKey: string;
 }
 
 async function getSelectionInfo() {
@@ -414,6 +416,7 @@ async function getSelectionInfo() {
       masterId: master?.id ?? null,
       masterName: master?.name ?? null,
       figmaFileId: figma.root.id,
+      figmaFileKey: await resolveFileKey(),
     };
   }
 
@@ -490,6 +493,19 @@ async function sendCollections() {
       key: pfSettings?.key ?? '',
     });
   } catch (_) {}
+}
+
+async function resolveFileKey(hint?: string): Promise<string> {
+  // UI에서 전달된 값 우선 사용
+  if (hint && hint !== '0:0' && !hint.startsWith('0:')) return hint;
+  let key = figma.fileKey || '';
+  if (!key || key === '0:0' || key.startsWith('0:')) {
+    try {
+      const saved = (await figma.clientStorage.getAsync('figma-file-key')) as string | undefined;
+      if (saved) key = saved;
+    } catch (_) {}
+  }
+  return key;
 }
 
 async function extractAll(options: ExtractOptions): Promise<ExtractedTokens> {
@@ -742,7 +758,7 @@ async function extractAll(options: ExtractOptions): Promise<ExtractedTokens> {
     styles: { colors, texts, textStyles, headings, fonts, effects, grids },
     icons,
     meta: {
-      figmaFileKey: figma.fileKey || '',
+      figmaFileKey: await resolveFileKey(options.figmaFileKey),
       extractedAt: new Date().toISOString(),
       fileName: figma.root.name,
       sourceMode: isSelectionMode ? 'selection' : 'all',
@@ -2079,6 +2095,7 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
       masterId: master?.id ?? null,
       masterName: master?.name ?? null,
       figmaFileId: figma.root.id,
+      figmaFileKey: await resolveFileKey(),
     } as NodeMeta,
     styles: rootStyles,
     html: nodeToHtml(node, 0),

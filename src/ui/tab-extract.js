@@ -171,6 +171,7 @@ extractBtn.addEventListener('click', function () {
     useSelection: getScope() === 'selection',
     tokenTypes: types,
     useVisualParser: useVisualParser,
+    figmaFileKey: state.figmaFileKey || '',
   };
   parent.postMessage({ pluginMessage: { type: 'extract', options: options } }, '*');
 });
