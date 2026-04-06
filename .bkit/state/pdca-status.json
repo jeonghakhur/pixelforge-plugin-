@@ -1,6 +1,6 @@
 {
   "version": "2.0",
-  "lastUpdated": "2026-04-06T09:30:10.637Z",
+  "lastUpdated": "2026-04-06T10:44:47.728Z",
   "activeFeatures": [
     "pixelforge-plugin-",
     "converters",
@@ -62,7 +62,7 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-30T08:26:11.223Z",
-        "lastUpdated": "2026-04-06T09:25:42.724Z"
+        "lastUpdated": "2026-04-06T10:44:35.294Z"
       },
       "lastFile": "/Users/jeonghak/work/pixelforge-plugin-/src/code.ts"
     },
@@ -75,9 +75,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-31T04:51:42.317Z",
-        "lastUpdated": "2026-04-06T09:30:10.637Z"
+        "lastUpdated": "2026-04-06T10:44:47.728Z"
       },
-      "lastFile": "/Users/jeonghak/work/pixelforge-plugin-/src/converters/variables.js"
+      "lastFile": "/Users/jeonghak/work/pixelforge-plugin-/src/converters/utils.js"
     },
     "visual-frame-parser": {
       "phase": "act",
@@ -272,7 +272,7 @@
   "session": {
     "startedAt": "2026-03-30T05:13:36.824Z",
     "onboardingCompleted": false,
-    "lastActivity": "2026-04-06T09:30:10.637Z"
+    "lastActivity": "2026-04-06T10:44:47.728Z"
   },
   "history": [
     {
@@ -3427,6 +3427,18 @@
     },
     {
       "timestamp": "2026-04-06T09:30:10.637Z",
+      "feature": "converters",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-06T10:44:35.294Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-06T10:44:47.728Z",
       "feature": "converters",
       "phase": "do",
       "action": "updated"

@@ -9,9 +9,10 @@ export function toCssName(path, isAlias) {
   return (
     '--' +
     raw
+      .replace(/\s*\(\d+\)\s*/g, '') // 괄호 shade 제거: "text-secondary (700)" → "text-secondary"
       .replace(/([a-z])([A-Z])/g, '$1-$2') // camelCase → kebab-case
       .replace(/\//g, '-')
-      .replace(/[^a-zA-Z0-9-]/g, '-')
+      .replace(/[^a-zA-Z0-9_-]/g, '-') // underscore 유지 (_hover 등)
       .replace(/-+/g, '-')
       .replace(/^-|-$/g, '')
       .toLowerCase()
