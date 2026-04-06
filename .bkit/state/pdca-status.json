@@ -1,6 +1,6 @@
 {
   "version": "2.0",
-  "lastUpdated": "2026-04-03T08:51:41.173Z",
+  "lastUpdated": "2026-04-06T04:23:11.235Z",
   "activeFeatures": [
     "pixelforge-plugin-",
     "converters",
@@ -62,7 +62,7 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-30T08:26:11.223Z",
-        "lastUpdated": "2026-04-03T08:51:41.173Z"
+        "lastUpdated": "2026-04-06T04:21:46.068Z"
       },
       "lastFile": "/Users/jeonghak/work/pixelforge-plugin-/src/code.ts"
     },
@@ -75,9 +75,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-31T04:51:42.317Z",
-        "lastUpdated": "2026-04-01T09:21:04.357Z"
+        "lastUpdated": "2026-04-06T04:21:56.107Z"
       },
-      "lastFile": "/Users/jeonghak/work/pixelforge-plugin-/src/converters/highlight.js"
+      "lastFile": "/Users/jeonghak/work/pixelforge-plugin-/src/converters/grids.js"
     },
     "visual-frame-parser": {
       "phase": "act",
@@ -102,9 +102,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-31T07:49:57.839Z",
-        "lastUpdated": "2026-04-03T05:32:47.930Z"
+        "lastUpdated": "2026-04-06T04:23:11.235Z"
       },
-      "lastFile": "/Users/jeonghak/work/pixelforge-plugin-/src/ui/tab-component.js"
+      "lastFile": "/Users/jeonghak/work/pixelforge-plugin-/src/ui/tab-extract.js"
     },
     "db": {
       "phase": "do",
@@ -272,7 +272,7 @@
   "session": {
     "startedAt": "2026-03-30T05:13:36.824Z",
     "onboardingCompleted": false,
-    "lastActivity": "2026-04-03T08:51:41.173Z"
+    "lastActivity": "2026-04-06T04:23:11.235Z"
   },
   "history": [
     {
@@ -2990,6 +2990,120 @@
     {
       "timestamp": "2026-04-03T08:51:41.173Z",
       "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-06T01:36:46.203Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-06T01:36:50.671Z",
+      "feature": "ui",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-06T01:36:55.723Z",
+      "feature": "ui",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-06T01:37:04.317Z",
+      "feature": "ui",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-06T04:13:35.864Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-06T04:20:59.155Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-06T04:21:04.846Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-06T04:21:12.559Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-06T04:21:16.950Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-06T04:21:22.144Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-06T04:21:36.361Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-06T04:21:42.040Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-06T04:21:46.068Z",
+      "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-06T04:21:56.107Z",
+      "feature": "converters",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-06T04:22:29.360Z",
+      "feature": "ui",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-06T04:22:41.893Z",
+      "feature": "ui",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-06T04:22:49.788Z",
+      "feature": "ui",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-06T04:23:05.045Z",
+      "feature": "ui",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-06T04:23:11.235Z",
+      "feature": "ui",
       "phase": "do",
       "action": "updated"
     }

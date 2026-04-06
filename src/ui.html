@@ -1938,7 +1938,7 @@
           <div class="section-card">
             <div class="section-label" data-i18n="extract.tokenType">토큰 타입</div>
             <div class="token-grid">
-              <div class="token-card" data-type="variables">
+              <div class="token-card active" data-type="variables">
                 <div class="token-card-icon">
                   <svg
                     width="16"
@@ -1956,7 +1956,7 @@
                 <span class="token-card-label">Variables</span>
               </div>
 
-              <div class="token-card" data-type="colors">
+              <div class="token-card active" data-type="colors">
                 <div class="token-card-icon">
                   <svg
                     width="16"
@@ -1973,7 +1973,7 @@
                 <span class="token-card-label">Color Styles</span>
               </div>
 
-              <div class="token-card" data-type="spacing">
+              <div class="token-card active" data-type="spacing">
                 <div class="token-card-icon">
                   <svg
                     width="16"
@@ -1991,7 +1991,7 @@
                 <span class="token-card-label">Spacing</span>
               </div>
 
-              <div class="token-card" data-type="radius">
+              <div class="token-card active" data-type="radius">
                 <div class="token-card-icon">
                   <svg
                     width="16"
@@ -2008,7 +2008,7 @@
                 <span class="token-card-label">Radius</span>
               </div>
 
-              <div class="token-card" data-type="effects">
+              <div class="token-card active" data-type="effects">
                 <div class="token-card-icon">
                   <svg
                     width="16"
@@ -2026,7 +2026,7 @@
                 <span class="token-card-label">Effect Styles</span>
               </div>
 
-              <div class="token-card" data-type="textStyles">
+              <div class="token-card active" data-type="textStyles">
                 <div class="token-card-icon">
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
                     <path d="M2 4h12M2 8h8M2 12h10" stroke-linecap="round"/>
@@ -2035,7 +2035,7 @@
                 <span class="token-card-label" data-i18n="extract.textStylesCard">Text Styles</span>
               </div>
 
-              <div class="token-card" data-type="headings">
+              <div class="token-card active" data-type="headings">
                 <div class="token-card-icon">
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
                     <path d="M2 3v10M9 3v10M2 8h7" stroke-linecap="round"/>
@@ -2044,13 +2044,54 @@
                 <span class="token-card-label" data-i18n="extract.headingsCard">Headings</span>
               </div>
 
-              <div class="token-card" data-type="fonts">
+              <div class="token-card active" data-type="fonts">
                 <div class="token-card-icon">
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
                     <path d="M3 13L8 3l5 10M5.5 9h5" stroke-linecap="round" stroke-linejoin="round"/>
                   </svg>
                 </div>
                 <span class="token-card-label" data-i18n="extract.fontsCard">Fonts</span>
+              </div>
+
+              <div class="token-card active" data-type="grids">
+                <div class="token-card-icon">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+                    <rect x="2" y="2" width="12" height="12" rx="1.5"/>
+                    <path d="M2 6h12M2 10h12M6 2v12M10 2v12"/>
+                  </svg>
+                </div>
+                <span class="token-card-label">Grid Styles</span>
+              </div>
+
+              <div class="token-card active" data-type="booleans">
+                <div class="token-card-icon">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+                    <rect x="1.5" y="5" width="13" height="6" rx="3"/>
+                    <circle cx="11" cy="8" r="2" fill="currentColor" stroke="none"/>
+                  </svg>
+                </div>
+                <span class="token-card-label">Booleans</span>
+              </div>
+
+              <div class="token-card active" data-type="strings">
+                <div class="token-card-icon">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+                    <path d="M3 5v2c0 1.1.9 2 2 2h6c1.1 0 2-.9 2-2V5"/>
+                    <path d="M8 7v4M6 11h4"/>
+                  </svg>
+                </div>
+                <span class="token-card-label">Strings</span>
+              </div>
+
+              <div class="token-card active" data-type="floats">
+                <div class="token-card-icon">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+                    <path d="M2 8h5M9 8h5"/>
+                    <circle cx="8" cy="8" r="1" fill="currentColor" stroke="none"/>
+                    <path d="M4 5l-2 3 2 3M12 5l2 3-2 3"/>
+                  </svg>
+                </div>
+                <span class="token-card-label">Other Floats</span>
               </div>
 
               <div class="token-hint" data-i18n="extract.tokenHint">
@@ -2168,6 +2209,22 @@
             <div class="stat-card" id="statEffect" data-type="effects">
               <div class="stat-value" id="statEffectNum">0</div>
               <div class="stat-label">Effect Styles</div>
+            </div>
+            <div class="stat-card" id="statGrids" data-type="grids">
+              <div class="stat-value" id="statGridsNum">0</div>
+              <div class="stat-label">Grid Styles</div>
+            </div>
+            <div class="stat-card" id="statBooleans" data-type="booleans">
+              <div class="stat-value" id="statBooleansNum">0</div>
+              <div class="stat-label">Booleans</div>
+            </div>
+            <div class="stat-card" id="statStrings" data-type="strings">
+              <div class="stat-value" id="statStringsNum">0</div>
+              <div class="stat-label">Strings</div>
+            </div>
+            <div class="stat-card" id="statFloats" data-type="floats">
+              <div class="stat-value" id="statFloatsNum">0</div>
+              <div class="stat-label">Other Floats</div>
             </div>
           </div>
 

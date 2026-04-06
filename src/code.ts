@@ -45,6 +45,14 @@ interface EffectStyleData {
   usageCount: number;
 }
 
+interface GridStyleData {
+  id: string;
+  name: string;
+  description: string;
+  layoutGrids: LayoutGrid[];
+  usageCount: number;
+}
+
 interface FontData {
   family: string;
   cssVar: string;
@@ -98,6 +106,10 @@ interface ExtractOptions {
     | 'spacing'
     | 'radius'
     | 'icons'
+    | 'grids'
+    | 'booleans'
+    | 'strings'
+    | 'floats'
   >;
   useVisualParser?: boolean;
 }
@@ -109,6 +121,9 @@ interface ExtractedTokens {
   };
   spacing: VariableData[];
   radius: VariableData[];
+  floats: VariableData[];
+  booleans: VariableData[];
+  strings: VariableData[];
   styles: {
     colors: ColorStyleData[];
     texts: TextStyleData[];
@@ -116,6 +131,7 @@ interface ExtractedTokens {
     headings: TextStyleData[];
     fonts: FontData[];
     effects: EffectStyleData[];
+    grids: GridStyleData[];
   };
   icons: IconData[];
   meta: {
@@ -186,7 +202,7 @@ function countVariableUsage(nodes: readonly SceneNode[]): Map<string, number> {
 
 function countStyleUsage(nodes: readonly SceneNode[]): Map<string, number> {
   const counts = new Map<string, number>();
-  const styleKeys = ['fillStyleId', 'strokeStyleId', 'effectStyleId', 'textStyleId'];
+  const styleKeys = ['fillStyleId', 'strokeStyleId', 'effectStyleId', 'textStyleId', 'gridStyleId'];
   function traverse(node: SceneNode) {
     for (const key of styleKeys) {
       if (key in node) {
@@ -481,9 +497,11 @@ async function extractAll(options: ExtractOptions): Promise<ExtractedTokens> {
   const isSelectionMode = options.useSelection && figma.currentPage.selection.length > 0;
   const types = options.tokenTypes;
 
-  const needsVars = types.some((t) => ['variables', 'spacing', 'radius'].includes(t));
+  const needsVars = types.some((t) =>
+    ['variables', 'spacing', 'radius', 'floats', 'booleans', 'strings'].includes(t)
+  );
   const needsStyles = types.some((t) =>
-    ['colors', 'texts', 'textStyles', 'headings', 'fonts', 'effects'].includes(t)
+    ['colors', 'texts', 'textStyles', 'headings', 'fonts', 'effects', 'grids'].includes(t)
   );
 
   // Pre-fetch
@@ -635,6 +653,62 @@ async function extractAll(options: ExtractOptions): Promise<ExtractedTokens> {
       .filter((s) => !isSelectionMode || s.usageCount > 0);
   }
 
+  // Grid Styles (layout grids)
+  let grids: GridStyleData[] = [];
+  if (types.includes('grids')) {
+    grids = (await figma.getLocalGridStylesAsync())
+      .map((s) => ({
+        id: s.id,
+        name: s.name,
+        description: s.description,
+        layoutGrids: [...s.layoutGrids],
+        usageCount: styleUsage.get(s.id) ?? 0,
+      }))
+      .filter((s) => !isSelectionMode || s.usageCount > 0);
+  }
+
+  // Other Float Variables — FLOAT vars not matching spacing or radius patterns
+  let floats: VariableData[] = [];
+  if (types.includes('floats')) {
+    floats = allVariables
+      .filter((v) => {
+        if (v.resolvedType !== 'FLOAT') return false;
+        const colName = collectionMap.get(v.variableCollectionId) ?? '';
+        return (
+          !SPACING_RE.test(v.name) &&
+          !SPACING_RE.test(colName) &&
+          !RADIUS_RE.test(v.name) &&
+          !RADIUS_RE.test(colName)
+        );
+      })
+      .map((v) => mapVariable(v, varUsage))
+      .filter((v) => !isSelectionMode || v.usageCount > 0);
+  }
+
+  // Boolean Variables
+  let booleans: VariableData[] = [];
+  if (types.includes('booleans')) {
+    const boolVars = needsVars
+      ? allVariables
+      : await figma.variables.getLocalVariablesAsync('BOOLEAN');
+    booleans = boolVars
+      .filter((v) => v.resolvedType === 'BOOLEAN')
+      .map((v) => mapVariable(v, varUsage))
+      .filter((v) => !isSelectionMode || v.usageCount > 0);
+  }
+
+  // String Variables
+  let strings: VariableData[] = [];
+  if (types.includes('strings')) {
+    const strVars = needsVars
+      ? allVariables
+      : await figma.variables.getLocalVariablesAsync('STRING');
+    strings = strVars
+      .filter((v) => v.resolvedType === 'STRING')
+      .map((v) => mapVariable(v, varUsage))
+      .filter((v) => !isSelectionMode || v.usageCount > 0);
+  }
+
   // Icons — components with "icon" in name or parent component set name
   let icons: IconData[] = [];
   if (types.includes('icons')) {
@@ -662,7 +736,10 @@ async function extractAll(options: ExtractOptions): Promise<ExtractedTokens> {
     variables: variableResult,
     spacing,
     radius,
-    styles: { colors, texts, textStyles, headings, fonts, effects },
+    floats,
+    booleans,
+    strings,
+    styles: { colors, texts, textStyles, headings, fonts, effects, grids },
     icons,
     meta: {
       figmaFileKey: figma.fileKey || '',
@@ -1967,7 +2044,14 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
   let variants: VariantStyleEntry[] | undefined;
 
   if (parentSet) {
-    componentSetName = parentSet.name;
+    // COMPONENT_SET의 부모가 GROUP/FRAME이면 그 이름이 실제 컴포넌트 이름
+    // (예: GROUP "Button" > COMPONENT_SET "Primary" → "Button" 사용)
+    const grandParent = parentSet.parent;
+    const isNamedContainer =
+      grandParent &&
+      (grandParent.type === 'FRAME' || grandParent.type === 'GROUP') &&
+      grandParent.name;
+    componentSetName = isNamedContainer ? grandParent.name : parentSet.name;
     const props = parentSet.variantGroupProperties ?? {};
     variantOptions = {};
     for (const [key, val] of Object.entries(props)) {
@@ -2036,7 +2120,21 @@ figma.ui.onmessage = (msg: {
     const options: ExtractOptions = msg.options ?? {
       collectionIds: [],
       useSelection: false,
-      tokenTypes: ['variables', 'spacing', 'radius', 'colors', 'texts', 'effects'],
+      tokenTypes: [
+        'variables',
+        'spacing',
+        'radius',
+        'floats',
+        'booleans',
+        'strings',
+        'colors',
+        'texts',
+        'textStyles',
+        'headings',
+        'fonts',
+        'effects',
+        'grids',
+      ],
     };
     extractAll(options)
       .then(async (data) => {

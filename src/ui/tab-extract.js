@@ -5,6 +5,7 @@ import { buildVarMap, convertVariables, convertFlatVars } from '../converters/va
 import { convertColorStyles } from '../converters/color-styles.js';
 import { convertTextStyles, convertFonts } from '../converters/typography.js';
 import { convertEffectStyles } from '../converters/effects.js';
+import { convertGridStyles } from '../converters/grids.js';
 import { highlightCSS, highlightJSON } from '../converters/highlight.js';
 import { state } from './state.js';
 import { lang, t } from './i18n.js';
@@ -290,6 +291,12 @@ function generateCSS(data, unit, types) {
     body += convertFonts(data.styles ? data.styles.fonts || [] : []);
   }
 
+  // Grid Styles → :root block
+  if (all || types.has('grids')) {
+    var gl = convertGridStyles(data.styles ? data.styles.grids || [] : []);
+    if (gl) body += ':root {\n' + gl + '}\n\n';
+  }
+
   return header + body;
 }
 
@@ -303,6 +310,9 @@ function getFilteredData() {
     variables: types.has('variables') ? d.variables : { collections: [], variables: [] },
     spacing: types.has('spacing') ? d.spacing : [],
     radius: types.has('radius') ? d.radius : [],
+    floats: types.has('floats') ? (d.floats || []) : [],
+    booleans: types.has('booleans') ? (d.booleans || []) : [],
+    strings: types.has('strings') ? (d.strings || []) : [],
     styles: {
       colors: types.has('colors') ? (d.styles ? d.styles.colors : []) : [],
       texts: types.has('texts') ? (d.styles ? d.styles.texts : []) : [],
@@ -310,6 +320,7 @@ function getFilteredData() {
       headings: types.has('headings') ? (d.styles ? d.styles.headings || [] : []) : [],
       fonts: types.has('fonts') ? (d.styles ? d.styles.fonts || [] : []) : [],
       effects: types.has('effects') ? (d.styles ? d.styles.effects : []) : [],
+      grids: types.has('grids') ? (d.styles ? d.styles.grids || [] : []) : [],
     },
     icons: types.has('icons') ? d.icons : [],
     meta: d.meta,
@@ -460,6 +471,10 @@ export function renderResult(data) {
   var headingsCount = styles ? (styles.headings || []).length : 0;
   var fontsCount = styles ? (styles.fonts || []).length : 0;
   var effectCount = styles ? styles.effects.length : 0;
+  var gridsCount = styles ? (styles.grids || []).length : 0;
+  var booleansCount = (data.booleans || []).length;
+  var stringsCount = (data.strings || []).length;
+  var floatsCount = (data.floats || []).length;
   var iconCount = icons ? icons.length : 0;
 
   $('statVarNum').textContent = varCount;
@@ -470,6 +485,10 @@ export function renderResult(data) {
   $('statHeadingsNum').textContent = headingsCount;
   $('statFontsNum').textContent = fontsCount;
   $('statEffectNum').textContent = effectCount;
+  $('statGridsNum').textContent = gridsCount;
+  $('statBooleansNum').textContent = booleansCount;
+  $('statStringsNum').textContent = stringsCount;
+  $('statFloatsNum').textContent = floatsCount;
   [
     ['statVar', varCount],
     ['statSpacing', spacingCount],
@@ -479,6 +498,10 @@ export function renderResult(data) {
     ['statHeadings', headingsCount],
     ['statFonts', fontsCount],
     ['statEffect', effectCount],
+    ['statGrids', gridsCount],
+    ['statBooleans', booleansCount],
+    ['statStrings', stringsCount],
+    ['statFloats', floatsCount],
   ].forEach(function (p) {
     $(p[0]).classList.toggle('inactive', p[1] === 0);
   });
@@ -500,6 +523,10 @@ export function renderResult(data) {
     headings: headingsCount,
     fonts: fontsCount,
     effects: effectCount,
+    grids: gridsCount,
+    booleans: booleansCount,
+    strings: stringsCount,
+    floats: floatsCount,
     icons: iconCount,
   };
   Object.keys(typeCounts).forEach(function (tk) {

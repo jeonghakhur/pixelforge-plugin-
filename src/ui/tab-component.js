@@ -113,7 +113,8 @@ export function showGeneratedResult(tsx, css, styleMode, nodeData) {
   var compResultBar = $('compResultBar');
   if (compResultBar) compResultBar.classList.remove('hidden');
   if (compState.meta) {
-    var parts = compState.meta.nodeName.split('/');
+    var nameSource = (compState.nodeData && compState.nodeData.name) || compState.meta.nodeName;
+    var parts = nameSource.split('/');
     $('compNameInput').value = compToPascalCase(parts[parts.length - 1]);
   }
 }
@@ -580,7 +581,7 @@ if (compDownloadNodeBtn) {
   compDownloadNodeBtn.addEventListener('click', function () {
     if (!compState.nodeData) { showToast(t('component.selectFirst')); return; }
     var nameVal = (($('compNameInput') && $('compNameInput').value) || '').trim()
-      || compToPascalCase(((compState.nodeData.meta && compState.nodeData.meta.nodeName) || 'component').split('/').pop());
+      || compToPascalCase(((compState.nodeData && compState.nodeData.name) || (compState.nodeData.meta && compState.nodeData.meta.nodeName) || 'component').split('/').pop());
     var payload = { meta: compState.meta, data: compState.nodeData };
     var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     var url = URL.createObjectURL(blob);
@@ -602,7 +603,7 @@ if (compSendBtn) {
     if (!meta) { showToast(t('component.selectFirst')); return; }
     var nameVal = (($('compNameInput') && $('compNameInput').value) || '').trim();
     if (!nameVal) {
-      nameVal = compToPascalCase((meta.nodeName || 'Component').split('/').pop());
+      nameVal = compToPascalCase(((compState.nodeData && compState.nodeData.name) || meta.nodeName || 'Component').split('/').pop());
     }
     compSendBtn.disabled = true;
     compSendBtn.textContent = t('settings.sending');
