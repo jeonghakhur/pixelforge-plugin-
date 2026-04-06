@@ -8,6 +8,7 @@ import {
   showView,
   renderResult,
   renderCollections,
+  renderExtraVarsSummary,
   renderSelectionInfo,
   updateExtractBtn,
   headerFile,
@@ -125,6 +126,10 @@ window.onmessage = function (event) {
       renderSelectionInfo(msg.selection);
     }
     updateExtractBtn();
+  }
+
+  if (msg.type === 'extra-vars-summary') {
+    renderExtraVarsSummary(msg.summary || []);
   }
 
   if (msg.type === 'selection-changed') {

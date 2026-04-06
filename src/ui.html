@@ -464,10 +464,10 @@
       .result-body {
         flex: 1;
         overflow-y: auto;
-        padding: 14px 16px;
+        padding: 10px 16px;
         display: flex;
         flex-direction: column;
-        gap: 12px;
+        gap: 8px;
         min-height: 0;
       }
       .result-bar {
@@ -487,17 +487,20 @@
       .stats-grid {
         display: grid;
         grid-template-columns: repeat(4, 1fr);
-        gap: 8px;
+        gap: 6px;
+      }
+      #extraStatCards {
+        display: contents;
       }
       .stat-card {
         background: var(--surface);
         border: 1px solid var(--border);
         border-radius: var(--radius);
-        padding: 10px 6px;
+        padding: 6px 6px;
         text-align: center;
       }
       .stat-value {
-        font-size: 18px;
+        font-size: 16px;
         font-weight: 700;
         color: var(--primary);
       }
@@ -564,9 +567,9 @@
         border-radius: var(--radius);
         overflow: hidden;
         flex: 1;
+        min-height: 480px;
         display: flex;
         flex-direction: column;
-        min-height: 0;
       }
       .preview-tab-bar {
         display: flex;
@@ -1821,6 +1824,10 @@
             전체
           </label>
           <label class="scope-radio-item">
+            <input type="radio" name="scope" value="page" />
+            현재 페이지
+          </label>
+          <label class="scope-radio-item">
             <input type="radio" name="scope" value="selection" />
             선택
           </label>
@@ -2063,35 +2070,15 @@
                 <span class="token-card-label">Grid Styles</span>
               </div>
 
-              <div class="token-card active" data-type="booleans">
+              <div class="token-card active" data-type="extra-vars" id="extraVarsCard">
                 <div class="token-card-icon">
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
-                    <rect x="1.5" y="5" width="13" height="6" rx="3"/>
-                    <circle cx="11" cy="8" r="2" fill="currentColor" stroke="none"/>
+                    <circle cx="8" cy="8" r="5.5"/>
+                    <path d="M8 5v3l2 2"/>
                   </svg>
                 </div>
-                <span class="token-card-label">Booleans</span>
-              </div>
-
-              <div class="token-card active" data-type="strings">
-                <div class="token-card-icon">
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
-                    <path d="M3 5v2c0 1.1.9 2 2 2h6c1.1 0 2-.9 2-2V5"/>
-                    <path d="M8 7v4M6 11h4"/>
-                  </svg>
-                </div>
-                <span class="token-card-label">Strings</span>
-              </div>
-
-              <div class="token-card active" data-type="floats">
-                <div class="token-card-icon">
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
-                    <path d="M2 8h5M9 8h5"/>
-                    <circle cx="8" cy="8" r="1" fill="currentColor" stroke="none"/>
-                    <path d="M4 5l-2 3 2 3M12 5l2 3-2 3"/>
-                  </svg>
-                </div>
-                <span class="token-card-label">Other Floats</span>
+                <span class="token-card-label">기타 변수</span>
+                <span class="token-card-sub" id="extraVarsBadge" style="display:none;font-size:9px;color:var(--text-muted);margin-top:1px"></span>
               </div>
 
               <div class="token-hint" data-i18n="extract.tokenHint">
@@ -2214,18 +2201,7 @@
               <div class="stat-value" id="statGridsNum">0</div>
               <div class="stat-label">Grid Styles</div>
             </div>
-            <div class="stat-card" id="statBooleans" data-type="booleans">
-              <div class="stat-value" id="statBooleansNum">0</div>
-              <div class="stat-label">Booleans</div>
-            </div>
-            <div class="stat-card" id="statStrings" data-type="strings">
-              <div class="stat-value" id="statStringsNum">0</div>
-              <div class="stat-label">Strings</div>
-            </div>
-            <div class="stat-card" id="statFloats" data-type="floats">
-              <div class="stat-value" id="statFloatsNum">0</div>
-              <div class="stat-label">Other Floats</div>
-            </div>
+            <div id="extraStatCards"></div>
           </div>
 
           <!-- Meta Info -->

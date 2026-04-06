@@ -112,6 +112,16 @@ export function updateExtractBtn() {
   extractBtn.disabled = isFilterView && types.length === 0;
 }
 
+// ── Extra vars summary (동적 필터 카드 배지) ──
+export function renderExtraVarsSummary(summary) {
+  var badge = $('extraVarsBadge');
+  if (!badge) return;
+  if (!summary || summary.length === 0) { badge.style.display = 'none'; return; }
+  var total = summary.reduce(function (acc, s) { return acc + s.types.length; }, 0);
+  badge.textContent = summary.map(function (s) { return s.collectionName; }).join(', ');
+  badge.style.display = '';
+}
+
 // ── Collections rendering ──
 export function renderCollections(cols) {
   collections = cols;
@@ -166,9 +176,11 @@ extractBtn.addEventListener('click', function () {
   }
   showView('loading');
   var useVisualParser = $('useVisualParserToggle') ? $('useVisualParserToggle').checked : false;
+  var scope = getScope();
   var options = {
     collectionIds: getSelectedCollectionIds(),
-    useSelection: getScope() === 'selection',
+    useSelection: scope === 'selection',
+    useCurrentPage: scope === 'page',
     tokenTypes: types,
     useVisualParser: useVisualParser,
     figmaFileKey: state.figmaFileKey || '',
@@ -298,6 +310,14 @@ function generateCSS(data, unit, types) {
     if (gl) body += ':root {\n' + gl + '}\n\n';
   }
 
+  // Extra Variables → :root block per group
+  if (all || types.has('extra-vars')) {
+    (data.extraVars || []).forEach(function (group) {
+      var fl = convertFlatVars(group.variables, varMap, unit);
+      if (fl) body += ':root {\n' + fl + '}\n\n';
+    });
+  }
+
   return header + body;
 }
 
@@ -311,9 +331,9 @@ function getFilteredData() {
     variables: types.has('variables') ? d.variables : { collections: [], variables: [] },
     spacing: types.has('spacing') ? d.spacing : [],
     radius: types.has('radius') ? d.radius : [],
-    floats: types.has('floats') ? (d.floats || []) : [],
-    booleans: types.has('booleans') ? (d.booleans || []) : [],
-    strings: types.has('strings') ? (d.strings || []) : [],
+    extraVars: (d.extraVars || []).filter(function (g) {
+      return types.has('extra-vars:' + g.collectionId + ':' + g.resolvedType);
+    }),
     styles: {
       colors: types.has('colors') ? (d.styles ? d.styles.colors : []) : [],
       texts: types.has('texts') ? (d.styles ? d.styles.texts : []) : [],
@@ -473,9 +493,6 @@ export function renderResult(data) {
   var fontsCount = styles ? (styles.fonts || []).length : 0;
   var effectCount = styles ? styles.effects.length : 0;
   var gridsCount = styles ? (styles.grids || []).length : 0;
-  var booleansCount = (data.booleans || []).length;
-  var stringsCount = (data.strings || []).length;
-  var floatsCount = (data.floats || []).length;
   var iconCount = icons ? icons.length : 0;
 
   $('statVarNum').textContent = varCount;
@@ -487,9 +504,6 @@ export function renderResult(data) {
   $('statFontsNum').textContent = fontsCount;
   $('statEffectNum').textContent = effectCount;
   $('statGridsNum').textContent = gridsCount;
-  $('statBooleansNum').textContent = booleansCount;
-  $('statStringsNum').textContent = stringsCount;
-  $('statFloatsNum').textContent = floatsCount;
   [
     ['statVar', varCount],
     ['statSpacing', spacingCount],
@@ -500,16 +514,46 @@ export function renderResult(data) {
     ['statFonts', fontsCount],
     ['statEffect', effectCount],
     ['statGrids', gridsCount],
-    ['statBooleans', booleansCount],
-    ['statStrings', stringsCount],
-    ['statFloats', floatsCount],
   ].forEach(function (p) {
     $(p[0]).classList.toggle('inactive', p[1] === 0);
   });
 
+  // 동적 extra-vars stat 카드 — 그룹마다 고유 타입 키 부여
+  var extraStatCards = $('extraStatCards');
+  if (extraStatCards) {
+    extraStatCards.innerHTML = '';
+    var typeLabel = { FLOAT: 'Float', BOOLEAN: 'Boolean', STRING: 'String' };
+    (data.extraVars || []).forEach(function (group) {
+      var count = group.variables.length;
+      var displayName = group.collectionName.replace(/^\d+\.\s*/, '');
+      // 고유 타입 키: "extra-vars:COLLECTION_ID:RESOLVED_TYPE"
+      var groupTypeKey = 'extra-vars:' + group.collectionId + ':' + group.resolvedType;
+      var card = document.createElement('div');
+      card.className = 'stat-card' + (count === 0 ? ' inactive' : '');
+      card.dataset.type = groupTypeKey;
+      card.innerHTML =
+        '<div class="stat-value">' + count + '</div>' +
+        '<div class="stat-label">' + displayName + '<br><small style="font-size:9px;opacity:.7">' + (typeLabel[group.resolvedType] || group.resolvedType) + '</small></div>';
+      card.addEventListener('click', function () {
+        if (card.classList.contains('inactive')) return;
+        if (activeStatTypes.has(groupTypeKey)) {
+          if (activeStatTypes.size === 1) return;
+          activeStatTypes.delete(groupTypeKey);
+        } else {
+          activeStatTypes.add(groupTypeKey);
+        }
+        updateStatCardStyles();
+        updatePreview();
+      });
+      extraStatCards.appendChild(card);
+    });
+  }
+
   $('metaFile').textContent = meta.fileName || '—';
   $('metaMode').textContent =
-    meta.sourceMode === 'selection' ? t('extract.scopeSelection') : t('extract.scopeAll');
+    meta.sourceMode === 'selection' ? t('extract.scopeSelection') :
+    meta.sourceMode === 'page' ? t('extract.scopePage') :
+    t('extract.scopeAll');
   $('metaNodes').textContent = (meta.totalNodes || 0).toLocaleString() + '개';
   var d = new Date(meta.extractedAt);
   $('metaTime').textContent = d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
@@ -525,13 +569,16 @@ export function renderResult(data) {
     fonts: fontsCount,
     effects: effectCount,
     grids: gridsCount,
-    booleans: booleansCount,
-    strings: stringsCount,
-    floats: floatsCount,
     icons: iconCount,
   };
   Object.keys(typeCounts).forEach(function (tk) {
     if (typeCounts[tk] > 0) activeStatTypes.add(tk);
+  });
+  // extra-vars 그룹별 고유 키 등록
+  (data.extraVars || []).forEach(function (group) {
+    if (group.variables.length > 0) {
+      activeStatTypes.add('extra-vars:' + group.collectionId + ':' + group.resolvedType);
+    }
   });
   updateStatCardStyles();
 

@@ -95,6 +95,7 @@ interface ExtractImagesOptions {
 interface ExtractOptions {
   collectionIds: string[];
   useSelection: boolean;
+  useCurrentPage?: boolean;
   tokenTypes: Array<
     | 'variables'
     | 'colors'
@@ -107,12 +108,23 @@ interface ExtractOptions {
     | 'radius'
     | 'icons'
     | 'grids'
-    | 'booleans'
-    | 'strings'
-    | 'floats'
+    | 'extra-vars'
   >;
   useVisualParser?: boolean;
   figmaFileKey?: string;
+}
+
+interface ExtraVarGroup {
+  collectionId: string;
+  collectionName: string;
+  resolvedType: 'FLOAT' | 'BOOLEAN' | 'STRING';
+  variables: VariableData[];
+}
+
+interface ExtraVarSummaryItem {
+  collectionId: string;
+  collectionName: string;
+  types: ('FLOAT' | 'BOOLEAN' | 'STRING')[];
 }
 
 interface ExtractedTokens {
@@ -122,9 +134,7 @@ interface ExtractedTokens {
   };
   spacing: VariableData[];
   radius: VariableData[];
-  floats: VariableData[];
-  booleans: VariableData[];
-  strings: VariableData[];
+  extraVars: ExtraVarGroup[];
   styles: {
     colors: ColorStyleData[];
     texts: TextStyleData[];
@@ -139,7 +149,7 @@ interface ExtractedTokens {
     figmaFileKey: string;
     extractedAt: string;
     fileName: string;
-    sourceMode: 'all' | 'selection';
+    sourceMode: 'all' | 'selection' | 'page';
     totalNodes: number;
     tokenTypes: string[];
   };
@@ -147,8 +157,10 @@ interface ExtractedTokens {
 
 figma.showUI(__html__, { width: 760, height: 720 });
 
-function getSourceNodes(useSelection: boolean): readonly SceneNode[] {
-  if (useSelection && figma.currentPage.selection.length > 0) {
+function getSourceNodes(
+  options: Pick<ExtractOptions, 'useSelection' | 'useCurrentPage'>
+): readonly SceneNode[] {
+  if (options.useSelection && figma.currentPage.selection.length > 0) {
     return figma.currentPage.selection;
   }
   return figma.currentPage.children;
@@ -452,6 +464,36 @@ async function sendCollections() {
     selection: await getSelectionInfo(),
   });
 
+  // extra-vars 요약 (필터 카드 동적 생성용) — 비동기로 별도 전송
+  figma.variables
+    .getLocalVariablesAsync()
+    .then((vars) => {
+      const SPACING_RE_LOCAL = /spacing|space|gap|padding|margin|gutter/i;
+      const RADIUS_RE_LOCAL = /radius|corner|rounded|border-radius/i;
+      const summaryMap = new Map<string, ExtraVarSummaryItem>();
+      for (const v of vars) {
+        if (v.resolvedType === 'COLOR') continue;
+        if (v.resolvedType === 'FLOAT') {
+          const colName = collections.find((c) => c.id === v.variableCollectionId)?.name ?? '';
+          if (SPACING_RE_LOCAL.test(v.name) || SPACING_RE_LOCAL.test(colName)) continue;
+          if (RADIUS_RE_LOCAL.test(v.name) || RADIUS_RE_LOCAL.test(colName)) continue;
+        }
+        const colId = v.variableCollectionId;
+        if (!summaryMap.has(colId)) {
+          const colName = collections.find((c) => c.id === colId)?.name ?? colId;
+          summaryMap.set(colId, { collectionId: colId, collectionName: colName, types: [] });
+        }
+        const item = summaryMap.get(colId)!;
+        const t = v.resolvedType as 'FLOAT' | 'BOOLEAN' | 'STRING';
+        if (!item.types.includes(t)) item.types.push(t);
+      }
+      figma.ui.postMessage({
+        type: 'extra-vars-summary',
+        summary: Array.from(summaryMap.values()),
+      });
+    })
+    .catch(() => {});
+
   // 마지막 아이콘 데이터 복원
   try {
     const cached = (await figma.clientStorage.getAsync('lastIconData')) as
@@ -509,13 +551,12 @@ async function resolveFileKey(hint?: string): Promise<string> {
 }
 
 async function extractAll(options: ExtractOptions): Promise<ExtractedTokens> {
-  const sourceNodes = getSourceNodes(options.useSelection);
+  const sourceNodes = getSourceNodes(options);
   const isSelectionMode = options.useSelection && figma.currentPage.selection.length > 0;
+  const isPageMode = !isSelectionMode && !!options.useCurrentPage;
   const types = options.tokenTypes;
 
-  const needsVars = types.some((t) =>
-    ['variables', 'spacing', 'radius', 'floats', 'booleans', 'strings'].includes(t)
-  );
+  const needsVars = types.some((t) => ['variables', 'spacing', 'radius', 'extra-vars'].includes(t));
   const needsStyles = types.some((t) =>
     ['colors', 'texts', 'textStyles', 'headings', 'fonts', 'effects', 'grids'].includes(t)
   );
@@ -531,8 +572,8 @@ async function extractAll(options: ExtractOptions): Promise<ExtractedTokens> {
   // Variables
   let variableResult: ExtractedTokens['variables'] = { collections: [], variables: [] };
   if (types.includes('variables')) {
-    if (isSelectionMode) {
-      // Selection mode: resolve ALL used variable IDs (local + external library)
+    if (isSelectionMode || isPageMode) {
+      // Selection/page mode: resolve used variable IDs
       const usedIds = Array.from(varUsage.keys());
       if (usedIds.length > 0) {
         const resolvedVars = (
@@ -591,7 +632,7 @@ async function extractAll(options: ExtractOptions): Promise<ExtractedTokens> {
         return SPACING_RE.test(v.name) || SPACING_RE.test(colName);
       })
       .map((v) => mapVariable(v, varUsage))
-      .filter((v) => !isSelectionMode || v.usageCount > 0);
+      .filter((v) => !(isSelectionMode || isPageMode) || v.usageCount > 0);
 
     if (spacing.length === 0 && options.useVisualParser) {
       spacing = extractVisualSpacing();
@@ -608,7 +649,7 @@ async function extractAll(options: ExtractOptions): Promise<ExtractedTokens> {
         return RADIUS_RE.test(v.name) || RADIUS_RE.test(colName);
       })
       .map((v) => mapVariable(v, varUsage))
-      .filter((v) => !isSelectionMode || v.usageCount > 0);
+      .filter((v) => !(isSelectionMode || isPageMode) || v.usageCount > 0);
   }
 
   // Color Styles
@@ -622,7 +663,7 @@ async function extractAll(options: ExtractOptions): Promise<ExtractedTokens> {
         paints: [...s.paints],
         usageCount: styleUsage.get(s.id) ?? 0,
       }))
-      .filter((s) => !isSelectionMode || s.usageCount > 0);
+      .filter((s) => !(isSelectionMode || isPageMode) || s.usageCount > 0);
   }
 
   // Text Styles (backward compat)
@@ -630,7 +671,7 @@ async function extractAll(options: ExtractOptions): Promise<ExtractedTokens> {
   if (types.includes('texts')) {
     texts = (await figma.getLocalTextStylesAsync())
       .map((s) => mapTextStyle(s, styleUsage))
-      .filter((s) => !isSelectionMode || s.usageCount > 0);
+      .filter((s) => !(isSelectionMode || isPageMode) || s.usageCount > 0);
   }
 
   // Text Styles — split (textStyles / headings / fonts)
@@ -642,7 +683,7 @@ async function extractAll(options: ExtractOptions): Promise<ExtractedTokens> {
   if (needsTextSplit) {
     const allTexts = (await figma.getLocalTextStylesAsync())
       .map((s) => mapTextStyle(s, styleUsage))
-      .filter((s) => !isSelectionMode || s.usageCount > 0);
+      .filter((s) => !(isSelectionMode || isPageMode) || s.usageCount > 0);
 
     if (types.includes('textStyles')) {
       textStyles = allTexts.filter((s) => !HEADING_RE.test(s.name));
@@ -666,7 +707,7 @@ async function extractAll(options: ExtractOptions): Promise<ExtractedTokens> {
         effects: [...s.effects],
         usageCount: styleUsage.get(s.id) ?? 0,
       }))
-      .filter((s) => !isSelectionMode || s.usageCount > 0);
+      .filter((s) => !(isSelectionMode || isPageMode) || s.usageCount > 0);
   }
 
   // Grid Styles (layout grids)
@@ -680,49 +721,39 @@ async function extractAll(options: ExtractOptions): Promise<ExtractedTokens> {
         layoutGrids: [...s.layoutGrids],
         usageCount: styleUsage.get(s.id) ?? 0,
       }))
-      .filter((s) => !isSelectionMode || s.usageCount > 0);
+      .filter((s) => !(isSelectionMode || isPageMode) || s.usageCount > 0);
   }
 
-  // Other Float Variables — FLOAT vars not matching spacing or radius patterns
-  let floats: VariableData[] = [];
-  if (types.includes('floats')) {
-    floats = allVariables
+  // Extra Variables — FLOAT/BOOLEAN/STRING grouped by collection (excluding spacing/radius)
+  let extraVars: ExtraVarGroup[] = [];
+  if (types.includes('extra-vars')) {
+    const groupMap = new Map<string, ExtraVarGroup>();
+    allVariables
       .filter((v) => {
-        if (v.resolvedType !== 'FLOAT') return false;
-        const colName = collectionMap.get(v.variableCollectionId) ?? '';
-        return (
-          !SPACING_RE.test(v.name) &&
-          !SPACING_RE.test(colName) &&
-          !RADIUS_RE.test(v.name) &&
-          !RADIUS_RE.test(colName)
-        );
+        if (v.resolvedType === 'COLOR') return false;
+        if (v.resolvedType === 'FLOAT') {
+          const colName = collectionMap.get(v.variableCollectionId) ?? '';
+          if (SPACING_RE.test(v.name) || SPACING_RE.test(colName)) return false;
+          if (RADIUS_RE.test(v.name) || RADIUS_RE.test(colName)) return false;
+        }
+        return true;
       })
-      .map((v) => mapVariable(v, varUsage))
-      .filter((v) => !isSelectionMode || v.usageCount > 0);
-  }
-
-  // Boolean Variables
-  let booleans: VariableData[] = [];
-  if (types.includes('booleans')) {
-    const boolVars = needsVars
-      ? allVariables
-      : await figma.variables.getLocalVariablesAsync('BOOLEAN');
-    booleans = boolVars
-      .filter((v) => v.resolvedType === 'BOOLEAN')
-      .map((v) => mapVariable(v, varUsage))
-      .filter((v) => !isSelectionMode || v.usageCount > 0);
-  }
-
-  // String Variables
-  let strings: VariableData[] = [];
-  if (types.includes('strings')) {
-    const strVars = needsVars
-      ? allVariables
-      : await figma.variables.getLocalVariablesAsync('STRING');
-    strings = strVars
-      .filter((v) => v.resolvedType === 'STRING')
-      .map((v) => mapVariable(v, varUsage))
-      .filter((v) => !isSelectionMode || v.usageCount > 0);
+      .forEach((v) => {
+        const key = v.variableCollectionId + ':' + v.resolvedType;
+        if (!groupMap.has(key)) {
+          groupMap.set(key, {
+            collectionId: v.variableCollectionId,
+            collectionName: collectionMap.get(v.variableCollectionId) ?? v.variableCollectionId,
+            resolvedType: v.resolvedType as 'FLOAT' | 'BOOLEAN' | 'STRING',
+            variables: [],
+          });
+        }
+        const mapped = mapVariable(v, varUsage);
+        if (!(isSelectionMode || isPageMode) || mapped.usageCount > 0) {
+          groupMap.get(key)!.variables.push(mapped);
+        }
+      });
+    extraVars = Array.from(groupMap.values()).filter((g) => g.variables.length > 0);
   }
 
   // Icons — components with "icon" in name or parent component set name
@@ -752,16 +783,14 @@ async function extractAll(options: ExtractOptions): Promise<ExtractedTokens> {
     variables: variableResult,
     spacing,
     radius,
-    floats,
-    booleans,
-    strings,
+    extraVars,
     styles: { colors, texts, textStyles, headings, fonts, effects, grids },
     icons,
     meta: {
       figmaFileKey: await resolveFileKey(options.figmaFileKey),
       extractedAt: new Date().toISOString(),
       fileName: figma.root.name,
-      sourceMode: isSelectionMode ? 'selection' : 'all',
+      sourceMode: isSelectionMode ? 'selection' : isPageMode ? 'page' : 'all',
       totalNodes: countNodes(sourceNodes),
       tokenTypes: types,
     },
@@ -913,10 +942,13 @@ function figmaColorToHex(c: { r: number; g: number; b: number }): string {
 
 // ─── Component 생성 공유 유틸 ────────────────────────────────────────────────
 
-function toCssVarName(name: string): string {
+function toCssVarName(name: string, isAlias = false): string {
+  // Primitive: 모든 세그먼트 유지 (Colors/Brand/600 → --colors-brand-600)
+  // Semantic(alias): 마지막 세그먼트만 (Colors/Background/bg-brand-solid → --bg-brand-solid)
+  const raw = isAlias && name.includes('/') ? name.split('/').pop()! : name;
   return (
     '--' +
-    name
+    raw
       .replace(/([a-z])([A-Z])/g, '$1-$2')
       .replace(/\//g, '-')
       .replace(/[^a-zA-Z0-9-]/g, '-')
@@ -1659,11 +1691,26 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
     const firstMode = Object.keys(v.valuesByMode)[0];
     if (!firstMode) continue;
     const val = v.valuesByMode[firstMode];
-    if (val && typeof val === 'object' && 'r' in (val as unknown as Record<string, unknown>)) {
+    const isAlias = !!(
+      val &&
+      typeof val === 'object' &&
+      'type' in (val as Record<string, unknown>) &&
+      (val as { type: string }).type === 'VARIABLE_ALIAS'
+    );
+    const cssName = toCssVarName(v.name, isAlias);
+
+    // varIdMap: alias든 primitive든 무조건 등록 (boundVariables 해석용)
+    varIdMap.set(v.id, cssName);
+
+    // colorMap: hex → cssName 역방향 조회 (primitive만 가능)
+    if (
+      !isAlias &&
+      val &&
+      typeof val === 'object' &&
+      'r' in (val as unknown as Record<string, unknown>)
+    ) {
       const hex = figmaColorToHex(val as { r: number; g: number; b: number });
-      const cssName = toCssVarName(v.name);
       if (!colorMap.has(hex)) colorMap.set(hex, cssName);
-      varIdMap.set(v.id, cssName);
     }
   }
 
@@ -1728,18 +1775,44 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
   // ── Step 5: 노드 → CSS 스타일 변환 ──────────────────────────────────────
   function getNodeStyles(n: SceneNode): Record<string, string> {
     const s: Record<string, string> = {};
+    const isText = n.type === 'TEXT';
 
     // fill: boundVariables 우선 → colorMap → raw hex
+    // TEXT 노드 fills → CSS color, 그 외 → background-color
     if ('fills' in n) {
+      const fillProp = isText ? 'color' : 'background-color';
       const bound = resolveBoundColor(n, 'fills');
       if (bound) {
-        s['background-color'] = bound;
+        s[fillProp] = bound;
       } else {
         const fills = (n as any).fills;
         if (Array.isArray(fills)) {
           const solid = fills.find((f: any) => f.type === 'SOLID' && f.visible !== false);
-          if (solid) s['background-color'] = resolveColor(solid.color);
+          if (solid) s[fillProp] = resolveColor(solid.color);
         }
+      }
+    }
+
+    // TEXT 노드: font 속성 추출
+    if (isText) {
+      const tn = n as TextNode;
+      try {
+        const fs = tn.fontSize;
+        if (typeof fs === 'number') s['font-size'] = fs + 'px';
+        const fn = tn.fontName;
+        if (fn && typeof fn === 'object' && 'family' in fn) {
+          s['font-family'] = (fn as FontName).family;
+          s['font-weight'] = (fn as FontName).style;
+        }
+        const lh = tn.lineHeight;
+        if (lh && typeof lh === 'object' && 'value' in lh) {
+          s['line-height'] =
+            (lh as { value: number; unit: string }).unit === 'PIXELS'
+              ? (lh as { value: number }).value + 'px'
+              : (lh as { value: number }).value + '%';
+        }
+      } catch (_) {
+        /* mixed styles — skip */
       }
     }
 
@@ -1766,7 +1839,7 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
       }
     }
 
-    // stroke: boundVariables 우선
+    // stroke: boundVariables 우선, gradient stroke도 처리
     if ('strokes' in n) {
       const bound = resolveBoundColor(n, 'strokes');
       const strokeWeight = 'strokeWeight' in n ? Math.round((n as any).strokeWeight) || 1 : 1;
@@ -1776,8 +1849,42 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
         const strokes = (n as any).strokes;
         if (Array.isArray(strokes)) {
           const solid = strokes.find((f: any) => f.type === 'SOLID' && f.visible !== false);
-          if (solid) s['border'] = strokeWeight + 'px solid ' + resolveColor(solid.color);
+          if (solid) {
+            s['border'] = strokeWeight + 'px solid ' + resolveColor(solid.color);
+          } else {
+            const gradient = strokes.find(
+              (f: any) => f.type?.startsWith('GRADIENT_') && f.visible !== false
+            );
+            if (gradient) {
+              s['border-width'] = strokeWeight + 'px';
+              s['border-style'] = 'solid';
+              s['border-image'] =
+                'linear-gradient(to bottom, rgba(255,255,255,0.12), rgba(255,255,255,0)) 1';
+            }
+          }
         }
+      }
+    }
+
+    // effects: drop-shadow, inner-shadow → box-shadow
+    if ('effects' in n) {
+      const effects = (n as any).effects;
+      if (Array.isArray(effects)) {
+        const shadows: string[] = [];
+        for (const e of effects) {
+          if (!e.visible) continue;
+          if (e.type === 'DROP_SHADOW' || e.type === 'INNER_SHADOW') {
+            const ox = e.offset?.x ?? 0;
+            const oy = e.offset?.y ?? 0;
+            const blur = e.radius ?? 0;
+            const spread = e.spread ?? 0;
+            const c = e.color ?? { r: 0, g: 0, b: 0, a: 1 };
+            const rgba = `rgba(${Math.round(c.r * 255)},${Math.round(c.g * 255)},${Math.round(c.b * 255)},${Math.round((c.a ?? 1) * 100) / 100})`;
+            const inset = e.type === 'INNER_SHADOW' ? 'inset ' : '';
+            shadows.push(`${inset}${ox}px ${oy}px ${blur}px ${spread}px ${rgba}`);
+          }
+        }
+        if (shadows.length > 0) s['box-shadow'] = shadows.join(', ');
       }
     }
 
@@ -1798,9 +1905,17 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
       if (n.type === 'TEXT') {
         const text = safeGetText(n);
         if (!text) return '';
+        const textStyles = getNodeStyles(n);
+        const textEntries = Object.entries(textStyles);
+        const textStyleAttr =
+          textEntries.length > 0
+            ? ' style="' + textEntries.map(([k, v]) => k + ': ' + v).join('; ') + '"'
+            : '';
         return (
           pad +
-          '<span>' +
+          '<span' +
+          textStyleAttr +
+          '>' +
           text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') +
           '</span>'
         );
@@ -1838,7 +1953,8 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
           if (!text) return '';
           const cls = counter === 0 ? 'root-text' : 'text-' + counter;
           counter++;
-          cssMap[cls] = {};
+          const textStyles = getNodeStyles(n);
+          cssMap[cls] = Object.keys(textStyles).length > 0 ? textStyles : {};
           return (
             pad +
             '<span class="' +
@@ -2141,9 +2257,7 @@ figma.ui.onmessage = (msg: {
         'variables',
         'spacing',
         'radius',
-        'floats',
-        'booleans',
-        'strings',
+        'extra-vars',
         'colors',
         'texts',
         'textStyles',

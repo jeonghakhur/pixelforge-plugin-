@@ -30,17 +30,35 @@ function buildVarEntries(colVars, mode, varMap, unit) {
   var entries = [];
   colVars.forEach(function (v) {
     var raw = (v.valuesByMode || {})[mode.modeId];
-    var val = resolveValue(raw, varMap, 0);
-    if (val === null || val === undefined) return;
-    var name = toCssName(v.name);
+    var isAlias = raw && typeof raw === 'object' && raw.type === 'VARIABLE_ALIAS';
+    var name = toCssName(v.name, isAlias);
     var cssVal = null;
-    if (v.resolvedType === 'COLOR') {
-      if (typeof val === 'object' && 'r' in val) cssVal = figmaColorToCSS(val);
-    } else if (v.resolvedType === 'FLOAT') {
-      if (typeof val === 'number') cssVal = toUnit(val, unit);
-    } else if (v.resolvedType === 'STRING') {
-      if (typeof val === 'string') cssVal = val;
+
+    if (isAlias) {
+      // alias → var(--target-name) 참조로 출력
+      var ref = varMap[raw.id];
+      if (ref) {
+        var refIsAlias = false;
+        var refRaw = Object.values(ref.valuesByMode || {})[0];
+        if (refRaw && typeof refRaw === 'object' && refRaw.type === 'VARIABLE_ALIAS')
+          refIsAlias = true;
+        cssVal = 'var(' + toCssName(ref.name, refIsAlias) + ')';
+      }
     }
+
+    // alias 해석 실패 또는 primitive → 값 직접 출력
+    if (cssVal === null) {
+      var val = resolveValue(raw, varMap, 0);
+      if (val === null || val === undefined) return;
+      if (v.resolvedType === 'COLOR') {
+        if (typeof val === 'object' && 'r' in val) cssVal = figmaColorToCSS(val);
+      } else if (v.resolvedType === 'FLOAT') {
+        if (typeof val === 'number') cssVal = toUnit(val, unit);
+      } else if (v.resolvedType === 'STRING') {
+        if (typeof val === 'string') cssVal = val;
+      }
+    }
+
     if (cssVal !== null) entries.push({ name: name, line: '  ' + name + ': ' + cssVal + ';\n' });
   });
   return entries;
@@ -139,13 +157,27 @@ export function convertFlatVars(vars, varMap, unit) {
   var lines = '';
   var seen = new Set();
   vars.forEach(function (v) {
-    var name = toCssName(v.name);
+    var raw = Object.values(v.valuesByMode || {})[0];
+    var isAlias = raw && typeof raw === 'object' && raw.type === 'VARIABLE_ALIAS';
+    var name = toCssName(v.name, isAlias);
     if (seen.has(name)) return;
     seen.add(name);
-    var raw = Object.values(v.valuesByMode || {})[0];
-    var val = resolveValue(raw, varMap, 0);
-    if (typeof val === 'number') {
-      lines += '  ' + name + ': ' + toUnit(val, unit) + ';\n';
+
+    var cssVal = null;
+    if (isAlias) {
+      var ref = varMap[raw.id];
+      if (ref) {
+        var refRaw = Object.values(ref.valuesByMode || {})[0];
+        var refIsAlias = refRaw && typeof refRaw === 'object' && refRaw.type === 'VARIABLE_ALIAS';
+        cssVal = 'var(' + toCssName(ref.name, refIsAlias) + ')';
+      }
+    }
+    if (cssVal === null) {
+      var val = resolveValue(raw, varMap, 0);
+      if (typeof val === 'number') cssVal = toUnit(val, unit);
+    }
+    if (cssVal !== null) {
+      lines += '  ' + name + ': ' + cssVal + ';\n';
     }
   });
   return lines;

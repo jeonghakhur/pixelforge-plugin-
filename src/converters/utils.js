@@ -2,10 +2,13 @@ export function escapeHtml(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-export function toCssName(path) {
+export function toCssName(path, isAlias) {
+  // Primitive: 모든 세그먼트 유지 (Colors/Brand/600 → --colors-brand-600)
+  // Semantic(alias): 마지막 세그먼트만 (Colors/Background/bg-brand-solid → --bg-brand-solid)
+  var raw = isAlias && path.indexOf('/') >= 0 ? path.split('/').pop() : path;
   return (
     '--' +
-    path
+    raw
       .replace(/([a-z])([A-Z])/g, '$1-$2') // camelCase → kebab-case
       .replace(/\//g, '-')
       .replace(/[^a-zA-Z0-9-]/g, '-')
