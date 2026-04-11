@@ -1735,13 +1735,29 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
   }
 
   // boundVariables에서 CSS var 이름 직접 추출
+  // Figma의 fill/stroke variable 바인딩은 두 위치에 존재할 수 있다:
+  //  1) 노드 레벨: node.boundVariables.fills (레거시/드문 케이스)
+  //  2) 페인트 레벨: paint.boundVariables.color (일반적인 케이스, TEXT 색상 포함)
   function resolveBoundColor(n: SceneNode, prop: 'fills' | 'strokes'): string | null {
     try {
+      // 1) 노드 레벨 boundVariables
       const bv = (n as any).boundVariables;
-      if (!bv) return null;
-      const binding = Array.isArray(bv[prop]) ? bv[prop][0] : bv[prop];
-      if (binding?.id && varIdMap.has(binding.id)) {
-        return 'var(' + varIdMap.get(binding.id) + ')';
+      if (bv) {
+        const binding = Array.isArray(bv[prop]) ? bv[prop][0] : bv[prop];
+        if (binding?.id && varIdMap.has(binding.id)) {
+          return 'var(' + varIdMap.get(binding.id) + ')';
+        }
+      }
+      // 2) 페인트 레벨 boundVariables (TEXT 색상 등)
+      const paints = (n as any)[prop];
+      if (Array.isArray(paints)) {
+        for (const p of paints) {
+          if (!p || p.visible === false) continue;
+          const pbv = p.boundVariables?.color;
+          if (pbv?.id && varIdMap.has(pbv.id)) {
+            return 'var(' + varIdMap.get(pbv.id) + ')';
+          }
+        }
       }
     } catch (_) {}
     return null;
@@ -1803,7 +1819,8 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
         const fn = tn.fontName;
         if (fn && typeof fn === 'object' && 'family' in fn) {
           s['font-family'] = (fn as FontName).family;
-          s['font-weight'] = (fn as FontName).style;
+          // Figma의 style 문자열("Semi Bold")을 CSS 숫자 값("600")으로 변환
+          s['font-weight'] = String(fontWeightFromStyle((fn as FontName).style));
         }
         const lh = tn.lineHeight;
         if (lh && typeof lh === 'object' && 'value' in lh) {
@@ -1893,6 +1910,21 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
       const op = (n as any).opacity;
       if (typeof op === 'number' && op < 1) {
         s['opacity'] = String(Math.round(op * 100) / 100);
+      }
+    }
+
+    // 자식 노드의 고정 크기 추출 (아이콘 슬롯 placeholder, 이미지 박스 등)
+    // - FIXED: 사용자가 크기를 명시 → width/height 추출
+    // - FILL/HUG: 부모/콘텐츠에 맞춰 변형 → 추출하지 않음
+    // - TEXT 노드는 auto-resize 되므로 제외
+    if (!isText && 'layoutSizingHorizontal' in n) {
+      const horiz = (n as any).layoutSizingHorizontal;
+      const vert = (n as any).layoutSizingVertical;
+      if (horiz === 'FIXED' && typeof (n as any).width === 'number') {
+        s['width'] = Math.round((n as any).width) + 'px';
+      }
+      if (vert === 'FIXED' && typeof (n as any).height === 'number') {
+        s['height'] = Math.round((n as any).height) + 'px';
       }
     }
 
