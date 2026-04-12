@@ -1,3 +1,6 @@
+import { buildNodeTree, buildVariantSlug } from './extractors';
+import type { NodeTreeEntry, NodeTreeContext } from './extractors';
+
 interface VariableData {
   id: string;
   name: string;
@@ -1327,10 +1330,14 @@ interface RadixProps {
 interface VariantStyleEntry {
   /** variantProperties: { size: 'xlarge', variant: 'Primary', state: 'rest' } */
   properties: Record<string, string>;
+  /** property 값을 '_'로 join한 파일명/CSS 식별자 (예: 'md_primary_default') */
+  variantSlug: string;
   /** 루트 노드 CSS */
   styles: Record<string, string>;
-  /** 자식 요소 CSS */
+  /** 자식 요소 CSS (1-level, 하위 호환용) */
   childStyles: Record<string, Record<string, string>>;
+  /** 재귀 완전 트리 (100% Fidelity 추출) */
+  nodeTree: NodeTreeEntry;
 }
 
 interface GenerateComponentResult {
@@ -1344,6 +1351,8 @@ interface GenerateComponentResult {
   detectedType: ComponentType;
   texts: ExtractedTexts;
   childStyles: Record<string, Record<string, string>>;
+  /** 선택된 노드의 재귀 완전 트리 (모든 자손 노드 포함) */
+  nodeTree: NodeTreeEntry;
   radixProps: RadixProps;
   /** COMPONENT_SET의 모든 variant 옵션 { size: ['xsmall','small',...], variant: ['Primary',...] } */
   variantOptions?: Record<string, string[]>;
@@ -2193,6 +2202,13 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
 
   const htmlClassResult = buildHtmlWithClasses(node);
 
+  // buildNodeTree는 closure 의존 로직(getNodeStyles/safeGetText)을
+  // 주입받아야 하므로, 여기서 컨텍스트를 구성한다
+  const nodeTreeCtx: NodeTreeContext = {
+    getStyles: (n) => getNodeStyles(n),
+    getText: (n) => safeGetText(n),
+  };
+
   // ── COMPONENT_SET 정보 수집 ───────────────────────────────────────────────
   // COMPONENT(변형 인스턴스) 선택 시 부모 COMPONENT_SET에서
   // 실제 variant 옵션과 컴포넌트 이름을 가져온다
@@ -2224,13 +2240,18 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
     }
 
     // 자식 COMPONENT 각각의 스타일 수집
-    variants = (parentSet.children as ComponentNode[]).map((child) => ({
-      properties: Object.fromEntries(
+    variants = (parentSet.children as ComponentNode[]).map((child) => {
+      const props = Object.fromEntries(
         Object.entries(child.variantProperties ?? {}).map(([k, v]) => [k.toLowerCase(), v])
-      ),
-      styles: getNodeStyles(child),
-      childStyles: getChildStyles(child),
-    }));
+      );
+      return {
+        properties: props,
+        variantSlug: buildVariantSlug(props),
+        styles: getNodeStyles(child),
+        childStyles: getChildStyles(child),
+        nodeTree: buildNodeTree(child, nodeTreeCtx),
+      };
+    });
   }
 
   const effectiveName = componentSetName ?? node.name;
@@ -2254,6 +2275,7 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
     detectedType: detectComponentType(node),
     texts: extractTexts(node),
     childStyles: getChildStyles(node),
+    nodeTree: buildNodeTree(node, nodeTreeCtx),
     radixProps: {
       variant: inferRadixVariant(node),
       color: inferRadixColor(node, colorMap),
