@@ -169,15 +169,18 @@ async function getSourceNodes(
   if (options.useCurrentPage) {
     return figma.currentPage.children;
   }
-  // All mode: scan all pages in the document for accurate usageCount
-  // Pages other than the current one require loadAsync() before accessing .children
+  // All mode: load all pages in parallel then collect top-level children
+  const otherPages = figma.root.children.filter((p) => p !== figma.currentPage);
+  await Promise.allSettled(otherPages.map((p) => p.loadAsync()));
+
   const all: SceneNode[] = [];
   for (const page of figma.root.children) {
-    if (page !== figma.currentPage) {
-      await page.loadAsync();
-    }
-    for (const child of page.children) {
-      all.push(child as SceneNode);
+    try {
+      for (const child of page.children) {
+        all.push(child as SceneNode);
+      }
+    } catch (_) {
+      // 로드 실패한 페이지는 스킵
     }
   }
   return all;
