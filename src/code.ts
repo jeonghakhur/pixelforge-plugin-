@@ -160,30 +160,13 @@ interface ExtractedTokens {
 
 figma.showUI(__html__, { width: 760, height: 720 });
 
-async function getSourceNodes(
+function getSourceNodes(
   options: Pick<ExtractOptions, 'useSelection' | 'useCurrentPage'>
-): Promise<readonly SceneNode[]> {
+): readonly SceneNode[] {
   if (options.useSelection && figma.currentPage.selection.length > 0) {
     return figma.currentPage.selection;
   }
-  if (options.useCurrentPage) {
-    return figma.currentPage.children;
-  }
-  // All mode: load all pages in parallel then collect top-level children
-  const otherPages = figma.root.children.filter((p) => p !== figma.currentPage);
-  await Promise.allSettled(otherPages.map((p) => p.loadAsync()));
-
-  const all: SceneNode[] = [];
-  for (const page of figma.root.children) {
-    try {
-      for (const child of page.children) {
-        all.push(child as SceneNode);
-      }
-    } catch (_) {
-      // 로드 실패한 페이지는 스킵
-    }
-  }
-  return all;
+  return figma.currentPage.children;
 }
 
 function countVariableUsage(nodes: readonly SceneNode[]): Map<string, number> {
@@ -569,7 +552,7 @@ async function resolveFileKey(hint?: string): Promise<string> {
 }
 
 async function extractAll(options: ExtractOptions): Promise<ExtractedTokens> {
-  const sourceNodes = await getSourceNodes(options);
+  const sourceNodes = getSourceNodes(options);
   const isSelectionMode = options.useSelection && figma.currentPage.selection.length > 0;
   const isPageMode = !isSelectionMode && !!options.useCurrentPage;
   const types = options.tokenTypes;
