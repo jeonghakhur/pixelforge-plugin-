@@ -1684,8 +1684,15 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
       const kebab = key.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
       // CSS 주석 제거 (getCSSAsync가 "24px /* 150% */" 형태로 반환)
       const value = rawValue.replace(/\s*\/\*[^*]*\*\/\s*/g, '').trim();
-      // var() 내부 변수명: kebab-case 소문자 통일만 (프로젝트 특화 매핑은 앱의 semanticMap에서 처리)
-      s[kebab] = value.replace(/var\(--([^,)]+)/g, (_, name) => 'var(--' + name.toLowerCase());
+      // var() 내부 변수명 정규화: kebab 소문자 + prefix 중복 제거
+      // (getCSSAsync가 "Font family/font-family-body" → "--font-family-font-family-body" 로 반환)
+      s[kebab] = value.replace(/var\(--([^,)]+)/g, (_, name) => {
+        let n = name.toLowerCase();
+        // prefix 중복 제거: --font-family-font-family-body → --font-family-body
+        const m = n.match(/^([a-z]+-[a-z]+)-\1-/);
+        if (m) n = n.replace(m[0], m[1] + '-');
+        return 'var(--' + n;
+      });
     }
 
     // 2. boundVariables 오버라이드 (getCSSAsync가 resolved 값일 때 var() 참조로 교체)
