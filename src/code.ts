@@ -623,14 +623,21 @@ async function extractAll(options: ExtractOptions): Promise<ExtractedTokens> {
     }
   }
 
-  // Spacing — FLOAT vars matching spacing patterns (name or collection name)
+  // Spacing — FLOAT vars matching spacing patterns (collection name, or group prefix in _Primitives)
   let spacing: VariableData[] = [];
   if (types.includes('spacing')) {
     spacing = allVariables
       .filter((v) => {
         if (v.resolvedType !== 'FLOAT') return false;
         const colName = collectionMap.get(v.variableCollectionId) ?? '';
-        return SPACING_RE.test(v.name) || SPACING_RE.test(colName);
+        if (SPACING_RE.test(colName)) return true;
+        // For _Primitives-style collections, also match by group prefix in variable name
+        const isPrimitivesCol = /^_|\bprimitive\b/i.test(colName);
+        if (isPrimitivesCol) {
+          const groupPrefix = v.name.split('/')[0];
+          return SPACING_RE.test(groupPrefix);
+        }
+        return false;
       })
       .map((v) => mapVariable(v, varUsage))
       .filter((v) => !(isSelectionMode || isPageMode) || v.usageCount > 0);
@@ -734,8 +741,12 @@ async function extractAll(options: ExtractOptions): Promise<ExtractedTokens> {
         if (v.resolvedType === 'COLOR') return false;
         if (v.resolvedType === 'FLOAT') {
           const colName = collectionMap.get(v.variableCollectionId) ?? '';
-          if (SPACING_RE.test(v.name) || SPACING_RE.test(colName)) return false;
-          if (RADIUS_RE.test(v.name) || RADIUS_RE.test(colName)) return false;
+          const isPrimitivesCol = /^_|\bprimitive\b/i.test(colName);
+          const groupPrefix = v.name.split('/')[0];
+          if (SPACING_RE.test(colName) || (isPrimitivesCol && SPACING_RE.test(groupPrefix)))
+            return false;
+          if (RADIUS_RE.test(colName) || (isPrimitivesCol && RADIUS_RE.test(groupPrefix)))
+            return false;
         }
         return true;
       })

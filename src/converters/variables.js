@@ -155,15 +155,26 @@ export function convertVariables(data, varMap, unit) {
 
 /**
  * Converts a flat VariableData[] (spacing or radius) to CSS property lines.
+ * @param {boolean} stripGroupPrefix - when true, use only the leaf segment of grouped names
+ *   (e.g., "Widths/width-xxs" → "--width-xxs" instead of "--widths-width-xxs").
+ *   Numeric-only leaves (e.g., "Spacing/0") keep the full path.
  */
-export function convertFlatVars(vars, varMap, unit) {
+export function convertFlatVars(vars, varMap, unit, stripGroupPrefix) {
   if (!vars || vars.length === 0) return '';
   var lines = '';
   var seen = new Set();
   vars.forEach(function (v) {
     var raw = Object.values(v.valuesByMode || {})[0];
     var isAlias = raw && typeof raw === 'object' && raw.type === 'VARIABLE_ALIAS';
-    var name = toCssName(v.name, isAlias);
+
+    // When stripGroupPrefix is set and the name has a group prefix, use only the leaf
+    var effectiveName = v.name;
+    if (stripGroupPrefix && !isAlias && v.name.indexOf('/') >= 0) {
+      var leaf = v.name.split('/').pop();
+      if (!/^[\d.]+$/.test(leaf)) effectiveName = leaf;
+    }
+
+    var name = toCssName(effectiveName, isAlias);
     if (seen.has(name)) return;
     seen.add(name);
 

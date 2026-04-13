@@ -49,6 +49,40 @@ export function convertTextStyles(texts, unit) {
   return out;
 }
 
+/**
+ * Generates :root CSS variable lines for letter-spacing from text styles.
+ * Only emits styles that have a non-zero letter-spacing value.
+ */
+export function convertLetterSpacingVars(texts, unit) {
+  if (!texts || texts.length === 0) return '';
+  var lines = '';
+  var seen = new Set();
+  texts.forEach(function (s) {
+    if (!s.letterSpacing) return;
+    var ls = s.letterSpacing;
+    var cssVal = null;
+    if (ls.unit === 'PERCENT' && ls.value !== 0) {
+      cssVal = Math.round((ls.value / 100) * 10000) / 10000 + 'em';
+    } else if (ls.unit === 'PIXELS' && ls.value !== 0) {
+      cssVal = toUnit(ls.value, unit);
+    }
+    if (!cssVal) return;
+
+    var varName =
+      '--letter-spacing-' +
+      s.name
+        .replace(/\//g, '-')
+        .replace(/[^a-zA-Z0-9-]/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '')
+        .toLowerCase();
+    if (seen.has(varName)) return;
+    seen.add(varName);
+    lines += '  ' + varName + ': ' + cssVal + ';\n';
+  });
+  return lines;
+}
+
 export function convertFonts(fonts) {
   if (!fonts || fonts.length === 0) return '';
   var out = '/* === Font Families === */\n:root {\n';

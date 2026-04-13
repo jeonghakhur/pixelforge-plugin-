@@ -3,7 +3,7 @@
 import { escapeHtml } from '../converters/utils.js';
 import { buildVarMap, convertVariables, convertFlatVars } from '../converters/variables.js';
 import { convertColorStyles } from '../converters/color-styles.js';
-import { convertTextStyles, convertFonts } from '../converters/typography.js';
+import { convertTextStyles, convertFonts, convertLetterSpacingVars } from '../converters/typography.js';
 import { convertEffectStyles } from '../converters/effects.js';
 import { convertGridStyles } from '../converters/grids.js';
 import { highlightCSS, highlightJSON } from '../converters/highlight.js';
@@ -261,8 +261,24 @@ function generateCSS(data, unit, types) {
     if (cl) rootLines += cl;
   }
   if (all || types.has('effects')) {
-    var el = convertEffectStyles(data.styles ? data.styles.effects : []);
+    var el = convertEffectStyles(data.styles ? data.styles.effects : [], varMap);
     if (el) rootLines += el;
+  }
+
+  // Letter-spacing CSS variables from text styles
+  var allTextsForLS = [];
+  if (all || types.has('texts')) {
+    allTextsForLS = allTextsForLS.concat(data.styles ? data.styles.texts || [] : []);
+  }
+  if (all || types.has('textStyles')) {
+    allTextsForLS = allTextsForLS.concat(data.styles ? data.styles.textStyles || [] : []);
+  }
+  if (all || types.has('headings')) {
+    allTextsForLS = allTextsForLS.concat(data.styles ? data.styles.headings || [] : []);
+  }
+  if (allTextsForLS.length > 0) {
+    var lsl = convertLetterSpacingVars(allTextsForLS, unit);
+    if (lsl) rootLines += lsl;
   }
 
   var body = '';
@@ -313,7 +329,7 @@ function generateCSS(data, unit, types) {
   // Extra Variables → :root block per group
   if (all || types.has('extra-vars')) {
     (data.extraVars || []).forEach(function (group) {
-      var fl = convertFlatVars(group.variables, varMap, unit);
+      var fl = convertFlatVars(group.variables, varMap, unit, true);
       if (fl) body += ':root {\n' + fl + '}\n\n';
     });
   }
