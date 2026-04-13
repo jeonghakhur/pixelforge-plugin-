@@ -11,8 +11,11 @@ export function convertEffectStyles(effects) {
     var shadows = (s.effects || []).filter(function (e) {
       return e.type === 'DROP_SHADOW' || e.type === 'INNER_SHADOW';
     });
-    var blurs = (s.effects || []).filter(function (e) {
+    var layerBlurs = (s.effects || []).filter(function (e) {
       return e.type === 'LAYER_BLUR';
+    });
+    var backdropBlurs = (s.effects || []).filter(function (e) {
+      return e.type === 'BACKGROUND_BLUR';
     });
     if (shadows.length > 0) {
       var name = toCssName('shadow-' + s.name);
@@ -27,9 +30,13 @@ export function convertEffectStyles(effects) {
       });
       lines += '  ' + name + ': ' + parts.join(', ') + ';\n';
     }
-    if (blurs.length > 0) {
+    if (layerBlurs.length > 0) {
       var bname = toCssName('blur-' + s.name);
-      lines += '  ' + bname + ': blur(' + (blurs[0].radius || 0) + 'px);\n';
+      lines += '  ' + bname + ': blur(' + (layerBlurs[0].radius || 0) + 'px);\n';
+    }
+    if (backdropBlurs.length > 0) {
+      var bdname = toCssName('backdrop-blur-' + s.name);
+      lines += '  ' + bdname + ': blur(' + (backdropBlurs[0].radius || 0) + 'px);\n';
     }
   });
   return lines;

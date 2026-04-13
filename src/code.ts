@@ -945,16 +945,31 @@ function figmaColorToHex(c: { r: number; g: number; b: number }): string {
 // ─── Component 생성 공유 유틸 ────────────────────────────────────────────────
 
 function toCssVarName(name: string, isAlias = false): string {
-  // Primitive: 모든 세그먼트 유지 (Colors/Brand/600 → --colors-brand-600)
   // Semantic(alias): 마지막 세그먼트만 (Colors/Background/bg-brand-solid → --bg-brand-solid)
-  const raw = isAlias && name.includes('/') ? name.split('/').pop()! : name;
+  // Primitive: 모든 세그먼트 유지하되 prefix 중복 제거
+  //   Colors/Brand/600 → --colors-brand-600
+  //   Spacing/spacing-xxs → --spacing-xxs (중복 제거)
+  let raw = isAlias && name.includes('/') ? name.split('/').pop()! : name;
+
+  // Primitive: 첫 세그먼트와 마지막 세그먼트가 중복 prefix이면 제거
+  // "Spacing/spacing-xxs" → "spacing-xxs", "Colors/Brand/600" → "colors-brand-600"
+  if (!isAlias && name.includes('/')) {
+    const segments = name.split('/');
+    const firstSeg = segments[0].toLowerCase().replace(/\s+/g, '-');
+    const lastSeg = segments[segments.length - 1].toLowerCase().replace(/\s+/g, '-');
+    if (segments.length === 2 && lastSeg.startsWith(firstSeg + '-')) {
+      raw = segments[segments.length - 1];
+    }
+  }
+
   return (
     '--' +
     raw
       .replace(/\s*\(\d+\)\s*/g, '') // 괄호 shade 제거: "text-secondary (700)" → "text-secondary"
       .replace(/([a-z])([A-Z])/g, '$1-$2')
       .replace(/\//g, '-')
-      .replace(/[^a-zA-Z0-9_-]/g, '-') // underscore 유지 (_hover 등)
+      .replace(/[\u2024]/g, '.') // U+2024 ONE DOT LEADER → 일반 마침표
+      .replace(/[^a-zA-Z0-9_.-]/g, '-') // underscore, 마침표 유지
       .replace(/-+/g, '-')
       .replace(/^-|-$/g, '')
       .toLowerCase()

@@ -3,16 +3,28 @@ export function escapeHtml(s) {
 }
 
 export function toCssName(path, isAlias) {
-  // Primitive: 모든 세그먼트 유지 (Colors/Brand/600 → --colors-brand-600)
   // Semantic(alias): 마지막 세그먼트만 (Colors/Background/bg-brand-solid → --bg-brand-solid)
+  // Primitive: 모든 세그먼트 유지하되 prefix 중복 제거
   var raw = isAlias && path.indexOf('/') >= 0 ? path.split('/').pop() : path;
+
+  // Primitive: "Spacing/spacing-xxs" → "spacing-xxs" (prefix 중복 제거)
+  if (!isAlias && path.indexOf('/') >= 0) {
+    var segments = path.split('/');
+    var firstSeg = segments[0].toLowerCase().replace(/\s+/g, '-');
+    var lastSeg = segments[segments.length - 1].toLowerCase().replace(/\s+/g, '-');
+    if (segments.length === 2 && lastSeg.indexOf(firstSeg + '-') === 0) {
+      raw = segments[segments.length - 1];
+    }
+  }
+
   return (
     '--' +
     raw
-      .replace(/\s*\(\d+\)\s*/g, '') // 괄호 shade 제거: "text-secondary (700)" → "text-secondary"
-      .replace(/([a-z])([A-Z])/g, '$1-$2') // camelCase → kebab-case
+      .replace(/\s*\(\d+\)\s*/g, '') // 괄호 shade 제거
+      .replace(/([a-z])([A-Z])/g, '$1-$2')
       .replace(/\//g, '-')
-      .replace(/[^a-zA-Z0-9_-]/g, '-') // underscore 유지 (_hover 등)
+      .replace(/[\u2024]/g, '.') // U+2024 ONE DOT LEADER → 일반 마침표
+      .replace(/[^a-zA-Z0-9_.-]/g, '-') // underscore, 마침표 유지
       .replace(/-+/g, '-')
       .replace(/^-|-$/g, '')
       .toLowerCase()

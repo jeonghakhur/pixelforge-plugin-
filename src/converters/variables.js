@@ -10,14 +10,18 @@ export function buildVarMap(data) {
   return map;
 }
 
-export function resolveValue(val, varMap, depth) {
+export function resolveValue(val, varMap, depth, modeId) {
   if (depth > 10) return null;
   if (val && typeof val === 'object' && val.type === 'VARIABLE_ALIAS') {
     var ref = varMap[val.id];
     if (!ref) return null;
-    var modes = Object.values(ref.valuesByMode || {});
-    if (modes.length === 0) return null;
-    return resolveValue(modes[0], varMap, depth + 1);
+    // mode-aware: 동일 modeId가 있으면 해당 mode 값 사용, 없으면 첫 mode fallback
+    var refVal =
+      modeId && ref.valuesByMode[modeId] !== undefined
+        ? ref.valuesByMode[modeId]
+        : Object.values(ref.valuesByMode || {})[0];
+    if (refVal === undefined) return null;
+    return resolveValue(refVal, varMap, depth + 1, modeId);
   }
   return val;
 }
@@ -48,7 +52,7 @@ function buildVarEntries(colVars, mode, varMap, unit) {
 
     // alias 해석 실패 또는 primitive → 값 직접 출력
     if (cssVal === null) {
-      var val = resolveValue(raw, varMap, 0);
+      var val = resolveValue(raw, varMap, 0, mode.modeId);
       if (val === null || val === undefined) return;
       if (v.resolvedType === 'COLOR') {
         if (typeof val === 'object' && 'r' in val) cssVal = figmaColorToCSS(val);
