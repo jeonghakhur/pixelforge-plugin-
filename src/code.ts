@@ -668,7 +668,19 @@ async function extractAll(options: ExtractOptions): Promise<ExtractedTokens> {
         id: s.id,
         name: s.name,
         description: s.description,
-        paints: [...s.paints],
+        paints: s.paints.map((p) => {
+          // Explicitly serialize gradient transform so the app can compute CSS angles
+          if (p.type.startsWith('GRADIENT_')) {
+            return {
+              type: p.type,
+              visible: p.visible,
+              gradientStops: (p as GradientPaint).gradientStops,
+              gradientTransform: (p as GradientPaint).gradientTransform,
+              boundVariables: (p as any).boundVariables ?? null,
+            } as unknown as Paint;
+          }
+          return p;
+        }),
         usageCount: styleUsage.get(s.id) ?? 0,
       }))
       .filter((s) => !(isSelectionMode || isPageMode) || s.usageCount > 0);
