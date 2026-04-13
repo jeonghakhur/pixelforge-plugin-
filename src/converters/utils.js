@@ -23,7 +23,7 @@ export function toCssName(path, isAlias) {
       .replace(/\s*\(\d+\)\s*/g, '') // 괄호 shade 제거
       .replace(/([a-z])([A-Z])/g, '$1-$2')
       .replace(/\//g, '-')
-      .replace(/[\u2024]/g, '.') // U+2024 ONE DOT LEADER → 일반 마침표
+      .replace(/[\u2024\u00B7\u2027]/g, '-') // U+2024 ONE DOT LEADER, U+00B7 MIDDLE DOT, U+2027 HYPHENATION POINT → dash
       .replace(/[^a-zA-Z0-9_.-]/g, '-') // underscore, 마침표 유지
       .replace(/-+/g, '-')
       .replace(/^-|-$/g, '')

@@ -166,7 +166,17 @@ function getSourceNodes(
   if (options.useSelection && figma.currentPage.selection.length > 0) {
     return figma.currentPage.selection;
   }
-  return figma.currentPage.children;
+  if (options.useCurrentPage) {
+    return figma.currentPage.children;
+  }
+  // All mode: scan all pages in the document for accurate usageCount
+  const all: SceneNode[] = [];
+  for (const page of figma.root.children) {
+    for (const child of page.children) {
+      all.push(child as SceneNode);
+    }
+  }
+  return all;
 }
 
 function countVariableUsage(nodes: readonly SceneNode[]): Map<string, number> {
@@ -991,7 +1001,7 @@ function toCssVarName(name: string, isAlias = false): string {
       .replace(/\s*\(\d+\)\s*/g, '') // 괄호 shade 제거: "text-secondary (700)" → "text-secondary"
       .replace(/([a-z])([A-Z])/g, '$1-$2')
       .replace(/\//g, '-')
-      .replace(/[\u2024]/g, '.') // U+2024 ONE DOT LEADER → 일반 마침표
+      .replace(/[\u2024\u00B7\u2027]/g, '-') // U+2024 ONE DOT LEADER, U+00B7 MIDDLE DOT, U+2027 HYPHENATION POINT → dash
       .replace(/[^a-zA-Z0-9_.-]/g, '-') // underscore, 마침표 유지
       .replace(/-+/g, '-')
       .replace(/^-|-$/g, '')
@@ -1684,6 +1694,13 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
       const kebab = key.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
       // CSS 주석 제거 (getCSSAsync가 "24px /* 150% */" 형태로 반환)
       const value = rawValue.replace(/\s*\/\*[^*]*\*\/\s*/g, '').trim();
+      // IMAGE fill 스킵: data URI는 컴포넌트 CSS에 불필요 (용량 과대, 토큰 아님)
+      if (
+        value.includes('url(data:') ||
+        value.includes("url('data:") ||
+        value.includes('url("data:')
+      )
+        continue;
       // var() 내부 변수명 정규화: kebab 소문자 + prefix 중복 제거
       // (getCSSAsync가 "Font family/font-family-body" → "--font-family-font-family-body" 로 반환)
       s[kebab] = value.replace(/var\(--([^,)]+)/g, (_, name) => {
