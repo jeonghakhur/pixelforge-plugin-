@@ -160,9 +160,9 @@ interface ExtractedTokens {
 
 figma.showUI(__html__, { width: 760, height: 720 });
 
-function getSourceNodes(
+async function getSourceNodes(
   options: Pick<ExtractOptions, 'useSelection' | 'useCurrentPage'>
-): readonly SceneNode[] {
+): Promise<readonly SceneNode[]> {
   if (options.useSelection && figma.currentPage.selection.length > 0) {
     return figma.currentPage.selection;
   }
@@ -170,8 +170,12 @@ function getSourceNodes(
     return figma.currentPage.children;
   }
   // All mode: scan all pages in the document for accurate usageCount
+  // Pages other than the current one require loadAsync() before accessing .children
   const all: SceneNode[] = [];
   for (const page of figma.root.children) {
+    if (page !== figma.currentPage) {
+      await page.loadAsync();
+    }
     for (const child of page.children) {
       all.push(child as SceneNode);
     }
@@ -562,7 +566,7 @@ async function resolveFileKey(hint?: string): Promise<string> {
 }
 
 async function extractAll(options: ExtractOptions): Promise<ExtractedTokens> {
-  const sourceNodes = getSourceNodes(options);
+  const sourceNodes = await getSourceNodes(options);
   const isSelectionMode = options.useSelection && figma.currentPage.selection.length > 0;
   const isPageMode = !isSelectionMode && !!options.useCurrentPage;
   const types = options.tokenTypes;
