@@ -1521,7 +1521,8 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
   // 2-a. Local Variables (COLOR + FLOAT 모두 varIdMap 등록)
   const allVars = await figma.variables.getLocalVariablesAsync();
   for (const v of allVars) {
-    if (v.resolvedType !== 'COLOR' && v.resolvedType !== 'FLOAT') continue;
+    if (v.resolvedType !== 'COLOR' && v.resolvedType !== 'FLOAT' && v.resolvedType !== 'STRING')
+      continue;
     const firstMode = Object.keys(v.valuesByMode)[0];
     if (!firstMode) continue;
     const val = v.valuesByMode[firstMode];
@@ -1825,6 +1826,11 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
       if (typeof op === 'number' && op < 1) {
         s['opacity'] = String(Math.round(op * 100) / 100);
       }
+    }
+
+    // clipsContent → overflow: hidden
+    if ('clipsContent' in n && (n as any).clipsContent === true) {
+      s['overflow'] = 'hidden';
     }
 
     // 자식 노드의 고정 크기 추출 (아이콘 슬롯 placeholder, 이미지 박스 등)
