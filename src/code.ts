@@ -412,7 +412,6 @@ interface NodeMeta {
   nodeType: string;
   masterId: string | null;
   masterName: string | null;
-  figmaFileId: string;
   figmaFileKey: string;
 }
 
@@ -430,7 +429,6 @@ async function getSelectionInfo() {
       nodeType: node.type,
       masterId: master?.id ?? null,
       masterName: master?.name ?? null,
-      figmaFileId: figma.root.id,
       figmaFileKey: await resolveFileKey(),
     };
   }
@@ -1332,6 +1330,9 @@ interface VariantStyleEntry {
   properties: Record<string, string>;
   /** property 값을 '_'로 join한 파일명/CSS 식별자 (예: 'md_primary_default') */
   variantSlug: string;
+  /** 렌더링 크기 (px) */
+  width: number;
+  height: number;
   /** 루트 노드 CSS */
   styles: Record<string, string>;
   /** 자식 요소 CSS (1-level, 하위 호환용) */
@@ -1340,85 +1341,29 @@ interface VariantStyleEntry {
   nodeTree: NodeTreeEntry;
 }
 
+/** Component Property 정의 (Boolean, Instance Swap, Text) */
+interface ComponentPropertyDef {
+  type: 'BOOLEAN' | 'INSTANCE_SWAP' | 'TEXT';
+  defaultValue: string | boolean;
+  preferredValues?: Array<{ type: string; key: string }>;
+}
+
 interface GenerateComponentResult {
   name: string;
   meta: NodeMeta;
   styles: Record<string, string>;
-  html: string;
-  htmlClass: string;
-  htmlCss: string;
-  jsx: string;
   detectedType: ComponentType;
   texts: ExtractedTexts;
   childStyles: Record<string, Record<string, string>>;
   /** 선택된 노드의 재귀 완전 트리 (모든 자손 노드 포함) */
   nodeTree: NodeTreeEntry;
   radixProps: RadixProps;
-  /** COMPONENT_SET의 모든 variant 옵션 { size: ['xsmall','small',...], variant: ['Primary',...] } */
+  /** COMPONENT_SET의 모든 variant 옵션 */
   variantOptions?: Record<string, string[]>;
   /** COMPONENT_SET 자식 각각의 variant 속성 + 스타일 */
   variants?: VariantStyleEntry[];
-  /** 노드 전체 직렬화 (모든 속성 + 자식 재귀) */
-  fullNode?: SerializedNode;
-}
-
-interface SerializedNode {
-  id: string;
-  name: string;
-  type: string;
-  visible: boolean;
-  locked: boolean;
-  opacity: number;
-  blendMode: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  rotation?: number;
-  // Layout
-  constraints?: { horizontal: string; vertical: string };
-  layoutMode?: string;
-  layoutAlign?: string;
-  layoutGrow?: number;
-  primaryAxisSizingMode?: string;
-  counterAxisSizingMode?: string;
-  primaryAxisAlignItems?: string;
-  counterAxisAlignItems?: string;
-  paddingLeft?: number;
-  paddingRight?: number;
-  paddingTop?: number;
-  paddingBottom?: number;
-  itemSpacing?: number;
-  // Appearance
-  cornerRadius?: number | 'mixed';
-  fills?: unknown[];
-  strokes?: unknown[];
-  strokeWeight?: number;
-  strokeAlign?: string;
-  effects?: unknown[];
-  // Typography
-  characters?: string;
-  fontSize?: number;
-  fontName?: unknown;
-  fontWeight?: number;
-  letterSpacing?: unknown;
-  lineHeight?: unknown;
-  textCase?: string;
-  textDecoration?: string;
-  textAlignHorizontal?: string;
-  textAlignVertical?: string;
-  // Component
-  description?: string;
-  key?: string;
-  remote?: boolean;
-  componentPropertyDefinitions?: unknown;
-  componentProperties?: unknown;
-  variantProperties?: unknown;
-  variantGroupProperties?: unknown;
-  reactions?: unknown[];
-  exportSettings?: unknown[];
-  // Children
-  children?: SerializedNode[];
+  /** Component Properties (Boolean, Instance Swap, Text) */
+  componentProperties?: Record<string, ComponentPropertyDef>;
 }
 
 // ── Radix Themes props 추론 ──────────────────────────────────────────────────
@@ -1542,143 +1487,6 @@ function inferRadixSize(node: SceneNode): RadixProps['size'] {
   return undefined;
 }
 
-function safeSerialize(value: unknown): unknown {
-  if (typeof value === 'symbol') return 'mixed';
-  if (Array.isArray(value)) return value.map(safeSerialize);
-  if (value !== null && typeof value === 'object') {
-    const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-      out[k] = safeSerialize(v);
-    }
-    return out;
-  }
-  return value;
-}
-
-function serializeFullNode(n: SceneNode): SerializedNode {
-  const base: SerializedNode = {
-    id: n.id,
-    name: n.name,
-    type: n.type,
-    visible: n.visible,
-    locked: n.locked,
-    opacity: 'opacity' in n ? (n as MinimalBlendMixin).opacity : 1,
-    blendMode: 'blendMode' in n ? String((n as MinimalBlendMixin).blendMode) : 'NORMAL',
-    x: 'x' in n ? (n as LayoutMixin).x : 0,
-    y: 'y' in n ? (n as LayoutMixin).y : 0,
-    width: 'width' in n ? (n as LayoutMixin).width : 0,
-    height: 'height' in n ? (n as LayoutMixin).height : 0,
-  };
-
-  if ('rotation' in n) base.rotation = (n as LayoutMixin).rotation;
-
-  if ('constraints' in n) {
-    const c = (n as ConstraintMixin).constraints;
-    base.constraints = { horizontal: c.horizontal, vertical: c.vertical };
-  }
-
-  // Auto-layout
-  if ('layoutMode' in n) {
-    const f = n as FrameNode;
-    base.layoutMode = f.layoutMode;
-    base.primaryAxisSizingMode = f.primaryAxisSizingMode;
-    base.counterAxisSizingMode = f.counterAxisSizingMode;
-    base.primaryAxisAlignItems = f.primaryAxisAlignItems;
-    base.counterAxisAlignItems = f.counterAxisAlignItems;
-    base.paddingLeft = f.paddingLeft;
-    base.paddingRight = f.paddingRight;
-    base.paddingTop = f.paddingTop;
-    base.paddingBottom = f.paddingBottom;
-    base.itemSpacing = f.itemSpacing;
-  }
-
-  if ('layoutAlign' in n)
-    base.layoutAlign = (n as SceneNodeMixin & { layoutAlign: string }).layoutAlign;
-  if ('layoutGrow' in n)
-    base.layoutGrow = (n as SceneNodeMixin & { layoutGrow: number }).layoutGrow;
-
-  // Appearance
-  if ('cornerRadius' in n) {
-    const cr = (n as CornerMixin).cornerRadius;
-    base.cornerRadius = typeof cr === 'symbol' ? 'mixed' : cr;
-  }
-  if ('fills' in n) base.fills = safeSerialize((n as GeometryMixin).fills) as unknown[];
-  if ('strokes' in n) base.strokes = safeSerialize((n as GeometryMixin).strokes) as unknown[];
-  if ('strokeWeight' in n) {
-    const sw = (n as GeometryMixin).strokeWeight;
-    base.strokeWeight = typeof sw === 'symbol' ? undefined : (sw as number);
-  }
-  if ('strokeAlign' in n) base.strokeAlign = (n as GeometryMixin).strokeAlign;
-  if ('effects' in n) base.effects = safeSerialize((n as BlendMixin).effects) as unknown[];
-
-  // Typography
-  if (n.type === 'TEXT') {
-    const t = n as TextNode;
-    base.characters = t.characters;
-    base.fontSize = typeof t.fontSize === 'number' ? t.fontSize : undefined;
-    base.fontName = t.fontName;
-    base.letterSpacing = t.letterSpacing;
-    base.lineHeight = t.lineHeight;
-    base.textCase = String(t.textCase);
-    base.textDecoration = String(t.textDecoration);
-    base.textAlignHorizontal = t.textAlignHorizontal;
-    base.textAlignVertical = t.textAlignVertical;
-  }
-
-  // Component metadata
-  if ('description' in n) base.description = (n as ComponentNode).description;
-  if ('key' in n) base.key = (n as ComponentNode).key;
-  if ('remote' in n) base.remote = (n as ComponentNode).remote;
-  if ('componentPropertyDefinitions' in n) {
-    // variant 컴포넌트(COMPONENT_SET 자식)에는 접근 불가
-    const isVariantChild = n.type === 'COMPONENT' && n.parent?.type === 'COMPONENT_SET';
-    if (!isVariantChild) {
-      try {
-        base.componentPropertyDefinitions = safeSerialize(
-          (n as ComponentNode).componentPropertyDefinitions
-        );
-      } catch (_) {
-        /* skip */
-      }
-    }
-  }
-  if ('componentProperties' in n) {
-    try {
-      base.componentProperties = safeSerialize((n as InstanceNode).componentProperties);
-    } catch (_) {
-      /* skip */
-    }
-  }
-  if ('variantProperties' in n) {
-    base.variantProperties = safeSerialize((n as ComponentNode).variantProperties);
-  }
-  if ('variantGroupProperties' in n) {
-    try {
-      base.variantGroupProperties = safeSerialize((n as ComponentSetNode).variantGroupProperties);
-    } catch (_) {
-      /* skip */
-    }
-  }
-  if ('reactions' in n) {
-    try {
-      base.reactions = safeSerialize((n as ReactionMixin).reactions) as unknown[];
-    } catch (_) {
-      /* skip */
-    }
-  }
-  if ('exportSettings' in n)
-    base.exportSettings = safeSerialize((n as ExportMixin).exportSettings) as unknown[];
-
-  // Children (recursive)
-  if ('children' in n) {
-    base.children = (n as ChildrenMixin).children.map((child) =>
-      serializeFullNode(child as SceneNode)
-    );
-  }
-
-  return base;
-}
-
 async function generateComponent(): Promise<GenerateComponentResult | null> {
   const sel = figma.currentPage.selection;
   if (sel.length === 0) return null;
@@ -1772,6 +1580,19 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
     return null;
   }
 
+  /** boundVariables에서 prop 바인딩 해석 → 'var(--name)' 또는 null */
+  function resolveBoundVar(n: SceneNode, prop: string): string | null {
+    try {
+      const bv = (n as any).boundVariables;
+      if (!bv) return null;
+      const binding = bv[prop];
+      if (binding?.id && varIdMap.has(binding.id)) {
+        return 'var(' + varIdMap.get(binding.id) + ')';
+      }
+    } catch (_) {}
+    return null;
+  }
+
   // ── Step 4: INSTANCE 텍스트 fallback 맵 구축 ─────────────────────────────
   // inspectSelection의 serializeNode 패턴:
   // INSTANCE 내 TEXT.characters가 빈 경우 master component 위치 기반으로 보완
@@ -1819,33 +1640,60 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
       }
     }
 
-    // TEXT 노드: font 속성 추출
+    // TEXT 노드: font 속성 추출 (boundVariables 우선 → computed fallback)
     if (isText) {
       const tn = n as TextNode;
       try {
-        const fs = tn.fontSize;
-        if (typeof fs === 'number') s['font-size'] = fs + 'px';
+        const tbv = (tn as any).boundVariables ?? {};
+
+        const fsBound = tbv.fontSize;
+        if (fsBound?.id && varIdMap.has(fsBound.id)) {
+          s['font-size'] = 'var(' + varIdMap.get(fsBound.id) + ')';
+        } else {
+          const fs = tn.fontSize;
+          if (typeof fs === 'number') s['font-size'] = fs + 'px';
+        }
+
+        const ffBound = tbv.fontFamily;
+        const fwBound = tbv.fontWeight;
         const fn = tn.fontName;
-        if (fn && typeof fn === 'object' && 'family' in fn) {
+        if (ffBound?.id && varIdMap.has(ffBound.id)) {
+          s['font-family'] = 'var(' + varIdMap.get(ffBound.id) + ')';
+        } else if (fn && typeof fn === 'object' && 'family' in fn) {
           s['font-family'] = (fn as FontName).family;
-          // Figma의 style 문자열("Semi Bold")을 CSS 숫자 값("600")으로 변환
+        }
+        if (fwBound?.id && varIdMap.has(fwBound.id)) {
+          s['font-weight'] = 'var(' + varIdMap.get(fwBound.id) + ')';
+        } else if (fn && typeof fn === 'object' && 'style' in fn) {
           s['font-weight'] = String(fontWeightFromStyle((fn as FontName).style));
         }
-        const lh = tn.lineHeight;
-        if (lh && typeof lh === 'object' && 'value' in lh) {
-          s['line-height'] =
-            (lh as { value: number; unit: string }).unit === 'PIXELS'
-              ? (lh as { value: number }).value + 'px'
-              : (lh as { value: number }).value + '%';
+
+        const lhBound = tbv.lineHeight;
+        if (lhBound?.id && varIdMap.has(lhBound.id)) {
+          s['line-height'] = 'var(' + varIdMap.get(lhBound.id) + ')';
+        } else {
+          const lh = tn.lineHeight;
+          if (lh && typeof lh === 'object' && 'value' in lh) {
+            s['line-height'] =
+              (lh as { value: number; unit: string }).unit === 'PIXELS'
+                ? (lh as { value: number }).value + 'px'
+                : (lh as { value: number }).value + '%';
+          }
         }
       } catch (_) {
         /* mixed styles — skip */
       }
     }
 
+    // cornerRadius: boundVariables 우선
     if ('cornerRadius' in n) {
-      const cr = (n as any).cornerRadius;
-      if (typeof cr === 'number' && cr > 0) s['border-radius'] = Math.round(cr) + 'px';
+      const crBound = resolveBoundVar(n, 'cornerRadius');
+      if (crBound) {
+        s['border-radius'] = crBound;
+      } else {
+        const cr = (n as any).cornerRadius;
+        if (typeof cr === 'number' && cr > 0) s['border-radius'] = Math.round(cr) + 'px';
+      }
     }
 
     if ('layoutMode' in n) {
@@ -1856,62 +1704,95 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
         s['display'] = 'flex';
         s['flex-direction'] = 'column';
       }
-      if (f.itemSpacing > 0) s['gap'] = f.itemSpacing + 'px';
-      const pt = f.paddingTop,
-        pr = f.paddingRight,
-        pb = f.paddingBottom,
-        pl = f.paddingLeft;
-      if (pt > 0 || pr > 0 || pb > 0 || pl > 0) {
-        s['padding'] = pt + 'px ' + pr + 'px ' + pb + 'px ' + pl + 'px';
+      // gap: boundVariables 우선
+      const gapBound = resolveBoundVar(n, 'itemSpacing');
+      if (gapBound) {
+        s['gap'] = gapBound;
+      } else if (f.itemSpacing > 0) {
+        s['gap'] = f.itemSpacing + 'px';
+      }
+      // padding: boundVariables 우선 (각 방향 개별)
+      const ptB = resolveBoundVar(n, 'paddingTop');
+      const prB = resolveBoundVar(n, 'paddingRight');
+      const pbB = resolveBoundVar(n, 'paddingBottom');
+      const plB = resolveBoundVar(n, 'paddingLeft');
+      const pt = ptB ?? (f.paddingTop > 0 ? f.paddingTop + 'px' : '0px');
+      const pr = prB ?? (f.paddingRight > 0 ? f.paddingRight + 'px' : '0px');
+      const pb = pbB ?? (f.paddingBottom > 0 ? f.paddingBottom + 'px' : '0px');
+      const pl = plB ?? (f.paddingLeft > 0 ? f.paddingLeft + 'px' : '0px');
+      if (
+        ptB ||
+        prB ||
+        pbB ||
+        plB ||
+        f.paddingTop > 0 ||
+        f.paddingRight > 0 ||
+        f.paddingBottom > 0 ||
+        f.paddingLeft > 0
+      ) {
+        s['padding'] = pt + ' ' + pr + ' ' + pb + ' ' + pl;
       }
     }
 
-    // stroke: boundVariables 우선, gradient stroke도 처리
+    // stroke: strokeStyleId 우선 → boundVariables → raw 값
     if ('strokes' in n) {
-      const bound = resolveBoundColor(n, 'strokes');
       const strokeWeight = 'strokeWeight' in n ? Math.round((n as any).strokeWeight) || 1 : 1;
-      if (bound) {
-        s['border'] = strokeWeight + 'px solid ' + bound;
+      const strokeStyleId = 'strokeStyleId' in n ? (n as any).strokeStyleId : '';
+
+      if (typeof strokeStyleId === 'string' && strokeStyleId && styleIdMap.has(strokeStyleId)) {
+        s['border-width'] = strokeWeight + 'px';
+        s['border-style'] = 'solid';
+        s['border-image'] = 'var(' + styleIdMap.get(strokeStyleId)! + ')';
       } else {
-        const strokes = (n as any).strokes;
-        if (Array.isArray(strokes)) {
-          const solid = strokes.find((f: any) => f.type === 'SOLID' && f.visible !== false);
-          if (solid) {
-            s['border'] = strokeWeight + 'px solid ' + resolveColor(solid.color);
-          } else {
-            const gradient = strokes.find(
-              (f: any) => f.type?.startsWith('GRADIENT_') && f.visible !== false
-            );
-            if (gradient) {
-              s['border-width'] = strokeWeight + 'px';
-              s['border-style'] = 'solid';
-              s['border-image'] =
-                'linear-gradient(to bottom, rgba(255,255,255,0.12), rgba(255,255,255,0)) 1';
+        const bound = resolveBoundColor(n, 'strokes');
+        if (bound) {
+          s['border'] = strokeWeight + 'px solid ' + bound;
+        } else {
+          const strokes = (n as any).strokes;
+          if (Array.isArray(strokes)) {
+            const solid = strokes.find((f: any) => f.type === 'SOLID' && f.visible !== false);
+            if (solid) {
+              s['border'] = strokeWeight + 'px solid ' + resolveColor(solid.color);
+            } else {
+              const gradient = strokes.find(
+                (f: any) => f.type?.startsWith('GRADIENT_') && f.visible !== false
+              );
+              if (gradient) {
+                s['border-width'] = strokeWeight + 'px';
+                s['border-style'] = 'solid';
+                s['border-image'] =
+                  'linear-gradient(to bottom, rgba(255,255,255,0.12), rgba(255,255,255,0)) 1';
+              }
             }
           }
         }
       }
     }
 
-    // effects: drop-shadow, inner-shadow → box-shadow
+    // effects: effectStyleId 우선 → raw shadow 값
     if ('effects' in n) {
-      const effects = (n as any).effects;
-      if (Array.isArray(effects)) {
-        const shadows: string[] = [];
-        for (const e of effects) {
-          if (!e.visible) continue;
-          if (e.type === 'DROP_SHADOW' || e.type === 'INNER_SHADOW') {
-            const ox = e.offset?.x ?? 0;
-            const oy = e.offset?.y ?? 0;
-            const blur = e.radius ?? 0;
-            const spread = e.spread ?? 0;
-            const c = e.color ?? { r: 0, g: 0, b: 0, a: 1 };
-            const rgba = `rgba(${Math.round(c.r * 255)},${Math.round(c.g * 255)},${Math.round(c.b * 255)},${Math.round((c.a ?? 1) * 100) / 100})`;
-            const inset = e.type === 'INNER_SHADOW' ? 'inset ' : '';
-            shadows.push(`${inset}${ox}px ${oy}px ${blur}px ${spread}px ${rgba}`);
+      const effectStyleId = 'effectStyleId' in n ? (n as any).effectStyleId : '';
+      if (typeof effectStyleId === 'string' && effectStyleId && styleIdMap.has(effectStyleId)) {
+        s['box-shadow'] = 'var(' + styleIdMap.get(effectStyleId)! + ')';
+      } else {
+        const effects = (n as any).effects;
+        if (Array.isArray(effects)) {
+          const shadows: string[] = [];
+          for (const e of effects) {
+            if (!e.visible) continue;
+            if (e.type === 'DROP_SHADOW' || e.type === 'INNER_SHADOW') {
+              const ox = e.offset?.x ?? 0;
+              const oy = e.offset?.y ?? 0;
+              const blur = e.radius ?? 0;
+              const spread = e.spread ?? 0;
+              const c = e.color ?? { r: 0, g: 0, b: 0, a: 1 };
+              const rgba = `rgba(${Math.round(c.r * 255)},${Math.round(c.g * 255)},${Math.round(c.b * 255)},${Math.round((c.a ?? 1) * 100) / 100})`;
+              const inset = e.type === 'INNER_SHADOW' ? 'inset ' : '';
+              shadows.push(`${inset}${ox}px ${oy}px ${blur}px ${spread}px ${rgba}`);
+            }
           }
+          if (shadows.length > 0) s['box-shadow'] = shadows.join(', ');
         }
-        if (shadows.length > 0) s['box-shadow'] = shadows.join(', ');
       }
     }
 
@@ -1938,142 +1819,6 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
     }
 
     return s;
-  }
-
-  // ── Step 6: HTML / JSX 변환 (에러 격리 + 안전한 텍스트) ──────────────────
-  function nodeToHtml(n: SceneNode, indent: number): string {
-    try {
-      const pad = '  '.repeat(indent);
-      if (n.type === 'TEXT') {
-        const text = safeGetText(n);
-        if (!text) return '';
-        const textStyles = getNodeStyles(n);
-        const textEntries = Object.entries(textStyles);
-        const textStyleAttr =
-          textEntries.length > 0
-            ? ' style="' + textEntries.map(([k, v]) => k + ': ' + v).join('; ') + '"'
-            : '';
-        return (
-          pad +
-          '<span' +
-          textStyleAttr +
-          '>' +
-          text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') +
-          '</span>'
-        );
-      }
-      const styles = getNodeStyles(n);
-      const entries = Object.entries(styles);
-      const styleAttr =
-        entries.length > 0
-          ? ' style="' + entries.map(([k, v]) => k + ': ' + v).join('; ') + '"'
-          : '';
-      if ('children' in n && (n as ChildrenMixin).children.length > 0) {
-        const kids = (n as ChildrenMixin).children
-          .filter((c) => (c as SceneNode).visible !== false)
-          .map((c) => nodeToHtml(c as SceneNode, indent + 1))
-          .filter(Boolean)
-          .join('\n');
-        if (!kids) return pad + '<div' + styleAttr + '></div>';
-        return pad + '<div' + styleAttr + '>\n' + kids + '\n' + pad + '</div>';
-      }
-      return pad + '<div' + styleAttr + '></div>';
-    } catch (_) {
-      return '';
-    }
-  }
-
-  function buildHtmlWithClasses(root: SceneNode): { html: string; css: string } {
-    const cssMap: Record<string, Record<string, string>> = {};
-    let counter = 0;
-
-    function toClass(n: SceneNode, indent: number): string {
-      try {
-        const pad = '  '.repeat(indent);
-        if (n.type === 'TEXT') {
-          const text = safeGetText(n);
-          if (!text) return '';
-          const cls = counter === 0 ? 'root-text' : 'text-' + counter;
-          counter++;
-          const textStyles = getNodeStyles(n);
-          cssMap[cls] = Object.keys(textStyles).length > 0 ? textStyles : {};
-          return (
-            pad +
-            '<span class="' +
-            cls +
-            '">' +
-            text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') +
-            '</span>'
-          );
-        }
-        const cls = counter === 0 ? 'root' : 'el-' + counter;
-        counter++;
-        const styles = getNodeStyles(n);
-        if (Object.keys(styles).length > 0) {
-          cssMap[cls] = styles;
-        }
-        if ('children' in n && (n as ChildrenMixin).children.length > 0) {
-          const kids = (n as ChildrenMixin).children
-            .filter((c) => (c as SceneNode).visible !== false)
-            .map((c) => toClass(c as SceneNode, indent + 1))
-            .filter(Boolean)
-            .join('\n');
-          if (!kids) return pad + '<div class="' + cls + '"></div>';
-          return pad + '<div class="' + cls + '">\n' + kids + '\n' + pad + '</div>';
-        }
-        return pad + '<div class="' + cls + '"></div>';
-      } catch (_) {
-        return '';
-      }
-    }
-
-    const html = toClass(root, 0);
-    const css = Object.entries(cssMap)
-      .filter(([, props]) => Object.keys(props).length > 0)
-      .map(([cls, props]) => {
-        const body = Object.entries(props)
-          .map(([k, v]) => '  ' + k + ': ' + v + ';')
-          .join('\n');
-        return '.' + cls + ' {\n' + body + '\n}';
-      })
-      .join('\n\n');
-
-    return { html, css };
-  }
-
-  function nodeToJsx(n: SceneNode, indent: number): string {
-    try {
-      const pad = '  '.repeat(indent);
-      if (n.type === 'TEXT') {
-        const text = safeGetText(n);
-        if (!text) return '';
-        return pad + '<span>' + text.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
-      }
-      const styles = getNodeStyles(n);
-      const entries = Object.entries(styles);
-      let styleAttr = '';
-      if (entries.length > 0) {
-        const obj = entries
-          .map(([k, v]) => {
-            const camelKey = k.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
-            return camelKey + ": '" + v + "'";
-          })
-          .join(', ');
-        styleAttr = ' style={{' + obj + '}}';
-      }
-      if ('children' in n && (n as ChildrenMixin).children.length > 0) {
-        const kids = (n as ChildrenMixin).children
-          .filter((c) => (c as SceneNode).visible !== false)
-          .map((c) => nodeToJsx(c as SceneNode, indent + 1))
-          .filter(Boolean)
-          .join('\n');
-        if (!kids) return pad + '<div' + styleAttr + ' />';
-        return pad + '<div' + styleAttr + '>\n' + kids + '\n' + pad + '</div>';
-      }
-      return pad + '<div' + styleAttr + ' />';
-    } catch (_) {
-      return '';
-    }
   }
 
   // ── Step 7: 컴포넌트 타입 자동 감지 ──────────────────────────────────────
@@ -2196,22 +1941,16 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
   // ── Step 10: 결과 조립 ───────────────────────────────────────────────────
   const rootStyles = getNodeStyles(node);
   if ('width' in node && 'height' in node) {
-    rootStyles['width'] = Math.round(node.width) + 'px';
-    rootStyles['height'] = Math.round(node.height) + 'px';
+    if (!rootStyles['width']) rootStyles['width'] = Math.round(node.width) + 'px';
+    if (!rootStyles['height']) rootStyles['height'] = Math.round(node.height) + 'px';
   }
 
-  const htmlClassResult = buildHtmlWithClasses(node);
-
-  // buildNodeTree는 closure 의존 로직(getNodeStyles/safeGetText)을
-  // 주입받아야 하므로, 여기서 컨텍스트를 구성한다
   const nodeTreeCtx: NodeTreeContext = {
     getStyles: (n) => getNodeStyles(n),
     getText: (n) => safeGetText(n),
   };
 
   // ── COMPONENT_SET 정보 수집 ───────────────────────────────────────────────
-  // COMPONENT(변형 인스턴스) 선택 시 부모 COMPONENT_SET에서
-  // 실제 variant 옵션과 컴포넌트 이름을 가져온다
   let componentSetName: string | null = null;
   let variantOptions: Record<string, string[]> | undefined;
 
@@ -2223,21 +1962,39 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
         : null;
 
   let variants: VariantStyleEntry[] | undefined;
+  let componentProperties: Record<string, ComponentPropertyDef> | undefined;
 
   if (parentSet) {
-    // COMPONENT_SET의 부모가 GROUP/FRAME이면 그 이름이 실제 컴포넌트 이름
-    // (예: GROUP "Button" > COMPONENT_SET "Primary" → "Button" 사용)
     const grandParent = parentSet.parent;
     const isNamedContainer =
       grandParent &&
       (grandParent.type === 'FRAME' || grandParent.type === 'GROUP') &&
       grandParent.name;
     componentSetName = isNamedContainer ? grandParent.name : parentSet.name;
-    const props = parentSet.variantGroupProperties ?? {};
+    const vgProps = parentSet.variantGroupProperties ?? {};
     variantOptions = {};
-    for (const [key, val] of Object.entries(props)) {
+    for (const [key, val] of Object.entries(vgProps)) {
       variantOptions[key.toLowerCase()] = val.values;
     }
+
+    // Component Properties (Boolean, Instance Swap, Text) 추출
+    try {
+      const cpDefs = parentSet.componentPropertyDefinitions;
+      if (cpDefs && Object.keys(cpDefs).length > 0) {
+        componentProperties = {};
+        for (const [name, def] of Object.entries(cpDefs)) {
+          if (def.type === 'VARIANT') continue;
+          const entry: ComponentPropertyDef = {
+            type: def.type as ComponentPropertyDef['type'],
+            defaultValue: def.defaultValue as string | boolean,
+          };
+          if (def.type === 'INSTANCE_SWAP' && (def as any).preferredValues?.length > 0) {
+            entry.preferredValues = (def as any).preferredValues;
+          }
+          componentProperties[name] = entry;
+        }
+      }
+    } catch (_) {}
 
     // 자식 COMPONENT 각각의 스타일 수집
     variants = (parentSet.children as ComponentNode[]).map((child) => {
@@ -2247,6 +2004,8 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
       return {
         properties: props,
         variantSlug: buildVariantSlug(props),
+        width: Math.round(child.width),
+        height: Math.round(child.height),
         styles: getNodeStyles(child),
         childStyles: getChildStyles(child),
         nodeTree: buildNodeTree(child, nodeTreeCtx),
@@ -2264,14 +2023,9 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
       nodeType: node.type,
       masterId: master?.id ?? null,
       masterName: master?.name ?? null,
-      figmaFileId: figma.root.id,
       figmaFileKey: await resolveFileKey(),
     } as NodeMeta,
     styles: rootStyles,
-    html: nodeToHtml(node, 0),
-    htmlClass: htmlClassResult.html,
-    htmlCss: htmlClassResult.css,
-    jsx: nodeToJsx(node, 0),
     detectedType: detectComponentType(node),
     texts: extractTexts(node),
     childStyles: getChildStyles(node),
@@ -2283,7 +2037,7 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
     },
     variantOptions,
     variants,
-    fullNode: serializeFullNode(node),
+    componentProperties,
   };
 }
 

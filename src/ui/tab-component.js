@@ -112,8 +112,11 @@ export function showGeneratedResult(tsx, css, styleMode, nodeData) {
   $('compResult').classList.remove('hidden');
   var compResultBar = $('compResultBar');
   if (compResultBar) compResultBar.classList.remove('hidden');
-  if (compState.meta) {
-    var nameSource = (compState.nodeData && compState.nodeData.name) || compState.meta.nodeName;
+  var nameSource = (compState.nodeData && compState.nodeData.name)
+    || (compState.meta && compState.meta.nodeName)
+    || (nodeData && nodeData.name)
+    || '';
+  if (nameSource) {
     var parts = nameSource.split('/');
     $('compNameInput').value = compToPascalCase(parts[parts.length - 1]);
   }
@@ -159,6 +162,13 @@ export function onCompSelectionChanged() {
   var ts = $('compTypeSelect');
   if (ts) ts.value = detected;
   updateTypeHint(detected);
+
+  var ni = $('compNameInput');
+  if (ni && !ni.value.trim()) {
+    var parts = meta.nodeName.split('/');
+    ni.value = compToPascalCase(parts[parts.length - 1]);
+  }
+
   var key = meta.masterId || meta.nodeId;
   var entry = compState.registry[key];
   if (entry) {
