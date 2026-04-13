@@ -683,6 +683,8 @@ async function extractAll(options: ExtractOptions): Promise<ExtractedTokens> {
         }),
         usageCount: styleUsage.get(s.id) ?? 0,
       }))
+      // IMAGE-only 페인트 스타일은 색상 토큰이 아니므로 제외
+      .filter((s) => s.paints.some((p) => p.type !== 'IMAGE'))
       .filter((s) => !(isSelectionMode || isPageMode) || s.usageCount > 0);
   }
 
