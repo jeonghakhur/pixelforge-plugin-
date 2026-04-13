@@ -1656,10 +1656,13 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
     }
 
     const s: Record<string, string> = {};
-    for (const [key, value] of Object.entries(css)) {
+    for (const [key, rawValue] of Object.entries(css)) {
       // getCSSAsync는 camelCase 또는 kebab 반환 가능 — kebab으로 통일
       const kebab = key.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
-      s[kebab] = value;
+      // CSS 주석 제거 (getCSSAsync가 "24px /* 150% */" 형태로 반환)
+      const value = rawValue.replace(/\s*\/\*[^*]*\*\/\s*/g, '').trim();
+      // var() 내부 변수명 kebab-case 통일 (--Font-size-text-md → --font-size-text-md)
+      s[kebab] = value.replace(/var\(--([^,)]+)/g, (_, name) => 'var(--' + name.toLowerCase());
     }
 
     // 2. boundVariables 오버라이드 (getCSSAsync가 resolved 값일 때 var() 참조로 교체)
