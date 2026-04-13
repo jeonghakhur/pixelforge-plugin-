@@ -1532,14 +1532,21 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
     }
   }
 
-  // 2-b. Color Styles
+  // 2-b. Color Styles + Style ID → CSS var name map
+  const styleIdMap = new Map<string, string>();
   const paintStyles = await figma.getLocalPaintStylesAsync();
   for (const style of paintStyles) {
+    styleIdMap.set(style.id, toCssVarName(style.name, true));
     const paint = (style.paints as ReadonlyArray<Paint>)[0];
     if (paint?.type === 'SOLID') {
       const hex = figmaColorToHex((paint as SolidPaint).color);
       if (!colorMap.has(hex)) colorMap.set(hex, toCssVarName(style.name));
     }
+  }
+  // Effect Styles
+  const effectStyles = await figma.getLocalEffectStylesAsync();
+  for (const style of effectStyles) {
+    styleIdMap.set(style.id, toCssVarName(style.name, true));
   }
 
   // 2-c. 노드 트리 내 fillStyleId/strokeStyleId 스캔 (inspectSelection 패턴 참고)
