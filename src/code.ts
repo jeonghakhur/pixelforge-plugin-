@@ -280,7 +280,7 @@ function parseSpacingFromFrame(frame: FrameNode | GroupNode | SectionNode): Visu
   const results: VisualTokenRaw[] = [];
 
   function traverse(node: SceneNode, depth: number): void {
-    if (depth > 3) return;
+    if (depth > 6) return;
     if (node.type === 'TEXT') {
       const trimmed = node.characters.trim();
       const tokenName = node.name !== node.characters ? node.name : trimmed;
@@ -841,7 +841,7 @@ function inspectSelection() {
     if ('cornerRadius' in node) result.cornerRadius = (node as any).cornerRadius;
     if ('opacity' in node && (node as any).opacity !== 1) result.opacity = (node as any).opacity;
 
-    if (depth < 6 && 'children' in node) {
+    if (depth < 10 && 'children' in node) {
       result.children = (node as ChildrenMixin).children.map((c) =>
         serializeNode(c as SceneNode, depth + 1)
       );
@@ -1883,42 +1883,57 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
     const children = (n as ChildrenMixin).children as SceneNode[];
     const textNodes = children.filter((c) => c.type === 'TEXT');
     const frameNodes = children.filter((c) => c.type === 'FRAME' || c.type === 'RECTANGLE');
-    // 버튼 구조 감지: 1개 텍스트 + 고정 크기(높이 ≤56) + 프레임 또는 자식에 solid fill
+    const nw = 'width' in n ? (n as any).width : 0;
+    const nh = 'height' in n ? (n as any).height : 0;
+
+    // 버튼 감지: 텍스트 1개 + auto-layout HORIZONTAL + 인라인 형태(width >= height) + solid fill
     if (
-      textNodes.length === 1 &&
-      children.length <= 4 &&
-      'height' in n &&
-      (n as any).height <= 56
+      textNodes.length >= 1 &&
+      'layoutMode' in n &&
+      (n as FrameNode).layoutMode === 'HORIZONTAL' &&
+      nw >= nh
     ) {
       const frameFills = (n as any).fills;
       const hasSolidFill =
-        (Array.isArray(frameFills) && frameFills.some((f: any) => f.type === 'SOLID')) ||
+        (Array.isArray(frameFills) &&
+          frameFills.some((f: any) => f.type === 'SOLID' && f.visible !== false)) ||
         frameNodes.some((fr) => {
           const fills = (fr as any).fills;
-          return Array.isArray(fills) && fills.some((f: any) => f.type === 'SOLID');
+          return (
+            Array.isArray(fills) &&
+            fills.some((f: any) => f.type === 'SOLID' && f.visible !== false)
+          );
         });
       if (hasSolidFill) return 'button';
     }
     if ('layoutMode' in n && (n as FrameNode).layoutMode === 'HORIZONTAL' && frameNodes.length >= 2)
       return 'tabs';
-    const smallRect = frameNodes.find((f) => f.width <= 24 && f.height <= 24);
+    // 체크박스 감지: 1:1 비율의 작은 사각형 (전체 크기의 30% 이하) + 텍스트
+    const smallRect = frameNodes.find((f) => {
+      const ratio = Math.min(f.width, f.height) / Math.max(f.width, f.height);
+      const relativeSize = Math.max(f.width, f.height) / Math.max(nw, nh, 1);
+      return ratio > 0.8 && relativeSize < 0.3;
+    });
     if (smallRect && textNodes.length >= 1) return 'checkbox';
+    // 다이얼로그 감지: ABSOLUTE 위치 + opacity < 1
     const hasOverlay = frameNodes.some(
-      (f) =>
-        ((f as any).layoutPositioning === 'ABSOLUTE' && f.width > n.width * 0.8) ||
-        (f as any).opacity < 0.5
+      (f) => (f as any).layoutPositioning === 'ABSOLUTE' && (f as any).opacity < 1
     );
     if (hasOverlay) return 'dialog';
     return 'layout';
   }
 
-  // ── Step 8: 텍스트 추출 (safe access + master fallback) ──────────────────
+  // ── Step 8: 텍스트 추출 (font-size 기반 역할 추론 + master fallback) ──────
   function extractTexts(n: SceneNode): ExtractedTexts {
-    const collected: Array<{ text: string; y: number; x: number }> = [];
+    const collected: Array<{ text: string; y: number; x: number; fontSize: number }> = [];
     function collect(node: SceneNode): void {
       if (node.type === 'TEXT') {
         const text = safeGetText(node);
-        if (text) collected.push({ text, y: node.y, x: node.x });
+        const fs =
+          typeof (node as TextNode).fontSize === 'number'
+            ? ((node as TextNode).fontSize as number)
+            : 14;
+        if (text) collected.push({ text, y: node.y, x: node.x, fontSize: fs });
       } else if ('children' in node) {
         (node as ChildrenMixin).children.forEach((c) => collect(c as SceneNode));
       }
@@ -1926,44 +1941,52 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
     collect(n);
     collected.sort((a, b) => a.y - b.y || a.x - b.x);
     const all = collected.map((t) => t.text.trim()).filter(Boolean);
-    const nodeHeight = 'height' in n ? (n as any).height : 100;
-    const threshold = nodeHeight * 0.65;
+    // title: font-size가 가장 큰 텍스트, description: 그 다음
+    const bySizeDesc = [...collected].sort((a, b) => b.fontSize - a.fontSize);
+    const title = bySizeDesc[0]?.text.trim() || '';
+    const description = bySizeDesc[1]?.text.trim() || '';
+    // actions: auto-layout 방향에 따라 끝부분 텍스트
+    const isVertical = 'layoutMode' in n && (n as FrameNode).layoutMode === 'VERTICAL';
+    const nodeSize = isVertical
+      ? 'height' in n
+        ? (n as any).height
+        : 100
+      : 'width' in n
+        ? (n as any).width
+        : 100;
+    const threshold = nodeSize * 0.65;
     const actions = collected
-      .filter((t) => t.y > threshold)
+      .filter((t) => (isVertical ? t.y : t.x) > threshold)
       .map((t) => t.text.trim())
       .filter(Boolean);
-    return { title: all[0] || '', description: all[1] || '', actions, all };
+    return { title, description, actions, all };
   }
 
-  // ── Step 9: 자식 스타일 수집 (2-level + TEXT color 버블링 + iconColor 추출)
-  function getChildStyles(n: SceneNode): Record<string, Record<string, string>> {
+  // ── Step 9: 자식 스타일 재귀 수집 (iconColor 추출 포함)
+  function getChildStyles(n: SceneNode, maxDepth = 4): Record<string, Record<string, string>> {
     const result: Record<string, Record<string, string>> = {};
-    if (!('children' in n)) return result;
-    (n as ChildrenMixin).children.forEach((child, i) => {
-      const c = child as SceneNode;
-      const name = c.name || 'child-' + i;
-      const styles = getNodeStyles(c);
-      result[name] = styles;
+    function walk(parent: SceneNode, prefix: string, depth: number): void {
+      if (!('children' in parent) || depth > maxDepth) return;
+      (parent as ChildrenMixin).children.forEach((child, i) => {
+        const c = child as SceneNode;
+        const name = c.name || c.type.toLowerCase() + '-' + i;
+        const key = prefix ? prefix + ' > ' + name : name;
+        const styles = getNodeStyles(c);
 
-      // 2-level: 자식의 자식도 "parent > child" 키로 수집
-      if ('children' in c) {
-        (c as ChildrenMixin).children.forEach((grandchild, j) => {
-          const gc = grandchild as SceneNode;
-          const gcName = gc.name || 'child-' + j;
-          const gcStyles = getNodeStyles(gc);
-          result[name + ' > ' + gcName] = gcStyles;
-
-          // VECTOR border → iconColor 추출 (Figma SVG fill이 border로 매핑된 경우)
-          if (gc.type === 'VECTOR' || gc.type === 'BOOLEAN_OPERATION') {
-            const border = gcStyles['border'];
-            if (border) {
-              const varMatch = border.match(/var\([^)]+\)/);
-              if (varMatch) gcStyles['iconColor'] = varMatch[0];
-            }
+        // 도형 노드의 border/fill → iconColor 추출
+        if ('fills' in c && c.type !== 'TEXT' && c.type !== 'FRAME' && c.type !== 'GROUP') {
+          const border = styles['border'];
+          if (border) {
+            const varMatch = border.match(/var\([^)]+\)/);
+            if (varMatch) styles['iconColor'] = varMatch[0];
           }
-        });
-      }
-    });
+        }
+
+        result[key] = styles;
+        walk(c, key, depth + 1);
+      });
+    }
+    walk(n, '', 1);
     return result;
   }
 
