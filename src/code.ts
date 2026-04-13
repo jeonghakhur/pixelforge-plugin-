@@ -1666,7 +1666,12 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
     // fills → color/background-color
     const isText = n.type === 'TEXT';
     const fillVar = resolveBoundColor(n, 'fills');
-    if (fillVar) s[isText ? 'color' : 'background-color'] = fillVar;
+    if (fillVar) {
+      const fillProp = isText ? 'color' : 'background-color';
+      s[fillProp] = fillVar;
+      // getCSSAsync의 'background' shorthand와 중복 제거
+      if (!isText && s['background']) delete s['background'];
+    }
 
     // stroke → strokeStyleId 토큰 우선
     if ('strokes' in n) {
