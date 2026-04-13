@@ -1672,8 +1672,22 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
       const kebab = key.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
       // CSS 주석 제거 (getCSSAsync가 "24px /* 150% */" 형태로 반환)
       const value = rawValue.replace(/\s*\/\*[^*]*\*\/\s*/g, '').trim();
-      // var() 내부 변수명 kebab-case 통일 (--Font-size-text-md → --font-size-text-md)
-      s[kebab] = value.replace(/var\(--([^,)]+)/g, (_, name) => 'var(--' + name.toLowerCase());
+      // var() 내부 변수명 정규화:
+      // 1) kebab-case 통일 (--Font-size-text-md → --font-size-text-md)
+      // 2) line-height → font-line-height (tokens.css 형식)
+      // 3) font-family-font-family-* → font-family-* (중복 제거)
+      s[kebab] = value.replace(/var\(--([^,)]+)/g, (_, name) => {
+        let normalized = name.toLowerCase();
+        // line-height-text-* → font-line-height-text-*
+        if (/^line-height-/.test(normalized)) {
+          normalized = 'font-' + normalized;
+        }
+        // font-family-font-family-* → font-family-*
+        if (/^font-family-font-family-/.test(normalized)) {
+          normalized = normalized.replace('font-family-font-family-', 'font-family-');
+        }
+        return 'var(--' + normalized;
+      });
     }
 
     // 2. boundVariables 오버라이드 (getCSSAsync가 resolved 값일 때 var() 참조로 교체)
