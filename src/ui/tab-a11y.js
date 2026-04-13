@@ -48,7 +48,7 @@ export function buildExtractedColors() {
     state.extractedData.styles.colors.forEach(function (s) {
       if (s.paints && s.paints.length > 0 && s.paints[0].type === 'SOLID') {
         var c = s.paints[0].color;
-        var hex = '#' + [Math.round((c.r || 0) * 255), Math.round((c.g || 0) * 255), Math.round((c.b || 0) * 255)]
+        var hex = '#' + [Math.floor((c.r || 0) * 255), Math.floor((c.g || 0) * 255), Math.floor((c.b || 0) * 255)]
           .map(function (v) { return v.toString(16).padStart(2, '0'); }).join('').toUpperCase();
         if (!seen[hex]) { seen[hex] = true; state.extractedColors.push({ name: s.name, hex: hex }); }
       }
@@ -61,7 +61,7 @@ export function buildExtractedColors() {
       if (modes.length === 0) return;
       var val = v.valuesByMode[modes[0]];
       if (val && typeof val === 'object' && val.r !== undefined) {
-        var hex = '#' + [Math.round(val.r * 255), Math.round(val.g * 255), Math.round(val.b * 255)]
+        var hex = '#' + [Math.floor(val.r * 255), Math.floor(val.g * 255), Math.floor(val.b * 255)]
           .map(function (v2) { return v2.toString(16).padStart(2, '0'); }).join('').toUpperCase();
         if (!seen[hex]) { seen[hex] = true; state.extractedColors.push({ name: v.name, hex: hex }); }
       }

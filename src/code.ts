@@ -929,9 +929,10 @@ function extractVariants(name: string): string[] {
 }
 
 function figmaColorToHex(c: { r: number; g: number; b: number }): string {
-  const r = Math.round(c.r * 255);
-  const g = Math.round(c.g * 255);
-  const b = Math.round(c.b * 255);
+  // Figma App은 floor()로 hex를 표시 — round()를 쓰면 1 차이 발생
+  const r = Math.floor(c.r * 255);
+  const g = Math.floor(c.g * 255);
+  const b = Math.floor(c.b * 255);
   return (
     '#' +
     [r, g, b]
@@ -1435,7 +1436,7 @@ function inferRadixColor(node: SceneNode, colorMap: Map<string, string>): string
     '#' +
     [c.r, c.g, c.b]
       .map((v) =>
-        Math.round(v * 255)
+        Math.floor(v * 255)
           .toString(16)
           .padStart(2, '0')
       )
@@ -1794,7 +1795,7 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
               const blur = e.radius ?? 0;
               const spread = e.spread ?? 0;
               const c = e.color ?? { r: 0, g: 0, b: 0, a: 1 };
-              const rgba = `rgba(${Math.round(c.r * 255)},${Math.round(c.g * 255)},${Math.round(c.b * 255)},${Math.round((c.a ?? 1) * 100) / 100})`;
+              const rgba = `rgba(${Math.floor(c.r * 255)},${Math.floor(c.g * 255)},${Math.floor(c.b * 255)},${Math.round((c.a ?? 1) * 100) / 100})`;
               const inset = e.type === 'INNER_SHADOW' ? 'inset ' : '';
               shadows.push(`${inset}${ox}px ${oy}px ${blur}px ${spread}px ${rgba}`);
             }

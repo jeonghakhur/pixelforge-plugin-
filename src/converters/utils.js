@@ -20,9 +20,9 @@ export function toCssName(path, isAlias) {
 }
 
 export function figmaColorToCSS(c) {
-  var r = Math.round((c.r || 0) * 255);
-  var g = Math.round((c.g || 0) * 255);
-  var b = Math.round((c.b || 0) * 255);
+  var r = Math.floor((c.r || 0) * 255);
+  var g = Math.floor((c.g || 0) * 255);
+  var b = Math.floor((c.b || 0) * 255);
   var a = c.a !== undefined ? c.a : 1;
   if (a >= 0.999) {
     return (
