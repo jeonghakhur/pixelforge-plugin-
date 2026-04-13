@@ -1644,7 +1644,147 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
     return '';
   }
 
-  // ── Step 5: 노드 → CSS 스타일 변환 ──────────────────────────────────────
+  // ── Step 5a: getCSSAsync 기반 스타일 변환 (Text Style 변수 포함) ──────────
+  async function getNodeStylesAsync(n: SceneNode): Promise<Record<string, string>> {
+    // 1. Figma Inspect CSS 획득 (Text Style 변수 참조 포함)
+    let css: Record<string, string>;
+    try {
+      css = await n.getCSSAsync();
+    } catch (_) {
+      // getCSSAsync 미지원 노드 → sync fallback
+      return getNodeStyles(n);
+    }
+
+    const s: Record<string, string> = {};
+    for (const [key, value] of Object.entries(css)) {
+      // getCSSAsync는 camelCase 또는 kebab 반환 가능 — kebab으로 통일
+      const kebab = key.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
+      s[kebab] = value;
+    }
+
+    // 2. boundVariables 오버라이드 (getCSSAsync가 resolved 값일 때 var() 참조로 교체)
+    // fills → color/background-color
+    const isText = n.type === 'TEXT';
+    const fillVar = resolveBoundColor(n, 'fills');
+    if (fillVar) s[isText ? 'color' : 'background-color'] = fillVar;
+
+    // stroke → strokeStyleId 토큰 우선
+    if ('strokes' in n) {
+      const strokeStyleId = 'strokeStyleId' in n ? (n as any).strokeStyleId : '';
+      if (typeof strokeStyleId === 'string' && strokeStyleId && styleIdMap.has(strokeStyleId)) {
+        const sw = 'strokeWeight' in n ? Math.round((n as any).strokeWeight) || 1 : 1;
+        s['border-width'] = sw + 'px';
+        s['border-style'] = 'solid';
+        s['border-image'] = 'var(' + styleIdMap.get(strokeStyleId)! + ')';
+        delete s['border'];
+        delete s['border-color'];
+      } else {
+        const strokeVar = resolveBoundColor(n, 'strokes');
+        if (strokeVar) {
+          const sw = 'strokeWeight' in n ? Math.round((n as any).strokeWeight) || 1 : 1;
+          s['border'] = sw + 'px solid ' + strokeVar;
+        }
+      }
+    }
+
+    // effects → effectStyleId 토큰 우선
+    if ('effects' in n) {
+      const effectStyleId = 'effectStyleId' in n ? (n as any).effectStyleId : '';
+      if (typeof effectStyleId === 'string' && effectStyleId && styleIdMap.has(effectStyleId)) {
+        s['box-shadow'] = 'var(' + styleIdMap.get(effectStyleId)! + ')';
+      }
+    }
+
+    // cornerRadius → boundVar 우선
+    const crBound = resolveBoundVar(n, 'cornerRadius');
+    if (crBound) s['border-radius'] = crBound;
+
+    // gap/padding → boundVar 우선
+    if ('layoutMode' in n) {
+      const f = n as FrameNode;
+      const gapBound = resolveBoundVar(n, 'itemSpacing');
+      if (gapBound) s['gap'] = gapBound;
+
+      const ptB = resolveBoundVar(n, 'paddingTop');
+      const prB = resolveBoundVar(n, 'paddingRight');
+      const pbB = resolveBoundVar(n, 'paddingBottom');
+      const plB = resolveBoundVar(n, 'paddingLeft');
+      if (ptB || prB || pbB || plB) {
+        const pt = ptB ?? (f.paddingTop > 0 ? f.paddingTop + 'px' : '0px');
+        const pr = prB ?? (f.paddingRight > 0 ? f.paddingRight + 'px' : '0px');
+        const pb = pbB ?? (f.paddingBottom > 0 ? f.paddingBottom + 'px' : '0px');
+        const pl = plB ?? (f.paddingLeft > 0 ? f.paddingLeft + 'px' : '0px');
+        s['padding'] = pt + ' ' + pr + ' ' + pb + ' ' + pl;
+      }
+    }
+
+    // typography → boundVar 우선 (getCSSAsync가 Text Style 변수를 포함하지 않는 경우)
+    if (isText) {
+      const tbv = (n as any).boundVariables ?? {};
+      if (tbv.fontSize?.id && varIdMap.has(tbv.fontSize.id))
+        s['font-size'] = 'var(' + varIdMap.get(tbv.fontSize.id) + ')';
+      if (tbv.fontFamily?.id && varIdMap.has(tbv.fontFamily.id))
+        s['font-family'] = 'var(' + varIdMap.get(tbv.fontFamily.id) + ')';
+      if (tbv.fontWeight?.id && varIdMap.has(tbv.fontWeight.id))
+        s['font-weight'] = 'var(' + varIdMap.get(tbv.fontWeight.id) + ')';
+      if (tbv.lineHeight?.id && varIdMap.has(tbv.lineHeight.id))
+        s['line-height'] = 'var(' + varIdMap.get(tbv.lineHeight.id) + ')';
+    }
+
+    // getCSSAsync 미포함 속성
+    if ('clipsContent' in n && (n as any).clipsContent === true) {
+      s['overflow'] = 'hidden';
+    }
+    if ('opacity' in n) {
+      const op = (n as any).opacity;
+      if (typeof op === 'number' && op < 1) {
+        s['opacity'] = String(Math.round(op * 100) / 100);
+      }
+    }
+    if (!isText && 'layoutSizingHorizontal' in n) {
+      const horiz = (n as any).layoutSizingHorizontal;
+      const vert = (n as any).layoutSizingVertical;
+      if (horiz === 'FIXED' && typeof (n as any).width === 'number') {
+        s['width'] = Math.round((n as any).width) + 'px';
+      }
+      if (vert === 'FIXED' && typeof (n as any).height === 'number') {
+        s['height'] = Math.round((n as any).height) + 'px';
+      }
+    }
+
+    // 도형 노드의 iconColor 추출
+    if ('fills' in n && n.type !== 'TEXT' && n.type !== 'FRAME' && n.type !== 'GROUP') {
+      const border = s['border'];
+      if (border) {
+        const varMatch = border.match(/var\([^)]+\)/);
+        if (varMatch) s['iconColor'] = varMatch[0];
+      }
+    }
+
+    return s;
+  }
+
+  // ── Step 5a-2: async childStyles ──────────────────────────────────────────
+  async function getChildStylesAsync(
+    n: SceneNode,
+    maxDepth = 4
+  ): Promise<Record<string, Record<string, string>>> {
+    const result: Record<string, Record<string, string>> = {};
+    async function walk(parent: SceneNode, prefix: string, depth: number): Promise<void> {
+      if (!('children' in parent) || depth > maxDepth) return;
+      for (let i = 0; i < (parent as ChildrenMixin).children.length; i++) {
+        const c = (parent as ChildrenMixin).children[i] as SceneNode;
+        const name = c.name || c.type.toLowerCase() + '-' + i;
+        const key = prefix ? prefix + ' > ' + name : name;
+        result[key] = await getNodeStylesAsync(c);
+        await walk(c, key, depth + 1);
+      }
+    }
+    await walk(n, '', 1);
+    return result;
+  }
+
+  // ── Step 5b: sync 버전 (nodeTree용, 하위 호환) ─────────────────────────────
   function getNodeStyles(n: SceneNode): Record<string, string> {
     const s: Record<string, string> = {};
     const isText = n.type === 'TEXT';
@@ -1984,36 +2124,8 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
     return { title, description, actions, all };
   }
 
-  // ── Step 9: 자식 스타일 재귀 수집 (iconColor 추출 포함)
-  function getChildStyles(n: SceneNode, maxDepth = 4): Record<string, Record<string, string>> {
-    const result: Record<string, Record<string, string>> = {};
-    function walk(parent: SceneNode, prefix: string, depth: number): void {
-      if (!('children' in parent) || depth > maxDepth) return;
-      (parent as ChildrenMixin).children.forEach((child, i) => {
-        const c = child as SceneNode;
-        const name = c.name || c.type.toLowerCase() + '-' + i;
-        const key = prefix ? prefix + ' > ' + name : name;
-        const styles = getNodeStyles(c);
-
-        // 도형 노드의 border/fill → iconColor 추출
-        if ('fills' in c && c.type !== 'TEXT' && c.type !== 'FRAME' && c.type !== 'GROUP') {
-          const border = styles['border'];
-          if (border) {
-            const varMatch = border.match(/var\([^)]+\)/);
-            if (varMatch) styles['iconColor'] = varMatch[0];
-          }
-        }
-
-        result[key] = styles;
-        walk(c, key, depth + 1);
-      });
-    }
-    walk(n, '', 1);
-    return result;
-  }
-
-  // ── Step 10: 결과 조립 ───────────────────────────────────────────────────
-  const rootStyles = getNodeStyles(node);
+  // ── Step 10: 결과 조립 (rootStyles/childStyles는 getCSSAsync 사용) ────────
+  const rootStyles = await getNodeStylesAsync(node);
   if ('width' in node && 'height' in node) {
     if (!rootStyles['width']) rootStyles['width'] = Math.round(node.width) + 'px';
     if (!rootStyles['height']) rootStyles['height'] = Math.round(node.height) + 'px';
@@ -2070,21 +2182,22 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
       }
     } catch (_) {}
 
-    // 자식 COMPONENT 각각의 스타일 수집
-    variants = (parentSet.children as ComponentNode[]).map((child) => {
+    // 자식 COMPONENT 각각의 스타일 수집 (getCSSAsync 사용)
+    variants = [];
+    for (const child of parentSet.children as ComponentNode[]) {
       const props = Object.fromEntries(
         Object.entries(child.variantProperties ?? {}).map(([k, v]) => [k.toLowerCase(), v])
       );
-      return {
+      variants.push({
         properties: props,
         variantSlug: buildVariantSlug(props),
         width: Math.round(child.width),
         height: Math.round(child.height),
-        styles: getNodeStyles(child),
-        childStyles: getChildStyles(child),
+        styles: await getNodeStylesAsync(child),
+        childStyles: await getChildStylesAsync(child),
         nodeTree: buildNodeTree(child, nodeTreeCtx),
-      };
-    });
+      });
+    }
   }
 
   const effectiveName = componentSetName ?? node.name;
@@ -2102,7 +2215,7 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
     styles: rootStyles,
     detectedType: detectComponentType(node),
     texts: extractTexts(node),
-    childStyles: getChildStyles(node),
+    childStyles: await getChildStylesAsync(node),
     nodeTree: buildNodeTree(node, nodeTreeCtx),
     radixProps: {
       variant: inferRadixVariant(node),
