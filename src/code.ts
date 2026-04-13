@@ -1502,10 +1502,10 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
   const colorMap = new Map<string, string>();
   const varIdMap = new Map<string, string>();
 
-  // 2-a. Local Variables
+  // 2-a. Local Variables (COLOR + FLOAT 모두 varIdMap 등록)
   const allVars = await figma.variables.getLocalVariablesAsync();
   for (const v of allVars) {
-    if (v.resolvedType !== 'COLOR') continue;
+    if (v.resolvedType !== 'COLOR' && v.resolvedType !== 'FLOAT') continue;
     const firstMode = Object.keys(v.valuesByMode)[0];
     if (!firstMode) continue;
     const val = v.valuesByMode[firstMode];
@@ -1520,8 +1520,9 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
     // varIdMap: alias든 primitive든 무조건 등록 (boundVariables 해석용)
     varIdMap.set(v.id, cssName);
 
-    // colorMap: hex → cssName 역방향 조회 (primitive만 가능)
+    // colorMap: hex → cssName 역방향 조회 (COLOR primitive만)
     if (
+      v.resolvedType === 'COLOR' &&
       !isAlias &&
       val &&
       typeof val === 'object' &&
