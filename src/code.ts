@@ -1935,13 +1935,34 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
     return { title: all[0] || '', description: all[1] || '', actions, all };
   }
 
-  // ── Step 9: 자식 스타일 수집 ─────────────────────────────────────────────
+  // ── Step 9: 자식 스타일 수집 (2-level + TEXT color 버블링 + iconColor 추출)
   function getChildStyles(n: SceneNode): Record<string, Record<string, string>> {
     const result: Record<string, Record<string, string>> = {};
     if (!('children' in n)) return result;
     (n as ChildrenMixin).children.forEach((child, i) => {
       const c = child as SceneNode;
-      result[c.name || 'child-' + i] = getNodeStyles(c);
+      const name = c.name || 'child-' + i;
+      const styles = getNodeStyles(c);
+      result[name] = styles;
+
+      // 2-level: 자식의 자식도 "parent > child" 키로 수집
+      if ('children' in c) {
+        (c as ChildrenMixin).children.forEach((grandchild, j) => {
+          const gc = grandchild as SceneNode;
+          const gcName = gc.name || 'child-' + j;
+          const gcStyles = getNodeStyles(gc);
+          result[name + ' > ' + gcName] = gcStyles;
+
+          // VECTOR border → iconColor 추출 (Figma SVG fill이 border로 매핑된 경우)
+          if (gc.type === 'VECTOR' || gc.type === 'BOOLEAN_OPERATION') {
+            const border = gcStyles['border'];
+            if (border) {
+              const varMatch = border.match(/var\([^)]+\)/);
+              if (varMatch) gcStyles['iconColor'] = varMatch[0];
+            }
+          }
+        });
+      }
     });
     return result;
   }
