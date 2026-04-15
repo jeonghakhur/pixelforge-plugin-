@@ -1,16 +1,35 @@
 # Figma Design Tokens Convention Guide
 
-_Figma Variables를 사용한 PixelForge 토큰 정의 가이드_
+_PixelForge 플러그인과 협업하기 위한 Figma 토큰 정의 가이드_
+
+> **범용성 안내**: 이 가이드는 PixelForge 팀의 권장 컨벤션입니다.
+> 플러그인은 Untitled UI PRO 등 외부 라이브러리도 추출 가능하도록 설계되어 있으나,
+> 이 컨벤션을 따를 때 가장 정확한 분류와 완전한 추출을 보장합니다.
 
 ---
 
 ## 📌 기본 원칙
 
-- **플랫폼**: Figma Variables (내장 기능, 설치 불필요)
-- **위치**: Assets panel → Variables 섹션
+- **플랫폼**: Figma Variables (내장 기능, 설치 불필요) + Text Styles (타이포그래피)
+- **위치**: Assets panel → Variables / Text Styles 섹션
 - **네이밍**: `kebab-case` (모두 소문자, 하이픈으로 단어 구분)
 - **구조**: `category/subcategory/state` 또는 `category/value`
 - **변수 유형**: Color, Number, String, Boolean 등 타입 지정
+
+### 컬렉션 명명 규칙 (중요)
+
+플러그인은 **컬렉션 이름**을 기준으로 토큰 타입을 분류합니다. 아래 규칙을 따르세요:
+
+| 토큰 타입 | 컬렉션 이름 예시 | 포함 키워드 |
+|----------|----------------|-----------|
+| Spacing | `Spacing`, `Space`, `Gap` | `spacing`, `space`, `gap` |
+| Radius | `Radius`, `Border Radius` | `radius`, `corner`, `rounded` |
+| Typography Variables | `Typography`, `Font`, `Type Scale` | `typography`, `font`, `type` |
+| Color | 컬렉션 타입이 Color면 자동 인식 | — |
+| 기타 (extra-vars) | 위 규칙에 해당 없는 컬렉션 | — |
+
+> ⚠️ **주의**: 타이포그래피 Variables를 "Design Tokens"처럼 범용 컬렉션에 넣으면
+> 플러그인이 typography로 분류하지 못합니다. 반드시 별도 컬렉션으로 분리하세요.
 
 ---
 
@@ -71,16 +90,51 @@ radius/{type}
 
 ### 4️⃣ 타이포그래피 (Typography)
 
+타이포그래피는 **Text Styles** (주요 스타일) + **Variables** (원시값) 두 가지로 관리합니다.
+
+#### Text Styles (Figma Assets → Text Styles)
+
+텍스트 컴포넌트에 직접 적용하는 스타일. 이름 패턴:
+
 ```
-typography/{family}/{weight}/{size}
+{role} {size}/{weight}
+
+✅ 예시 (body):
+  - Text xs/Regular
+  - Text sm/Medium
+  - Text md/Semibold
+  - Text lg/Bold
+
+✅ 예시 (display/heading):
+  - Display 2xl/Semibold
+  - Display xl/Bold
+  - Heading md/Semibold
+
+❌ 금지: text-large, body-bold, font/sans/bold
+```
+
+> Display, Heading, Title, H1~H6 키워드가 포함된 스타일은 자동으로 `display` 카테고리로 분류됩니다.
+
+#### Typography Variables (컬렉션 이름: "Typography" 또는 "Font")
+
+폰트 크기, 줄높이, 패밀리 등의 원시값 Variables:
+
+```
+font-size/{scale}       → Number
+line-height/{scale}     → Number
+font-family/{role}      → String
+font-weight/{role}      → String (예: "Semibold")
 
 ✅ 예시:
-  - typography/sans/regular/sm
-  - typography/sans/bold/md
-  - typography/mono/regular/xs
-  - typography/serif/medium/lg
+  - font-size/text-xs (12)
+  - font-size/text-sm (14)
+  - line-height/text-xs (18)
+  - font-family/body ("Pretendard")
+  - font-family/display ("Pretendard")
+  - font-weight/regular ("Regular")
+  - font-weight/semibold ("Semibold")
 
-❌ 금지: font/body/regular, text-large, heading-1
+❌ 금지: typography/sans/bold/md (Variables에 슬래시 depth 3+ 금지)
 ```
 
 ### 5️⃣ 그림자 (Shadow)
@@ -256,6 +310,9 @@ gap/{size}
 ❌ 금지: flex-gap/sm, grid-spacing/md
 ```
 
+> **플러그인 처리**: `gap/*` 변수는 `spacing` 타입으로 통합 분류됩니다.
+> Figma에서는 Gap/Spacing을 구분할 수 있지만, CSS 출력 시 `:root` 변수로 동일하게 처리됩니다.
+
 ### 1️⃣7️⃣ 가로세로비 (Aspect-Ratio)
 
 ```
@@ -379,59 +436,66 @@ Button 컴포넌트
 
 ## ✅ 체크리스트
 
-배포 전에 확인:
+플러그인 추출 전에 확인:
 
-- [ ] Assets panel → Variables에서 모든 토큰 정의됨
-- [ ] 컬렉션명: "Design Tokens"
-- [ ] Mode: "Light" (+ "Dark" 옵션)
-- [ ] 모든 변수가 `kebab-case` 형식
-- [ ] 색상: `color/{category}/{state}` (Type: Color)
-- [ ] 간격: `spacing/{size}` (Type: Number, 단위: px)
-- [ ] 반경: `radius/{type}` (Type: Number)
-- [ ] 타이포: `typography/{family}/{weight}/{size}` (Type: String)
-- [ ] 모든 컴포넌트가 Variables를 사용 (하드코딩 금지)
-- [ ] 라이트/다크 모드 모두 정의됨 (라이트는 필수)
-- [ ] 한국어 텍스트 없음 (영문만)
+- [ ] 색상 Variables: Color 타입, `color/{category}/{state}` 네이밍
+- [ ] Spacing 컬렉션 이름에 `spacing` / `space` / `gap` 포함
+- [ ] Radius 컬렉션 이름에 `radius` / `corner` / `rounded` 포함
+- [ ] Typography Variables 컬렉션 이름에 `typography` / `font` / `type` 포함
+- [ ] 타이포그래피 스타일은 Figma Text Styles로 정의
+- [ ] 모든 변수가 `kebab-case` 형식 (대문자, 언더스코어 금지)
+- [ ] Mode: "Light" 필수, "Dark" 선택
+- [ ] 모든 컴포넌트가 Variables/Styles 사용 (하드코딩 금지)
+
+> 컬렉션 이름 규칙을 지키지 않으면 해당 변수가 **extra-vars**로 분류됩니다.
 
 ---
 
 ## 🔧 플러그인 동작
 
-### PixelForge 플러그인이 할 일:
+### PixelForge 플러그인이 하는 일:
 
 ```
-1. Figma Variables 자동 감지
-   → Assets panel의 모든 변수 읽기
+1. Figma Variables + Text Styles 자동 감지
+   → 모든 컬렉션의 Variables 읽기
+   → 모든 Text Styles 읽기
 
-2. 검증 (Lint)
-   ⚠️ 경고:
-     - "color_primary" → 언더스코어 사용 금지
-     - "colors/primary" → 복수형 금지
-     - "Color/Primary" → 대문자 사용 금지
-     - "color/primary" (state 없음) → state 권장
+2. 타입 자동 분류 (컬렉션 이름 + 변수 이름 기반)
+   → Color Variables → colors
+   → Spacing 컬렉션 Variables → spacing
+   → Radius 컬렉션 Variables → radius
+   → Typography/Font 컬렉션 Variables + Text Styles → typography
+   → 그 외 Variables → extra-vars (컬렉션별 그룹)
 
-   ❌ 거부:
-     - "primary" (type 없음)
-     - "c-primary" (약자 사용)
-
-3. 추출 및 정규화
-   → JSON 형식으로 export
+3. 추출 및 전송
+   → JSON/CSS 형식으로 export
    → PixelForge 앱으로 전송
 ```
 
-### 플러그인이 추출할 데이터:
+> **네이밍 검증(Lint) 기능은 현재 미구현입니다.**
+> 컨벤션을 벗어난 이름을 사용해도 플러그인이 경고하지 않으며,
+> 분류가 잘못되거나 `extra-vars`로 빠질 수 있습니다.
+
+### 실제 추출 데이터 구조:
 
 ```json
 {
-  "tokens": {
-    "color/primary/default": "#0066FF",
-    "color/primary/hover": "#0052CC",
-    "spacing/xs": 4,
-    "spacing/sm": 8,
-    ...
+  "variables": { "collections": [...], "variables": [...] },
+  "spacing": [ { "id": "...", "name": "spacing/sm", "value": "8" } ],
+  "radius": [ { "id": "...", "name": "radius/md", "value": "8" } ],
+  "styles": {
+    "colors": [...],
+    "effects": [...]
   },
-  "modes": ["Light", "Dark"],
-  "extractedAt": "2026-04-02T20:40:00Z"
+  "typography": {
+    "textStyles": [ { "name": "Text sm/Regular", "category": "body", "fontSize": 14, ... } ],
+    "fontSizes": [ { "name": "font-size/text-sm", "value": 14 } ],
+    "lineHeights": [...],
+    "fontFamilies": [...],
+    "fontWeights": [...]
+  },
+  "extraVars": [ { "collectionName": "Motion", "variables": [...] } ],
+  "meta": { "fileName": "...", "extractedAt": "..." }
 }
 ```
 
@@ -558,6 +622,12 @@ Button 컴포넌트
 
 ---
 
-**마지막 업데이트**: 2026-04-02
+**마지막 업데이트**: 2026-04-15
 **작성자**: PixelForge Team
-**버전**: 1.0
+**버전**: 1.1
+
+### 변경 이력
+| 버전 | 날짜 | 내용 |
+|------|------|------|
+| 1.1 | 2026-04-15 | 타이포그래피 구조 개편 (Text Styles + Variables 분리), 컬렉션 명명 규칙 추가, 미구현 Lint 기능 안내, 실제 JSON 출력 구조 반영 |
+| 1.0 | 2026-04-02 | 최초 작성 |
