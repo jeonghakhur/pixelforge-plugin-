@@ -62,6 +62,34 @@ interface FontData {
   styles: string[];
 }
 
+// ── Typography 통합 구조 ──────────────────────────────────────────────────────
+interface TypographyVarItem {
+  id: string;
+  name: string;
+  value: number;
+}
+
+interface TypographyStringItem {
+  id: string;
+  name: string;
+  value: string;
+}
+
+interface TypographyToken extends TextStyleData {
+  category: 'body' | 'display';
+  fontSizeVarId?: string;
+  lineHeightVarId?: string;
+  fontFamilyVarId?: string;
+}
+
+interface TypographyData {
+  textStyles: TypographyToken[];
+  fontSizes: TypographyVarItem[];
+  lineHeights: TypographyVarItem[];
+  fontFamilies: TypographyStringItem[];
+  fontWeights: Array<{ id: string; name: string; value: number }>;
+}
+
 interface IconData {
   id: string;
   name: string;
@@ -112,6 +140,7 @@ interface ExtractOptions {
     | 'icons'
     | 'grids'
     | 'extra-vars'
+    | 'typography'
   >;
   useVisualParser?: boolean;
   figmaFileKey?: string;
@@ -138,6 +167,7 @@ interface ExtractedTokens {
   spacing: VariableData[];
   radius: VariableData[];
   extraVars: ExtraVarGroup[];
+  typography?: TypographyData;
   styles: {
     colors: ColorStyleData[];
     texts: TextStyleData[];
@@ -386,6 +416,84 @@ function collectFonts(textStyles: TextStyleData[]): FontData[] {
     );
 }
 
+/**
+ * Text Styles + Typography Variables → TypographyData
+ * - textStyles: body/display 구분, 변수 ID 연결
+ * - fontSizes / lineHeights: FLOAT 변수 (값은 숫자)
+ * - fontFamilies: STRING 변수 (값은 패밀리 이름 문자열)
+ * - fontWeights: STRING 변수 값을 숫자(400/500/600/700)로 변환
+ */
+function buildTypographyData(
+  allTexts: TextStyleData[],
+  allVariables: Variable[],
+  collectionMap: Map<string, string>
+): TypographyData {
+  const TYPO_COL_RE = /\btypograph|font|type\b/i;
+
+  const fontSizeVars: TypographyVarItem[] = [];
+  const lineHeightVars: TypographyVarItem[] = [];
+  const fontFamilyVars: TypographyStringItem[] = [];
+  const fontWeightVars: Array<{ id: string; name: string; value: number }> = [];
+
+  for (const v of allVariables) {
+    if (v.resolvedType === 'BOOLEAN') continue;
+    const colName = collectionMap.get(v.variableCollectionId) ?? '';
+    if (!TYPO_COL_RE.test(colName)) continue;
+
+    const firstMode = Object.keys(v.valuesByMode)[0];
+    if (!firstMode) continue;
+    const val = v.valuesByMode[firstMode];
+    const lower = v.name.toLowerCase();
+
+    if (v.resolvedType === 'FLOAT' && typeof val === 'number') {
+      if (/font.?size/.test(lower)) fontSizeVars.push({ id: v.id, name: v.name, value: val });
+      else if (/line.?height/.test(lower))
+        lineHeightVars.push({ id: v.id, name: v.name, value: val });
+    } else if (v.resolvedType === 'STRING' && typeof val === 'string') {
+      if (/font.?family/.test(lower)) fontFamilyVars.push({ id: v.id, name: v.name, value: val });
+      else if (/font.?weight/.test(lower)) {
+        fontWeightVars.push({ id: v.id, name: v.name, value: fontWeightFromStyle(val) });
+      }
+    }
+  }
+
+  // 변수명의 마지막 세그먼트로 키 생성: "Font size/text-xs" → "text-xs"
+  const fontSizeByKey = new Map(
+    fontSizeVars.map((v) => [v.name.split('/').pop()!.toLowerCase(), v])
+  );
+  const lineHeightByKey = new Map(
+    lineHeightVars.map((v) => [v.name.split('/').pop()!.toLowerCase(), v])
+  );
+
+  // 폰트 패밀리: display / body 구분
+  const displayFamilyVar = fontFamilyVars.find((v) => /display/.test(v.name.toLowerCase()));
+  const bodyFamilyVar =
+    fontFamilyVars.find((v) => /body/.test(v.name.toLowerCase())) ?? fontFamilyVars[0];
+
+  // 텍스트 스타일 이름의 첫 세그먼트로 키 생성: "Text xs/Regular" → "text-xs"
+  const textStyles: TypographyToken[] = allTexts.map((s) => {
+    const key = (s.name.split('/')[0] ?? s.name).toLowerCase().replace(/\s+/g, '-');
+    const category: 'body' | 'display' = HEADING_RE.test(s.name) ? 'display' : 'body';
+    const familyVar = category === 'display' ? displayFamilyVar : bodyFamilyVar;
+
+    return {
+      ...s,
+      category,
+      fontSizeVarId: fontSizeByKey.get(key)?.id,
+      lineHeightVarId: lineHeightByKey.get(key)?.id,
+      fontFamilyVarId: familyVar?.id,
+    };
+  });
+
+  return {
+    textStyles,
+    fontSizes: fontSizeVars,
+    lineHeights: lineHeightVars,
+    fontFamilies: fontFamilyVars,
+    fontWeights: fontWeightVars,
+  };
+}
+
 function mapVariable(v: Variable, varUsage: Map<string, number>): VariableData {
   return {
     id: v.id,
@@ -557,7 +665,9 @@ async function extractAll(options: ExtractOptions): Promise<ExtractedTokens> {
   const isPageMode = !isSelectionMode && !!options.useCurrentPage;
   const types = options.tokenTypes;
 
-  const needsVars = types.some((t) => ['variables', 'spacing', 'radius', 'extra-vars'].includes(t));
+  const needsVars = types.some((t) =>
+    ['variables', 'spacing', 'radius', 'extra-vars', 'typography'].includes(t)
+  );
   const needsStyles = types.some((t) =>
     ['colors', 'texts', 'textStyles', 'headings', 'fonts', 'effects', 'grids'].includes(t)
   );
@@ -753,8 +863,10 @@ async function extractAll(options: ExtractOptions): Promise<ExtractedTokens> {
     allVariables
       .filter((v) => {
         if (v.resolvedType === 'COLOR') return false;
+        const colName = collectionMap.get(v.variableCollectionId) ?? '';
+        // typography 컬렉션 변수는 typography 구조에서 처리 — extra-vars 제외
+        if (/\btypograph|font|type\b/i.test(colName)) return false;
         if (v.resolvedType === 'FLOAT') {
-          const colName = collectionMap.get(v.variableCollectionId) ?? '';
           const isPrimitivesCol = /^_|\bprimitive\b/i.test(colName);
           const groupPrefix = v.name.split('/')[0];
           if (SPACING_RE.test(colName) || (isPrimitivesCol && SPACING_RE.test(groupPrefix)))
@@ -780,6 +892,15 @@ async function extractAll(options: ExtractOptions): Promise<ExtractedTokens> {
         }
       });
     extraVars = Array.from(groupMap.values()).filter((g) => g.variables.length > 0);
+  }
+
+  // Typography — Text Styles + Typography Variables 통합 구조
+  let typography: TypographyData | undefined;
+  if (types.includes('typography')) {
+    const typoTexts = (await figma.getLocalTextStylesAsync())
+      .map((s) => mapTextStyle(s, styleUsage))
+      .filter((s) => !(isSelectionMode || isPageMode) || s.usageCount > 0);
+    typography = buildTypographyData(typoTexts, allVariables, collectionMap);
   }
 
   // Icons — components with "icon" in name or parent component set name
@@ -810,6 +931,7 @@ async function extractAll(options: ExtractOptions): Promise<ExtractedTokens> {
     spacing,
     radius,
     extraVars,
+    typography,
     styles: { colors, texts, textStyles, headings, fonts, effects, grids },
     icons,
     meta: {
@@ -1720,16 +1842,68 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
       const strokeStyleId = 'strokeStyleId' in n ? (n as any).strokeStyleId : '';
       if (typeof strokeStyleId === 'string' && strokeStyleId && styleIdMap.has(strokeStyleId)) {
         const sw = 'strokeWeight' in n ? Math.round((n as any).strokeWeight) || 1 : 1;
-        s['border-width'] = sw + 'px';
-        s['border-style'] = 'solid';
-        s['border-image'] = 'var(' + styleIdMap.get(strokeStyleId)! + ')';
-        delete s['border'];
-        delete s['border-color'];
+        // Paint Style이 gradient인지 확인 → gradient이면 첫 번째 stop 색으로 solid 변환
+        // border-image는 border-radius를 무효화하므로 사용하지 않음
+        try {
+          const paintStyle = figma.getStyleById(strokeStyleId) as PaintStyle | null;
+          const paint = paintStyle?.paints?.[0];
+          if (paint?.type?.startsWith('GRADIENT_')) {
+            const stops = (paint as GradientPaint).gradientStops;
+            if (stops?.length) {
+              const c = stops[0].color;
+              const rgba = `rgba(${Math.round(c.r * 255)},${Math.round(c.g * 255)},${Math.round(c.b * 255)},${Math.round(c.a * 100) / 100})`;
+              s['border'] = sw + 'px solid ' + rgba;
+              delete s['border-image'];
+              delete s['border-width'];
+              delete s['border-style'];
+              delete s['border-color'];
+            }
+          } else {
+            s['border-width'] = sw + 'px';
+            s['border-style'] = 'solid';
+            s['border-image'] = 'var(' + styleIdMap.get(strokeStyleId)! + ')';
+            delete s['border'];
+            delete s['border-color'];
+          }
+        } catch {
+          // getStyleById 실패 시 → strokes 배열 직접 확인
+          const rawPaints = (n as any).strokes as Paint[];
+          const rawPaint = Array.isArray(rawPaints) ? rawPaints[0] : null;
+          if (rawPaint?.type?.startsWith('GRADIENT_')) {
+            const stops = (rawPaint as GradientPaint).gradientStops;
+            if (stops?.length) {
+              const c = stops[0].color;
+              const rgba = `rgba(${Math.round(c.r * 255)},${Math.round(c.g * 255)},${Math.round(c.b * 255)},${Math.round(c.a * 100) / 100})`;
+              s['border'] = sw + 'px solid ' + rgba;
+            }
+          } else {
+            s['border-width'] = sw + 'px';
+            s['border-style'] = 'solid';
+            s['border-image'] = 'var(' + styleIdMap.get(strokeStyleId)! + ')';
+            delete s['border'];
+            delete s['border-color'];
+          }
+        }
       } else {
         const strokeVar = resolveBoundColor(n, 'strokes');
+        const sw = 'strokeWeight' in n ? Math.round((n as any).strokeWeight) || 1 : 1;
         if (strokeVar) {
-          const sw = 'strokeWeight' in n ? Math.round((n as any).strokeWeight) || 1 : 1;
           s['border'] = sw + 'px solid ' + strokeVar;
+        } else {
+          // GRADIENT_LINEAR stroke → 첫 번째 stop 색상으로 solid 변환
+          // (getCSSAsync fallback의 border-image: linear-gradient(...)는 border-radius를 무효화)
+          const paints = (n as any).strokes as Paint[];
+          if (Array.isArray(paints) && paints.length > 0 && paints[0]?.type === 'GRADIENT_LINEAR') {
+            const stops = (paints[0] as GradientPaint).gradientStops;
+            if (stops?.length) {
+              const c = stops[0].color;
+              const rgba = `rgba(${Math.round(c.r * 255)},${Math.round(c.g * 255)},${Math.round(c.b * 255)},${Math.round(c.a * 100) / 100})`;
+              s['border'] = sw + 'px solid ' + rgba;
+              delete s['border-image'];
+              delete s['border-style'];
+              delete s['border-width'];
+            }
+          }
         }
       }
     }
@@ -1952,9 +2126,27 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
       const strokeStyleId = 'strokeStyleId' in n ? (n as any).strokeStyleId : '';
 
       if (typeof strokeStyleId === 'string' && strokeStyleId && styleIdMap.has(strokeStyleId)) {
-        s['border-width'] = strokeWeight + 'px';
-        s['border-style'] = 'solid';
-        s['border-image'] = 'var(' + styleIdMap.get(strokeStyleId)! + ')';
+        // Paint Style이 gradient인지 확인 → gradient이면 첫 번째 stop 색으로 solid 변환
+        try {
+          const paintStyle = figma.getStyleById(strokeStyleId) as PaintStyle | null;
+          const paint = paintStyle?.paints?.[0];
+          if (paint?.type?.startsWith('GRADIENT_')) {
+            const stops = (paint as GradientPaint).gradientStops;
+            if (stops?.length) {
+              const c = stops[0].color;
+              const rgba = `rgba(${Math.round(c.r * 255)},${Math.round(c.g * 255)},${Math.round(c.b * 255)},${Math.round(c.a * 100) / 100})`;
+              s['border'] = strokeWeight + 'px solid ' + rgba;
+            }
+          } else {
+            s['border-width'] = strokeWeight + 'px';
+            s['border-style'] = 'solid';
+            s['border-image'] = 'var(' + styleIdMap.get(strokeStyleId)! + ')';
+          }
+        } catch {
+          s['border-width'] = strokeWeight + 'px';
+          s['border-style'] = 'solid';
+          s['border-image'] = 'var(' + styleIdMap.get(strokeStyleId)! + ')';
+        }
       } else {
         const bound = resolveBoundColor(n, 'strokes');
         if (bound) {
@@ -1970,10 +2162,14 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
                 (f: any) => f.type?.startsWith('GRADIENT_') && f.visible !== false
               );
               if (gradient) {
-                s['border-width'] = strokeWeight + 'px';
-                s['border-style'] = 'solid';
-                s['border-image'] =
-                  'linear-gradient(to bottom, rgba(255,255,255,0.12), rgba(255,255,255,0)) 1';
+                // GRADIENT stroke → 첫 번째 stop 색상으로 solid 변환
+                // border-image는 border-radius를 무효화하므로 사용하지 않음
+                const stops = gradient.gradientStops;
+                if (stops?.length) {
+                  const c = stops[0].color;
+                  const rgba = `rgba(${Math.round(c.r * 255)},${Math.round(c.g * 255)},${Math.round(c.b * 255)},${Math.round(c.a * 100) / 100})`;
+                  s['border'] = strokeWeight + 'px solid ' + rgba;
+                }
               }
             }
           }

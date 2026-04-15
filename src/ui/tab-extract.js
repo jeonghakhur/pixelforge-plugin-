@@ -270,11 +270,14 @@ function generateCSS(data, unit, types) {
   if (all || types.has('texts')) {
     allTextsForLS = allTextsForLS.concat(data.styles ? data.styles.texts || [] : []);
   }
-  if (all || types.has('textStyles')) {
-    allTextsForLS = allTextsForLS.concat(data.styles ? data.styles.textStyles || [] : []);
-  }
-  if (all || types.has('headings')) {
-    allTextsForLS = allTextsForLS.concat(data.styles ? data.styles.headings || [] : []);
+  if (all || types.has('typography')) {
+    // 통합 구조 우선, 없으면 구버전 fallback
+    if (data.typography && data.typography.textStyles) {
+      allTextsForLS = allTextsForLS.concat(data.typography.textStyles);
+    } else {
+      allTextsForLS = allTextsForLS.concat(data.styles ? data.styles.textStyles || [] : []);
+      allTextsForLS = allTextsForLS.concat(data.styles ? data.styles.headings || [] : []);
+    }
   }
   if (allTextsForLS.length > 0) {
     var lsl = convertLetterSpacingVars(allTextsForLS, unit);
@@ -310,14 +313,16 @@ function generateCSS(data, unit, types) {
   if (all || types.has('texts')) {
     body += convertTextStyles(data.styles ? data.styles.texts : [], unit);
   }
-  if (all || types.has('textStyles')) {
-    body += convertTextStyles(data.styles ? data.styles.textStyles || [] : [], unit);
-  }
-  if (all || types.has('headings')) {
-    body += convertTextStyles(data.styles ? data.styles.headings || [] : [], unit);
-  }
-  if (all || types.has('fonts')) {
-    body += convertFonts(data.styles ? data.styles.fonts || [] : []);
+  if (all || types.has('typography')) {
+    // 통합 구조 우선, 없으면 구버전 fallback
+    if (data.typography && data.typography.textStyles) {
+      body += convertTextStyles(data.typography.textStyles, unit);
+      body += convertFonts(data.typography.fontFamilies || []);
+    } else {
+      body += convertTextStyles(data.styles ? data.styles.textStyles || [] : [], unit);
+      body += convertTextStyles(data.styles ? data.styles.headings || [] : [], unit);
+      body += convertFonts(data.styles ? data.styles.fonts || [] : []);
+    }
   }
 
   // Grid Styles → :root block
@@ -353,12 +358,10 @@ function getFilteredData() {
     styles: {
       colors: types.has('colors') ? (d.styles ? d.styles.colors : []) : [],
       texts: types.has('texts') ? (d.styles ? d.styles.texts : []) : [],
-      textStyles: types.has('textStyles') ? (d.styles ? d.styles.textStyles || [] : []) : [],
-      headings: types.has('headings') ? (d.styles ? d.styles.headings || [] : []) : [],
-      fonts: types.has('fonts') ? (d.styles ? d.styles.fonts || [] : []) : [],
       effects: types.has('effects') ? (d.styles ? d.styles.effects : []) : [],
       grids: types.has('grids') ? (d.styles ? d.styles.grids || [] : []) : [],
     },
+    typography: types.has('typography') ? d.typography : undefined,
     icons: types.has('icons') ? d.icons : [],
     meta: d.meta,
   };
@@ -504,20 +507,22 @@ export function renderResult(data) {
   var spacingCount = spacing ? spacing.length : 0;
   var radiusCount = radius ? radius.length : 0;
   var colorCount = styles ? styles.colors.length : 0;
-  var textStylesCount = styles ? (styles.textStyles || []).length : 0;
-  var headingsCount = styles ? (styles.headings || []).length : 0;
-  var fontsCount = styles ? (styles.fonts || []).length : 0;
   var effectCount = styles ? styles.effects.length : 0;
   var gridsCount = styles ? (styles.grids || []).length : 0;
   var iconCount = icons ? icons.length : 0;
+  // typography: 통합 구조 우선, 없으면 구버전 합산
+  var typo = data.typography;
+  var typographyCount = typo
+    ? (typo.textStyles || []).length + (typo.fontSizes || []).length + (typo.lineHeights || []).length
+    : ((styles ? (styles.textStyles || []).length : 0) +
+       (styles ? (styles.headings || []).length : 0) +
+       (styles ? (styles.fonts || []).length : 0));
 
   $('statVarNum').textContent = varCount;
   $('statSpacingNum').textContent = spacingCount;
   $('statRadiusNum').textContent = radiusCount;
   $('statColorNum').textContent = colorCount;
-  $('statTextStylesNum').textContent = textStylesCount;
-  $('statHeadingsNum').textContent = headingsCount;
-  $('statFontsNum').textContent = fontsCount;
+  $('statTypographyNum').textContent = typographyCount;
   $('statEffectNum').textContent = effectCount;
   $('statGridsNum').textContent = gridsCount;
   [
@@ -525,9 +530,7 @@ export function renderResult(data) {
     ['statSpacing', spacingCount],
     ['statRadius', radiusCount],
     ['statColor', colorCount],
-    ['statTextStyles', textStylesCount],
-    ['statHeadings', headingsCount],
-    ['statFonts', fontsCount],
+    ['statTypography', typographyCount],
     ['statEffect', effectCount],
     ['statGrids', gridsCount],
   ].forEach(function (p) {
@@ -580,9 +583,7 @@ export function renderResult(data) {
     spacing: spacingCount,
     radius: radiusCount,
     colors: colorCount,
-    textStyles: textStylesCount,
-    headings: headingsCount,
-    fonts: fontsCount,
+    typography: typographyCount,
     effects: effectCount,
     grids: gridsCount,
     icons: iconCount,
