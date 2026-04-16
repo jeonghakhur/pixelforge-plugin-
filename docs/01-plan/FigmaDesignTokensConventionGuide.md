@@ -20,11 +20,11 @@ _PixelForge 플러그인과 협업하기 위한 Figma 토큰 정의 가이드_
 
 플러그인은 **컬렉션 이름**을 기준으로 토큰 타입을 분류합니다. 아래 규칙을 따르세요:
 
-| 토큰 타입 | 컬렉션 이름 예시 | 포함 키워드 |
-|----------|----------------|-----------|
-| Spacing | `Spacing`, `Space`, `Gap` | `spacing`, `space`, `gap` |
-| Radius | `Radius`, `Border Radius` | `radius`, `corner`, `rounded` |
-| Typography Variables | `Typography`, `Font`, `Type Scale` | `typography`, `font`, `type` |
+| 토큰 타입 | 컬렉션 이름 예시 | 인식 키워드 (정규식 기반) |
+|----------|----------------|------------------------|
+| Spacing | `Spacing`, `Space`, `Gap`, `Padding` | `spacing`, `space`, `gap`, `padding`, `margin`, `gutter`, `inset`, `distance` |
+| Radius | `Radius`, `Border Radius`, `Rounded` | `radius`, `corner`, `rounded`, `border-radius` |
+| Typography Variables | `Typography`, `Font`, `Type Scale` | `typograph`, `font`, `type` |
 | Color | 컬렉션 타입이 Color면 자동 인식 | — |
 | 기타 (extra-vars) | 위 규칙에 해당 없는 컬렉션 | — |
 
@@ -33,7 +33,21 @@ _PixelForge 플러그인과 협업하기 위한 Figma 토큰 정의 가이드_
 
 ---
 
-## 🎨 토큰 타입별 네이밍 규칙 (20가지)
+## 🎨 토큰 타입별 네이밍 규칙
+
+토큰은 플러그인 지원 수준에 따라 **두 단계**로 나뉩니다:
+
+| 단계 | 설명 | 토큰 타입 |
+|------|------|----------|
+| **Tier 1** — 자동 분류 | 플러그인이 컬렉션 이름/타입으로 자동 분류 | Color, Spacing, Radius, Typography, Shadow, Blur |
+| **Tier 2** — 네이밍 권장 | 네이밍 컨벤션만 제공. 플러그인은 **extra-vars**로 분류 | Border, Opacity, Duration, Z-Index, Font-Family, Line-Height, Letter-Spacing, Gradient, Transition, Aspect-Ratio, Text-Transform, Backdrop-Filter, Stroke |
+
+> Tier 2 토큰은 별도 컬렉션(예: "Motion", "Layout")에 정의하면 extra-vars로 깔끔하게 그룹핑됩니다.
+> 향후 플러그인 업데이트로 Tier 1 승격이 예정되어 있습니다.
+
+---
+
+### Tier 1 — 자동 분류 토큰
 
 ### 1️⃣ 색상 (Color)
 
@@ -56,10 +70,11 @@ color/{category}/{state}
 ❌ 금지: colors, color_primary, primary-color, c-primary
 ```
 
-### 2️⃣ 간격 (Spacing)
+### 2️⃣ 간격 (Spacing + Gap)
 
 ```
 spacing/{size}
+gap/{size}        ← spacing으로 통합 분류됨
 
 ✅ 예시:
   - spacing/xs (4px)
@@ -68,9 +83,16 @@ spacing/{size}
   - spacing/lg (16px)
   - spacing/xl (24px)
   - spacing/2xl (32px)
+  - gap/xs (4px)
+  - gap/sm (8px)
+  - gap/md (16px)
 
-❌ 금지: space/small, spacing-4, margin/small
+❌ 금지: space/small, spacing-4, margin/small, flex-gap/sm
 ```
+
+> **Gap과 Spacing의 관계**: `gap/*` 변수는 플러그인에서 `spacing` 타입으로 통합 분류됩니다.
+> 컬렉션 이름에 `gap` 키워드가 있어도 spacing으로 처리되며, CSS 출력 시 동일한 `:root` 변수로 생성됩니다.
+> Figma에서 의미 구분이 필요하면 같은 컬렉션 내에서 그룹 폴더로 분리하세요.
 
 ### 3️⃣ 반경 (Radius)
 
@@ -150,6 +172,14 @@ shadow/{elevation}
 
 ❌ 금지: drop-shadow/small, box-shadow-md
 ```
+
+---
+
+### Tier 2 — 네이밍 권장 토큰 (extra-vars로 분류)
+
+> 아래 토큰들은 플러그인에서 별도 분류하지 않습니다.
+> 네이밍 컨벤션을 따르면 extra-vars 내에서 일관된 구조를 유지할 수 있습니다.
+> 별도 컬렉션(예: "Motion", "Layout", "Border")에 넣으면 extra-vars 그룹명으로 활용됩니다.
 
 ### 6️⃣ 테두리 (Border)
 
@@ -295,25 +325,7 @@ transition/{type}
 ❌ 금지: animation/transition-fast, timing/default
 ```
 
-### 1️⃣6️⃣ 간격 (Gap - Flex/Grid)
-
-```
-gap/{size}
-
-✅ 예시:
-  - gap/xs (4px)
-  - gap/sm (8px)
-  - gap/md (12px)
-  - gap/lg (16px)
-  - gap/xl (24px)
-
-❌ 금지: flex-gap/sm, grid-spacing/md
-```
-
-> **플러그인 처리**: `gap/*` 변수는 `spacing` 타입으로 통합 분류됩니다.
-> Figma에서는 Gap/Spacing을 구분할 수 있지만, CSS 출력 시 `:root` 변수로 동일하게 처리됩니다.
-
-### 1️⃣7️⃣ 가로세로비 (Aspect-Ratio)
+### 1️⃣5️⃣ 가로세로비 (Aspect-Ratio)
 
 ```
 aspect-ratio/{ratio}
@@ -327,7 +339,7 @@ aspect-ratio/{ratio}
 ❌ 금지: ratio/16-9, proportions/square
 ```
 
-### 1️⃣8️⃣ 대소문자 (Text-Transform)
+### 1️⃣7️⃣ 대소문자 (Text-Transform)
 
 ```
 text-transform/{style}
@@ -341,7 +353,7 @@ text-transform/{style}
 ❌ 금지: case/uppercase, text-case/upper
 ```
 
-### 1️⃣9️⃣ 배경 필터 (Backdrop-Filter)
+### 1️⃣8️⃣ 배경 필터 (Backdrop-Filter)
 
 ```
 backdrop-filter/{effect}
@@ -355,7 +367,7 @@ backdrop-filter/{effect}
 ❌ 금지: filter/backdrop-blur, glass/effect
 ```
 
-### 2️⃣0️⃣ 선 스타일 (Stroke)
+### 1️⃣9️⃣ 선 스타일 (Stroke)
 
 ```
 stroke/{type}/{width}
@@ -438,16 +450,25 @@ Button 컴포넌트
 
 플러그인 추출 전에 확인:
 
+**Tier 1 (자동 분류) 확인:**
 - [ ] 색상 Variables: Color 타입, `color/{category}/{state}` 네이밍
-- [ ] Spacing 컬렉션 이름에 `spacing` / `space` / `gap` 포함
-- [ ] Radius 컬렉션 이름에 `radius` / `corner` / `rounded` 포함
-- [ ] Typography Variables 컬렉션 이름에 `typography` / `font` / `type` 포함
+- [ ] Spacing 컬렉션 이름에 키워드 포함 (`spacing`/`space`/`gap`/`padding`/`margin`/`gutter`/`inset`/`distance`)
+- [ ] Radius 컬렉션 이름에 키워드 포함 (`radius`/`corner`/`rounded`/`border-radius`)
+- [ ] Typography Variables 컬렉션 이름에 키워드 포함 (`typography`/`font`/`type`)
 - [ ] 타이포그래피 스타일은 Figma Text Styles로 정의
+- [ ] Shadow/Blur는 Figma Effect Styles로 정의
+
+**Tier 2 (네이밍 권장) 확인:**
+- [ ] Tier 2 토큰은 별도 컬렉션에 정의 (extra-vars 그룹명으로 활용)
+- [ ] 컬렉션 이름을 용도별로 구분 (예: "Motion", "Layout", "Border")
+
+**공통:**
 - [ ] 모든 변수가 `kebab-case` 형식 (대문자, 언더스코어 금지)
 - [ ] Mode: "Light" 필수, "Dark" 선택
 - [ ] 모든 컴포넌트가 Variables/Styles 사용 (하드코딩 금지)
 
-> 컬렉션 이름 규칙을 지키지 않으면 해당 변수가 **extra-vars**로 분류됩니다.
+> Tier 1 컬렉션 이름 규칙을 지키지 않으면 해당 변수가 **extra-vars**로 분류됩니다.
+> Tier 2 토큰은 의도적으로 extra-vars로 분류되므로, 컬렉션 이름을 의미 있게 지정하면 됩니다.
 
 ---
 
@@ -552,38 +573,49 @@ Button 컴포넌트
 ## 📝 예시 완전판
 
 ```
-✅ 올바른 예시 (20가지):
+── Tier 1: 자동 분류 토큰 ──────────────────────
 
-1. 색상
+1. 색상 (Color 컬렉션)
   - color/brand/primary
   - color/text/primary
   - color/background/light
   - color/alert/error
 
-2. 간격
+2. 간격 + Gap (Spacing 컬렉션)
   - spacing/xs, spacing/sm, spacing/md, spacing/lg
+  - gap/xs, gap/sm, gap/md
 
-3. 반경
+3. 반경 (Radius 컬렉션)
   - radius/sm, radius/md, radius/lg, radius/full
 
-4. 타이포
-  - typography/sans/regular/sm
-  - typography/mono/bold/md
+4. 타이포 Variables (Typography 컬렉션)
+  - font-size/text-sm, font-size/text-md
+  - line-height/text-sm, line-height/text-md
+  - font-family/body, font-family/display
+  - font-weight/regular, font-weight/semibold
 
-5. 그림자
+4-b. 타이포 Text Styles (Figma Text Styles)
+  - Text sm/Regular, Text md/Semibold
+  - Display xl/Bold, Heading md/Semibold
+
+5. 그림자 (Figma Effect Styles)
   - shadow/sm, shadow/md, shadow/lg
 
-6. 테두리
-  - border/solid/default
-  - border/dashed/default
+5-b. 블러 (Figma Effect Styles)
+  - blur/sm, blur/md, blur/lg, blur/xl
 
-7. 투명도
+── Tier 2: 네이밍 권장 토큰 (extra-vars) ────────
+
+6. 테두리 → 컬렉션 "Border" 권장
+  - border/solid/default, border/dashed/default
+
+7. 투명도 → 컬렉션 "Opacity" 권장
   - opacity/sm, opacity/md, opacity/lg, opacity/full
 
-8. 애니메이션
+8. 애니메이션 → 컬렉션 "Motion" 권장
   - duration/fast, duration/normal, duration/slow
 
-9. 레이어
+9. 레이어 → 컬렉션 "Layout" 권장
   - z-index/base, z-index/dropdown, z-index/modal
 
 10. 폰트
@@ -598,36 +630,31 @@ Button 컴포넌트
 13. 그라디언트
   - gradient/vertical/brand, gradient/horizontal/sunset
 
-14. 블러
-  - blur/sm, blur/md, blur/lg, blur/xl
-
-15. 전환
+14. 전환 → 컬렉션 "Motion" 권장
   - transition/fast, transition/normal, transition/slow
 
-16. 간격 (Gap)
-  - gap/xs, gap/sm, gap/md, gap/lg
-
-17. 가로세로비
+15. 가로세로비 → 컬렉션 "Layout" 권장
   - aspect-ratio/square, aspect-ratio/video, aspect-ratio/portrait
 
-18. 대소문자
+16. 대소문자
   - text-transform/uppercase, text-transform/lowercase
 
-19. 배경필터
+17. 배경필터
   - backdrop-filter/blur, backdrop-filter/blur-light
 
-20. 선스타일
+18. 선스타일 → 컬렉션 "Border" 권장
   - stroke/solid/thin, stroke/dashed/default
 ```
 
 ---
 
-**마지막 업데이트**: 2026-04-15
+**마지막 업데이트**: 2026-04-16
 **작성자**: PixelForge Team
-**버전**: 1.1
+**버전**: 1.2
 
 ### 변경 이력
 | 버전 | 날짜 | 내용 |
 |------|------|------|
+| 1.2 | 2026-04-16 | 토큰 Tier 1/Tier 2 분류 도입, 컬렉션 키워드 실제 regex 반영 (Spacing 8개, Radius 4개), Gap을 Spacing에 통합, 체크리스트 Tier별 재구성, 예시 Tier 구분 적용 |
 | 1.1 | 2026-04-15 | 타이포그래피 구조 개편 (Text Styles + Variables 분리), 컬렉션 명명 규칙 추가, 미구현 Lint 기능 안내, 실제 JSON 출력 구조 반영 |
 | 1.0 | 2026-04-02 | 최초 작성 |
