@@ -1211,72 +1211,94 @@ function findImageNodes(useSelection: boolean): ImageData[] {
   return results;
 }
 
-async function extractImages(
-  options: ExtractImagesOptions
-): Promise<{ assets: ImageAsset[]; errors: { id: string; name: string; error: string }[] }> {
+// 이미지 추출 취소 플래그 — cancel-extract-images 메시지 수신 시 true로 설정
+let _extractImagesCancelled = false;
+
+// IMAGE fill이 있는 노드를 동기로 수집 (exportAsync 없이 목록만)
+function collectImageTargets(useSelection: boolean): SceneNode[] {
   const EXPORTABLE = new Set(['RECTANGLE', 'FRAME', 'COMPONENT', 'INSTANCE', 'GROUP']);
   const source: readonly SceneNode[] =
-    options.useSelection && figma.currentPage.selection.length > 0
+    useSelection && figma.currentPage.selection.length > 0
       ? figma.currentPage.selection
       : figma.currentPage.children;
+  const results: SceneNode[] = [];
+  const seen = new Set<string>();
+  function traverse(node: SceneNode) {
+    if (seen.has(node.id)) return;
+    if (EXPORTABLE.has(node.type)) {
+      const fills = (node as any).fills;
+      if (
+        Array.isArray(fills) &&
+        fills.some((p: any) => p.type === 'IMAGE' && p.visible !== false)
+      ) {
+        seen.add(node.id);
+        results.push(node);
+      }
+    }
+    if ('children' in node) {
+      for (const child of (node as ChildrenMixin).children) traverse(child as SceneNode);
+    }
+  }
+  for (const node of source) traverse(node as SceneNode);
+  return results;
+}
+
+async function extractImages(
+  options: ExtractImagesOptions
+): Promise<{
+  assets: ImageAsset[];
+  errors: { id: string; name: string; error: string }[];
+  cancelled: boolean;
+}> {
+  _extractImagesCancelled = false;
+
+  const targets = collectImageTargets(options.useSelection);
+  const total = targets.length * options.scales.length;
+  let done = 0;
+
+  figma.ui.postMessage({ type: 'extract-images-progress', current: 0, total });
 
   const ext = options.format === 'PNG' ? 'png' : 'jpg';
   const mime = options.format === 'PNG' ? 'image/png' : 'image/jpeg';
   const assets: ImageAsset[] = [];
   const errors: { id: string; name: string; error: string }[] = [];
-  const seen = new Set<string>();
 
-  async function traverse(node: SceneNode) {
-    if (seen.has(node.id)) return;
-
-    if (EXPORTABLE.has(node.type)) {
-      const fills = (node as any).fills;
-      const hasImageFill =
-        Array.isArray(fills) && fills.some((p: any) => p.type === 'IMAGE' && p.visible !== false);
-
-      if (hasImageFill) {
-        seen.add(node.id);
-        const nodeData = {
-          id: node.id,
-          name: node.name,
-          kebab: toKebabCase(node.name),
-          nodeType: node.type,
-          width: Math.round(node.width),
-          height: Math.round(node.height),
-        };
-
-        for (const scale of options.scales) {
-          try {
-            const bytes = await (node as ExportMixin).exportAsync({
-              format: options.format,
-              constraint: { type: 'SCALE', value: scale },
-            });
-            const base64 = uint8ToBase64(new Uint8Array(bytes));
-            assets.push({
-              ...nodeData,
-              format: options.format,
-              scale,
-              fileName: `${nodeData.kebab}@${scale}x.${ext}`,
-              base64,
-              mimeType: mime,
-              byteSize: bytes.byteLength,
-            });
-          } catch (e: any) {
-            errors.push({ id: node.id, name: node.name, error: String(e) });
-          }
-        }
+  for (const node of targets) {
+    if (_extractImagesCancelled) break;
+    const nodeData = {
+      id: node.id,
+      name: node.name,
+      kebab: toKebabCase(node.name),
+      nodeType: node.type,
+      width: Math.round(node.width),
+      height: Math.round(node.height),
+    };
+    for (const scale of options.scales) {
+      if (_extractImagesCancelled) break;
+      try {
+        const bytes = await (node as ExportMixin).exportAsync({
+          format: options.format,
+          constraint: { type: 'SCALE', value: scale },
+        });
+        const base64 = uint8ToBase64(new Uint8Array(bytes));
+        assets.push({
+          ...nodeData,
+          format: options.format,
+          scale,
+          fileName: `${nodeData.kebab}@${scale}x.${ext}`,
+          base64,
+          mimeType: mime,
+          byteSize: bytes.byteLength,
+        });
+      } catch (e: any) {
+        errors.push({ id: node.id, name: node.name, error: String(e) });
       }
-    }
-
-    if ('children' in node) {
-      for (const child of (node as ChildrenMixin).children) {
-        await traverse(child as SceneNode);
-      }
+      done++;
+      figma.ui.postMessage({ type: 'extract-images-progress', current: done, total });
     }
   }
 
-  for (const node of source) await traverse(node as SceneNode);
-  return { assets, errors };
+  return { assets, errors, cancelled: _extractImagesCancelled };
 }
 
 const EXPORTABLE_TYPES = new Set([
@@ -2520,6 +2542,9 @@ figma.ui.onmessage = (msg: {
       })
       .catch((e) => figma.ui.postMessage({ type: 'extract-error', message: String(e) }));
   }
+  if (msg.type === 'cancel-extract-images') {
+    _extractImagesCancelled = true;
+  }
   if (msg.type === 'extract-images') {
     const options: ExtractImagesOptions = msg.options ?? {
       format: 'PNG',
@@ -2527,16 +2552,16 @@ figma.ui.onmessage = (msg: {
       useSelection: false,
     };
     extractImages(options)
-      .then(({ assets, errors }) =>
-        figma.ui.postMessage({ type: 'extract-images-result', data: assets, errors })
-      )
+      .then(({ assets, errors, cancelled }) => {
+        if (cancelled) {
+          figma.ui.postMessage({ type: 'extract-images-cancelled' });
+        } else {
+          figma.ui.postMessage({ type: 'extract-images-result', data: assets, errors });
+        }
+      })
       .catch((e) => figma.ui.postMessage({ type: 'extract-images-error', message: String(e) }));
   }
-  if (msg.type === 'extract-images-debug') {
-    const useSelection = msg.useSelection ?? false;
-    const nodes = findImageNodes(useSelection);
-    figma.ui.postMessage({ type: 'extract-images-debug-result', nodes });
-  }
+
   if (msg.type === 'export-icons') {
     exportIcons()
       .then(async (data) => {
@@ -2558,6 +2583,14 @@ figma.ui.onmessage = (msg: {
         });
       })
       .catch((e) => figma.ui.postMessage({ type: 'export-icons-all-error', message: String(e) }));
+  }
+  if (msg.type === 'get-storage') {
+    figma.clientStorage.getAsync(msg.key).then((val) => {
+      figma.ui.postMessage({ type: 'storage-value', key: msg.key, value: val ?? null });
+    });
+  }
+  if (msg.type === 'set-storage') {
+    figma.clientStorage.setAsync(msg.key, msg.value);
   }
   if (msg.type === 'clear-icon-cache') {
     figma.clientStorage

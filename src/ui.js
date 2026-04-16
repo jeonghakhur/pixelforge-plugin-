@@ -47,7 +47,7 @@ import {
   buildRadixStyled,
   compToPascalCase,
 } from './ui/component-builders.js';
-import { imageAssets, setImgState, renderImageList } from './ui/tab-images.js';
+import { imageAssets, setImgState, renderImageList, setImgOutputPath } from './ui/tab-images.js';
 import { loadSettings, onSettingsData, isPfConnected } from './ui/tab-settings.js';
 
 // ── scope 변경 → icon tab syncIconMode 연결 ──
@@ -313,30 +313,6 @@ window.onmessage = function (event) {
     newAssets.forEach(function (a) {
       imageAssets.push(a);
     });
-    // 디버그: 항상 결과 다운로드
-    var debugResult = {
-      assets: newAssets.length,
-      errors: msg.errors || [],
-      firstAsset:
-        newAssets.length > 0
-          ? {
-              id: newAssets[0].id,
-              name: newAssets[0].name,
-              format: newAssets[0].format,
-              scale: newAssets[0].scale,
-              byteSize: newAssets[0].byteSize,
-              base64Length: newAssets[0].base64 ? newAssets[0].base64.length : 0,
-              mimeType: newAssets[0].mimeType,
-            }
-          : null,
-    };
-    var debugBlob = new Blob([JSON.stringify(debugResult, null, 2)], { type: 'application/json' });
-    var debugUrl = URL.createObjectURL(debugBlob);
-    var debugA = document.createElement('a');
-    debugA.href = debugUrl;
-    debugA.download = 'image-export-debug.json';
-    debugA.click();
-    URL.revokeObjectURL(debugUrl);
     if (imageAssets.length === 0) {
       setImgState('imgStateEmpty');
     } else {
@@ -344,24 +320,36 @@ window.onmessage = function (event) {
       renderImageList(imageAssets);
     }
   }
+  if (msg.type === 'extract-images-progress') {
+    var total = msg.total || 0;
+    var current = msg.current || 0;
+    var pct = total > 0 ? Math.round((current / total) * 100) : 0;
+    var fillEl = $('imgProgressFill');
+    var textEl = $('imgProgressText');
+    if (fillEl) fillEl.style.width = pct + '%';
+    if (textEl)
+      textEl.textContent =
+        total === 0 ? (lang === 'ko' ? '준비 중...' : 'Preparing...') : current + ' / ' + total;
+  }
+  if (msg.type === 'extract-images-cancelled') {
+    setImgState('imgStateIdle');
+    showToast(lang === 'ko' ? '추출이 취소되었습니다.' : 'Extraction cancelled.');
+  }
   if (msg.type === 'extract-images-error') {
     $('imgErrorMsg').textContent = t('image.error') + (msg.message || '');
     setImgState('imgStateError');
-  }
-  if (msg.type === 'extract-images-debug-result') {
-    var debugJson = JSON.stringify(msg.nodes, null, 2);
-    var dbgBlob = new Blob([debugJson], { type: 'application/json' });
-    var dbgUrl = URL.createObjectURL(dbgBlob);
-    var dbgA = document.createElement('a');
-    dbgA.href = dbgUrl;
-    dbgA.download = 'image-nodes-debug.json';
-    dbgA.click();
-    URL.revokeObjectURL(dbgUrl);
   }
 
   // Settings
   if (msg.type === 'settings-data') {
     onSettingsData(msg.url, msg.key);
+  }
+
+  // Generic storage value
+  if (msg.type === 'storage-value') {
+    if (msg.key === 'imgOutputPath') {
+      setImgOutputPath(msg.value); // null이면 setImgOutputPath 내부에서 기본값 적용
+    }
   }
 
   // Token cache

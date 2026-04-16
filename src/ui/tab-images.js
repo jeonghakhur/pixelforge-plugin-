@@ -293,14 +293,11 @@ function downloadAllImagesZip() {
 
 var detectImagesBtn = $('detectImagesBtn');
 var imgDownloadAllBtn = $('imgDownloadAllBtn');
-var imgDebugBtn = $('imgDebugBtn');
+var cancelImgBtn = $('cancelImgBtn');
 
-if (imgDebugBtn) {
-  imgDebugBtn.addEventListener('click', function () {
-    parent.postMessage(
-      { pluginMessage: { type: 'extract-images-debug', useSelection: getScope() === 'selection' } },
-      '*'
-    );
+if (cancelImgBtn) {
+  cancelImgBtn.addEventListener('click', function () {
+    parent.postMessage({ pluginMessage: { type: 'cancel-extract-images' } }, '*');
   });
 }
 
@@ -323,15 +320,32 @@ if (imgDownloadAllBtn) {
   imgDownloadAllBtn.addEventListener('click', downloadAllImagesZip);
 }
 
+// ── 저장 경로 — clientStorage로 유지 ──
+var imgOutputPathEl = $('imgOutputPath');
+if (imgOutputPathEl) {
+  parent.postMessage({ pluginMessage: { type: 'get-storage', key: 'imgOutputPath' } }, '*');
+  imgOutputPathEl.addEventListener('change', function () {
+    parent.postMessage({ pluginMessage: { type: 'set-storage', key: 'imgOutputPath', value: imgOutputPathEl.value.trim() } }, '*');
+  });
+}
+
+var IMG_OUTPUT_PATH_DEFAULT = 'public/plugin-images';
+
+export function setImgOutputPath(val) {
+  if (imgOutputPathEl) imgOutputPathEl.value = val || IMG_OUTPUT_PATH_DEFAULT;
+}
+
 // ── PixelForge Send ──
 var pfSendImagesBtn = $('pfSendImagesBtn');
 if (pfSendImagesBtn) {
   pfSendImagesBtn.addEventListener('click', async function () {
     if (!imageAssets || imageAssets.length === 0) return;
+    var outputPath = imgOutputPathEl ? imgOutputPathEl.value.trim() : '';
     pfSendImagesBtn.disabled = true;
     pfSendImagesBtn.textContent = t('settings.sending');
     try {
       var result = await sendToPixelForge('/api/sync/images', {
+        outputPath: outputPath || undefined,
         images: imageAssets.map(function (a) {
           return { name: a.name, fileName: a.fileName, mimeType: a.mimeType, base64: a.base64, scale: a.scale };
         }),

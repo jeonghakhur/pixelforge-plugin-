@@ -3079,14 +3079,7 @@
         >
           이미지 탐지하기
         </button>
-        <button
-          class="btn-ghost"
-          id="imgDebugBtn"
-          title="탐지된 노드 목록을 JSON으로 다운로드 (디버그)"
-          style="flex-shrink: 0; padding: 0 10px; font-size: 11px"
-        >
-          노드 JSON
-        </button>
+
       </div>
 
       <!-- 상태: idle -->
@@ -3104,6 +3097,20 @@
         <div class="image-state-title" data-i18n="image.detecting">
           이미지를 탐지하고 있습니다...
         </div>
+        <div id="imgProgressText" style="font-size:11px;color:var(--text-muted);margin-top:6px">
+          준비 중...
+        </div>
+        <div style="width:160px;height:4px;background:var(--bg-elevated);border-radius:2px;margin-top:8px;overflow:hidden">
+          <div id="imgProgressFill" style="height:100%;width:0%;background:var(--accent);border-radius:2px;transition:width 0.2s ease"></div>
+        </div>
+        <button
+          id="cancelImgBtn"
+          class="btn-ghost"
+          style="margin-top:12px;font-size:11px;padding:4px 12px"
+          data-i18n="image.cancel"
+        >
+          취소
+        </button>
       </div>
 
       <!-- 상태: empty -->
@@ -3131,6 +3138,17 @@
         style="flex: 1; overflow: hidden; display: flex; flex-direction: column; min-height: 0"
       >
         <div id="imgList" class="image-list"></div>
+        <div style="padding: 8px 12px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px">
+          <label style="font-size: 12px; font-weight: 500; color: var(--text-secondary)" data-i18n="image.outputPathLabel">저장 경로</label>
+          <input
+            id="imgOutputPath"
+            type="text"
+            class="settings-input"
+            style="font-family: monospace; width: 100%; box-sizing: border-box"
+            placeholder="public/plugin-images"
+          />
+          <span style="font-size: 11px; color: var(--text-muted)">앱 서버 기준 상대 경로 (비워두면 기본 경로 사용)</span>
+        </div>
         <div class="image-footer">
           <button class="btn-primary" id="imgDownloadAllBtn" style="flex: 1" disabled>
             <span data-i18n="image.downloadAll">전체 ZIP 다운로드</span>
