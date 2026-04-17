@@ -706,11 +706,26 @@ function renderIconGrid() {
   var list = $('iconList');
   var data = iconFilteredData;
   if (data.length === 0) {
-    var msg = iconSearchQuery ? t('icon.noSearchResult') : t('icon.noIcons');
-    list.innerHTML =
-      '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12px;grid-column:1/-1;">' +
-      msg +
-      '</div>';
+    if (iconSearchQuery) {
+      list.innerHTML =
+        '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12px;grid-column:1/-1;">' +
+        t('icon.noSearchResult') +
+        '</div>';
+    } else {
+      list.innerHTML =
+        '<div style="text-align:center;padding:32px 20px;color:var(--text-muted);font-size:12px;grid-column:1/-1;display:flex;flex-direction:column;align-items:center;gap:12px;">' +
+        '<span>' + t('icon.noIcons') + '</span>' +
+        '<button id="iconReExtractBtn" class="btn-secondary" style="font-size:12px;padding:6px 16px;">' +
+        (lang === 'ko' ? '다시 추출' : 'Re-extract') +
+        '</button>' +
+        '</div>';
+      var reBtn = $('iconReExtractBtn');
+      if (reBtn) {
+        reBtn.addEventListener('click', function () {
+          $('iconResults').classList.add('hidden');
+        });
+      }
+    }
     return;
   }
   list.innerHTML = data
@@ -976,12 +991,30 @@ try { $('iconDetailCopyBtn').addEventListener('click', function () {
   showToast(t('icon.detailCopied'));
 }); } catch(e) { showToast('[icons init] iconDetailCopyBtn: ' + e.message); }
 
-// 전체 SVG 복사
+// Node JSON 저장
 try { $('iconCopyAllBtn').addEventListener('click', function () {
   if (iconData.length === 0) { showToast(t('icon.noIcons')); return; }
-  var json = JSON.stringify(iconData.map(function (ic) { return { name: ic.name, svg: ic.svg }; }), null, 2);
-  copyToClipboard(json);
-  showToast(t('icon.copySvg'));
+  var sections = iconData.reduce(function(acc, ic) {
+    if (ic.section && acc.indexOf(ic.section) === -1) acc.push(ic.section);
+    return acc;
+  }, []);
+  var payload = {
+    meta: {
+      extractedAt: new Date().toISOString(),
+      totalCount: iconData.length,
+      sections: sections,
+    },
+    icons: iconData,
+  };
+  var json = JSON.stringify(payload, null, 2);
+  var blob = new Blob([json], { type: 'application/json' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'icons-node-' + iconData.length + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast(lang === 'ko' ? 'icons-node-' + iconData.length + '.json 저장됨' : 'Saved icons-node-' + iconData.length + '.json');
 }); } catch(e) { showToast('[icons init] iconCopyAllBtn: ' + e.message); }
 
 // SVG ZIP 다운로드
@@ -1035,8 +1068,17 @@ if (pfSendIconsBtn) {
     pfSendIconsBtn.disabled = true;
     pfSendIconsBtn.textContent = t('settings.sending');
     try {
+      var sections = iconData.reduce(function(acc, ic) {
+    if (ic.section && acc.indexOf(ic.section) === -1) acc.push(ic.section);
+    return acc;
+  }, []);
       var result = await sendToPixelForge('/api/sync/icons', {
-        icons: iconData.map(function (d) { return { name: d.name, svg: d.svg }; }),
+        meta: {
+          extractedAt: new Date().toISOString(),
+          totalCount: iconData.length,
+          sections: sections,
+        },
+        icons: iconData,
       });
       if (result) showToast(t('settings.sendSuccess'));
     } finally {

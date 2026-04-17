@@ -1,37 +1,51 @@
 'use strict';
 
-// ─── TYPE_KEYWORDS — 컴포넌트 타입 감지용 키워드 ────────────────────────────
-export var TYPE_KEYWORDS = {
-  button:              ['button', 'btn', 'cta', 'action'],
-  'icon-button':       ['icon-button', 'icon-btn', 'iconbutton'],
-  dialog:              ['dialog', 'modal', 'popup', 'sheet'],
-  'alert-dialog':      ['alert-dialog', 'confirm-dialog', 'alert dialog', 'confirm'],
-  tabs:                ['tab', 'tabs', 'tabbar'],
-  'tab-nav':           ['tab-nav', 'tabnav', 'navigation-tab'],
-  select:              ['select', 'combobox', 'picker'],
-  'dropdown-menu':     ['dropdown', 'dropdown-menu', 'action-menu'],
-  'context-menu':      ['context-menu', 'right-click'],
-  tooltip:             ['tooltip', 'hint', 'popover-tip'],
-  popover:             ['popover', 'flyout'],
-  'hover-card':        ['hover-card', 'preview-card'],
-  checkbox:            ['checkbox', 'check'],
-  switch:              ['switch'],
-  'radio-group':       ['radio', 'radio-group', 'option-group'],
-  slider:              ['slider', 'range'],
-  'segmented-control': ['segmented', 'segment', 'toggle-group', 'toggle group'],
-  accordion:           ['accordion', 'collapse', 'expand'],
-  badge:               ['badge', 'chip', 'tag', 'pill'],
-  avatar:              ['avatar', 'profile-pic', 'user-icon'],
-  card:                ['card', 'tile'],
-  progress:            ['progress', 'progress-bar', 'loading-bar'],
-  separator:           ['separator', 'divider', 'hr'],
-  spinner:             ['spinner', 'loading'],
-  'data-list':         ['data-list', 'datalist', 'key-value', 'definition'],
-  kbd:                 ['kbd', 'keyboard', 'shortcut', 'hotkey'],
-  code:                ['code', 'inline-code'],
-  link:                ['link', 'anchor'],
-  blockquote:          ['blockquote', 'quote', 'citation'],
-};
+// ─── 토큰 기반 컴포넌트 타입 감지 ─────────────────────────────────────────────
+// camelCase·구분자 분리 후 정확한 토큰 매칭 → 부분 문자열 오탐 방지
+function _tokenize(name) {
+  var spaced = name.replace(/([a-z])([A-Z])/g, '$1 $2');
+  var parts = spaced.split(/[\s\/\-_\.]+/);
+  var tokens = [];
+  for (var i = 0; i < parts.length; i++) {
+    if (parts[i]) tokens.push(parts[i].toLowerCase());
+  }
+  return tokens;
+}
+function _has(tokens, word) { return tokens.indexOf(word) !== -1; }
+
+// 복합 타입을 먼저 배치해 단순 타입보다 우선 매칭
+var _TYPE_CHECKS = [
+  { type: 'icon-button',       test: function(t) { return (_has(t,'icon') && _has(t,'button')) || (_has(t,'icon') && _has(t,'btn')); } },
+  { type: 'alert-dialog',      test: function(t) { return _has(t,'confirm') || (_has(t,'alert') && _has(t,'dialog')); } },
+  { type: 'context-menu',      test: function(t) { return _has(t,'context') && _has(t,'menu'); } },
+  { type: 'hover-card',        test: function(t) { return _has(t,'hover') && _has(t,'card'); } },
+  { type: 'tab-nav',           test: function(t) { return _has(t,'tab') && _has(t,'nav'); } },
+  { type: 'data-list',         test: function(t) { return _has(t,'datalist') || (_has(t,'data') && _has(t,'list')); } },
+  { type: 'dropdown-menu',     test: function(t) { return _has(t,'dropdown'); } },
+  { type: 'radio-group',       test: function(t) { return _has(t,'radio'); } },
+  { type: 'segmented-control', test: function(t) { return _has(t,'segmented'); } },
+  { type: 'tabs',              test: function(t) { return _has(t,'tabs') || _has(t,'tabbar') || _has(t,'tabgroup'); } },
+  { type: 'dialog',            test: function(t) { return _has(t,'dialog') || _has(t,'modal') || _has(t,'sheet'); } },
+  { type: 'button',            test: function(t) { return _has(t,'button') || _has(t,'btn') || _has(t,'cta'); } },
+  { type: 'select',            test: function(t) { return _has(t,'select') || _has(t,'combobox') || _has(t,'picker'); } },
+  { type: 'checkbox',          test: function(t) { return _has(t,'checkbox'); } },
+  { type: 'switch',            test: function(t) { return _has(t,'switch'); } },
+  { type: 'slider',            test: function(t) { return _has(t,'slider'); } },
+  { type: 'tooltip',           test: function(t) { return _has(t,'tooltip'); } },
+  { type: 'popover',           test: function(t) { return _has(t,'popover'); } },
+  { type: 'accordion',         test: function(t) { return _has(t,'accordion'); } },
+  { type: 'badge',             test: function(t) { return _has(t,'badge') || _has(t,'chip') || _has(t,'pill'); } },
+  { type: 'avatar',            test: function(t) { return _has(t,'avatar'); } },
+  { type: 'card',              test: function(t) { return _has(t,'card'); } },
+  { type: 'progress',          test: function(t) { return _has(t,'progress'); } },
+  { type: 'separator',         test: function(t) { return _has(t,'separator') || _has(t,'divider'); } },
+  { type: 'spinner',           test: function(t) { return _has(t,'spinner'); } },
+  { type: 'input',             test: function(t) { return _has(t,'input') || _has(t,'textfield'); } },
+  { type: 'textarea',          test: function(t) { return _has(t,'textarea'); } },
+  { type: 'link',              test: function(t) { return _has(t,'link'); } },
+  { type: 'kbd',               test: function(t) { return _has(t,'kbd') || _has(t,'keyboard') || _has(t,'shortcut'); } },
+  { type: 'blockquote',        test: function(t) { return _has(t,'blockquote'); } },
+];
 
 // ─── RADIX_COMPONENT_REGISTRY ───────────────────────────────────────────────
 /**
@@ -103,15 +117,11 @@ export var SEMANTIC_TAGS = {
 };
 
 export function detectComponentType(nodeName) {
-  var lower = nodeName.toLowerCase();
-  var types = Object.keys(TYPE_KEYWORDS);
-  for (var i = 0; i < types.length; i++) {
-    var kws = TYPE_KEYWORDS[types[i]];
-    for (var j = 0; j < kws.length; j++) {
-      if (lower.indexOf(kws[j]) !== -1) return types[i];
-    }
+  var tokens = _tokenize(nodeName);
+  for (var i = 0; i < _TYPE_CHECKS.length; i++) {
+    if (_TYPE_CHECKS[i].test(tokens)) return _TYPE_CHECKS[i].type;
   }
-  return 'layout';
+  return null;
 }
 
 export function getSemanticTag(nodeName) {
@@ -146,6 +156,48 @@ export function stylesToCSSProps(styles) {
   return Object.keys(styles)
     .map(function (k) { return '  ' + k + ': ' + styles[k] + ';'; })
     .join('\n');
+}
+
+// ─── Component Property 바인딩 유틸 ────────────────────────────────────────────
+
+/**
+ * nodeTree를 재귀 탐색하여 prop key → 레이어 이름 매핑을 반환한다.
+ * kind: 'visible' | 'characters' | 'mainComponent'
+ *
+ * 반환 예: { "Source#3287:4621": "Caption", "Label#3287:4800": "Label" }
+ *
+ * 생성기가 prop 이름 추론 없이 실제 Figma 바인딩을 읽을 수 있게 한다.
+ */
+export function buildPropLayerMap(nodeTree, kind) {
+  var result = {};
+  if (!nodeTree) return result;
+  (function walk(node) {
+    if (node.propRefs && node.propRefs[kind]) {
+      result[node.propRefs[kind]] = node.name;
+    }
+    if (node.children) node.children.forEach(walk);
+  })(nodeTree);
+  return result;
+}
+
+/**
+ * componentProperties の BOOLEAN prop 各々について、実際に visibility を制御する
+ * レイヤー名を返す。見つからない場合は undefined。
+ *
+ * 반환 예: { source: "Caption", showIcon: "Icon" }
+ */
+export function resolveBooleanPropTargets(nodeTree, componentProperties) {
+  if (!nodeTree || !componentProperties) return {};
+  var visMap = buildPropLayerMap(nodeTree, 'visible');
+  var result = {};
+  Object.keys(componentProperties).forEach(function(fullKey) {
+    var def = componentProperties[fullKey];
+    if (def.type !== 'BOOLEAN') return;
+    var baseName = fullKey.replace(/#[^#]+$/, '').toLowerCase();
+    var layerName = visMap[fullKey];
+    result[baseName] = layerName || null;
+  });
+  return result;
 }
 
 function _imp(names) {

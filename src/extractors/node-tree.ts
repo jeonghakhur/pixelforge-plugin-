@@ -6,7 +6,7 @@
 // - node-styles 로직은 `code.ts`의 closure 컨텍스트(colorMap/varIdMap/
 //   masterTextMap)에 의존하므로, 호출자가 NodeTreeContext로 주입한다.
 
-import type { NodeTreeEntry, NodeTreeContext } from './types';
+import type { NodeTreeEntry, NodeTreeContext, ComponentPropRefs } from './types';
 import { inferTextRole } from './text-role';
 import { resolveShape } from './shape-kind';
 
@@ -49,6 +49,23 @@ export function buildNodeTree(
       const pathData = extractVectorPath(node as VectorNode);
       if (pathData) entry.pathData = pathData;
     }
+  }
+
+  // ── Component Property 바인딩 ────────────────────
+  // Figma가 레이어별로 어느 prop이 무엇을 제어하는지 기록한 ground truth.
+  // 이름 추론 없이 생성기가 직접 읽을 수 있다.
+  try {
+    const refs = (node as SceneNode & { componentPropertyReferences?: Record<string, string> })
+      .componentPropertyReferences;
+    if (refs && Object.keys(refs).length > 0) {
+      const propRefs: ComponentPropRefs = {};
+      if (refs['visible']) propRefs.visible = refs['visible'];
+      if (refs['characters']) propRefs.characters = refs['characters'];
+      if (refs['mainComponent']) propRefs.mainComponent = refs['mainComponent'];
+      if (Object.keys(propRefs).length > 0) entry.propRefs = propRefs;
+    }
+  } catch {
+    // componentPropertyReferences 접근 실패 시 무시
   }
 
   // ── INSTANCE 노드 ────────────────────────────────

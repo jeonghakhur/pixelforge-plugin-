@@ -1075,6 +1075,15 @@ function extractVariants(name: string): string[] {
   return parseVariantName(name).variants;
 }
 
+// COMPONENT_SET 자식 노드는 name 전체가 variant props — 하나도 빠짐없이 추출
+function extractAllVariants(name: string): string[] {
+  return name.split(/,\s*/).reduce<string[]>((acc, seg) => {
+    const m = seg.trim().match(/^(\w+)=(.+)$/);
+    if (m) acc.push((m[1] + '-' + m[2].trim()).toLowerCase().replace(/\s+/g, '-'));
+    return acc;
+  }, []);
+}
+
 function figmaColorToHex(c: { r: number; g: number; b: number }): string {
   // Figma App은 floor()로 hex를 표시 — round()를 쓰면 1 차이 발생
   const r = Math.floor(c.r * 255);
@@ -1243,9 +1252,7 @@ function collectImageTargets(useSelection: boolean): SceneNode[] {
   return results;
 }
 
-async function extractImages(
-  options: ExtractImagesOptions
-): Promise<{
+async function extractImages(options: ExtractImagesOptions): Promise<{
   assets: ImageAsset[];
   errors: { id: string; name: string; error: string }[];
   cancelled: boolean;
@@ -1285,7 +1292,7 @@ async function extractImages(
           ...nodeData,
           format: options.format,
           scale,
-          fileName: `${nodeData.kebab}@${scale}x.${ext}`,
+          fileName: `${nodeData.kebab}-${node.id.replace(':', '-')}@${scale}x.${ext}`,
           base64,
           mimeType: mime,
           byteSize: bytes.byteLength,
@@ -1312,107 +1319,203 @@ const EXPORTABLE_TYPES = new Set([
 const CONTAINER_TYPES = new Set(['FRAME', 'GROUP', 'COMPONENT_SET', 'SECTION']);
 
 // 컨테이너(Frame/Group/ComponentSet)면 자식 재귀 탐색, 아니면 노드 자체 수집
-function collectExportTargets(node: SceneNode, seen: Set<string>): SceneNode[] {
+// section: 최초 선택된 컨테이너 이름 — 재귀 시 유지 (하위 컨테이너 이름으로 덮지 않음)
+function collectExportTargets(
+  node: SceneNode,
+  seen: Set<string>,
+  section: string
+): { node: SceneNode; section: string }[] {
   if (seen.has(node.id)) return [];
   if (CONTAINER_TYPES.has(node.type)) {
     if (!('children' in node)) return [];
-    const out: SceneNode[] = [];
+    const out: { node: SceneNode; section: string }[] = [];
     for (const child of (node as ChildrenMixin).children) {
-      out.push(...collectExportTargets(child as SceneNode, seen));
+      out.push(...collectExportTargets(child as SceneNode, seen, section));
     }
     return out;
   }
   if (EXPORTABLE_TYPES.has(node.type)) {
     seen.add(node.id);
-    return [node];
+    return [{ node, section }];
   }
   return [];
 }
 
-async function exportIcons(): Promise<
-  { name: string; kebab: string; pascal: string; variants: string[]; svg: string }[]
-> {
+// 노드의 부모 체인을 올라가며 가장 가까운 FRAME/SECTION 이름을 반환
+// COMPONENT_SET은 variant 구조 컨테이너라 제외
+// 부모 체인을 올라가며 PAGE 바로 아래 최상위 FRAME/SECTION을 반환 (노드 자체)
+function resolveSectionNode(node: SceneNode): SceneNode | null {
+  let sectionNode: SceneNode | null = null;
+  let cur: BaseNode | null = node.parent;
+  while (cur && cur.type !== 'PAGE' && cur.type !== 'DOCUMENT') {
+    if ((cur.type === 'FRAME' || cur.type === 'SECTION') && (cur as any).name) {
+      sectionNode = cur as SceneNode;
+    }
+    cur = cur.parent;
+  }
+  return sectionNode;
+}
+
+function resolveSection(node: SceneNode): string {
+  return resolveSectionNode(node)?.name ?? '';
+}
+
+type IconResult = {
+  name: string;
+  kebab: string;
+  pascal: string;
+  variants: string[];
+  svg: string;
+  section: string;
+};
+
+// 캔버스 절대 좌표를 포함한 내부 수집 타입
+type IconCollected = IconResult & {
+  _sx: number;
+  _sy: number; // 섹션 프레임 좌상단 절대 좌표
+  _nx: number;
+  _ny: number; // 아이콘 노드 절대 좌표
+};
+
+function getAbsPos(node: SceneNode): { x: number; y: number } {
+  const box = (node as any).absoluteBoundingBox as { x: number; y: number } | null;
+  return box ?? { x: node.x, y: node.y };
+}
+
+// 아이콘 고유 이름 + variants 를 함께 결정
+// Case 1: Glyph=/Name= 키 존재 → 그 값이 이름, 나머지가 variants (기존 parseVariantName)
+// Case 2: 전부 Key=Value (ICON_ID_KEY 없음) + COMPONENT_SET 내 → parent 이름이 아이콘 이름
+// Case 3: 서술형 이름 (Key=Value 아닌 segment 포함) → node.name 그대로 사용
+function iconIdentity(node: SceneNode): { displayName: string; variants: string[] } {
+  const raw = node.name;
+  const segments = raw.split(/,\s*/);
+
+  // Case 1: Glyph=/Name= 키가 있으면 parseVariantName이 올바르게 처리
+  const hasIdKey = segments.some((s) => {
+    const m = s.trim().match(/^(\w+)=/);
+    return m && ICON_ID_KEY.test(m[1]);
+  });
+  if (hasIdKey) {
+    const { base, variants } = parseVariantName(raw);
+    return { displayName: base, variants };
+  }
+
+  // Case 2: 모든 segment가 Key=Value이고 COMPONENT_SET 내 → parent가 아이콘 이름
+  const allAreProps = segments.length > 0 && segments.every((s) => /^\w+=/.test(s.trim()));
+  if (allAreProps && node.parent?.type === 'COMPONENT_SET') {
+    return {
+      displayName: (node.parent as ComponentSetNode).name,
+      variants: extractAllVariants(raw),
+    };
+  }
+
+  // Case 3: 서술형 이름 (혼합 or 순수 서술형) → node.name 처리
+  const { base, variants } = parseVariantName(raw);
+  return { displayName: base, variants };
+}
+
+// 캔버스 시각적 위치 기준 정렬: 섹션 Y → 섹션 X → 아이콘 Y → 아이콘 X
+function sortByCanvasPosition(items: IconCollected[]): IconResult[] {
+  items.sort((a, b) => a._sy - b._sy || a._sx - b._sx || a._ny - b._ny || a._nx - b._nx);
+  return items.map(({ _sx: _1, _sy: _2, _nx: _3, _ny: _4, ...rest }) => rest);
+}
+
+async function exportIcons(): Promise<IconResult[]> {
   const sel = figma.currentPage.selection;
   if (sel.length === 0) return [];
 
-  // 선택이 컨테이너(프레임 등)면 내부 자식들을 모두 수집
   const seen = new Set<string>();
-  const targets: SceneNode[] = [];
+  const targets: { node: SceneNode; section: string }[] = [];
   for (const node of sel) {
-    targets.push(...collectExportTargets(node, seen));
+    const section = CONTAINER_TYPES.has(node.type) ? node.name : resolveSection(node);
+    targets.push(...collectExportTargets(node, seen, section));
   }
 
-  const results: {
-    name: string;
-    kebab: string;
-    pascal: string;
-    variants: string[];
-    svg: string;
-  }[] = [];
-  for (const node of targets) {
+  const collected: IconCollected[] = [];
+  for (const { node, section } of targets) {
     try {
       const svgBytes = await (node as any).exportAsync({ format: 'SVG' });
       const bytes = new Uint8Array(svgBytes);
       let svg = '';
       for (let i = 0; i < bytes.length; i++) svg += String.fromCharCode(bytes[i]);
-      results.push({
-        name: node.name,
-        kebab: toKebabCase(node.name),
-        pascal: toPascalCase(node.name),
-        variants: extractVariants(node.name),
+      const sectionNode = resolveSectionNode(node);
+      const sp = sectionNode ? getAbsPos(sectionNode) : { x: 0, y: 0 };
+      const np = getAbsPos(node);
+      const { displayName, variants } = iconIdentity(node);
+      collected.push({
+        name: displayName,
+        kebab: toKebabCase(displayName),
+        pascal: toPascalCase(displayName),
+        variants,
         svg,
+        section,
+        _sx: sp.x,
+        _sy: sp.y,
+        _nx: np.x,
+        _ny: np.y,
       });
     } catch (_) {
       // skip nodes that can't be exported as SVG
     }
   }
-  return results;
+  return sortByCanvasPosition(collected);
 }
 
-async function exportIconsAll(): Promise<
-  { name: string; kebab: string; pascal: string; variants: string[]; svg: string }[]
-> {
+async function exportIconsAll(): Promise<IconResult[]> {
   const ICON_RE = /icon|ic[/\\]/i;
   const nodes = figma.currentPage.findAll((n) => {
-    // COMPONENT만 대상: FRAME/GROUP은 구조 컨테이너라 제외
     if (n.type !== 'COMPONENT') return false;
     if (/\bIcon=false\b/i.test(n.name)) return false;
-    const parentName = n.parent && 'name' in n.parent ? ((n.parent as any).name as string) : '';
-    // variant 속성 형태 ("Glyph=android", "Icon=Default" 등): 부모(COMPONENT_SET) 이름으로만 판단
-    // 일반 이름("arrow-left", "icon-close"): 이름 또는 부모 이름으로 판단
-    if (/=/.test(n.name)) return ICON_RE.test(parentName);
-    return ICON_RE.test(n.name) || ICON_RE.test(parentName);
+    const parent = n.parent;
+    const parentName = parent && 'name' in parent ? ((parent as any).name as string) : '';
+    // 1. 이름 기반 감지: "icon-*", "ic/*" 패턴
+    const nameMatch = /=/.test(n.name)
+      ? ICON_RE.test(parentName)
+      : ICON_RE.test(n.name) || ICON_RE.test(parentName);
+    if (nameMatch) return true;
+    // 2. 구조 기반 감지: COMPONENT → COMPONENT_SET → FRAME/SECTION + 소형 정사각형
+    if (parent?.type === 'COMPONENT_SET') {
+      const grandParent = parent.parent;
+      if (grandParent?.type === 'FRAME' || grandParent?.type === 'SECTION') {
+        const w = (n as any).width as number;
+        const h = (n as any).height as number;
+        return w <= 64 && h <= 64 && Math.abs(w - h) <= 8;
+      }
+    }
+    return false;
   });
-  const results: {
-    name: string;
-    kebab: string;
-    pascal: string;
-    variants: string[];
-    svg: string;
-  }[] = [];
+
+  const collected: IconCollected[] = [];
   const seen = new Set<string>();
   for (const node of nodes) {
-    // node.name 기준 중복 제거 — 다른 크기 variant는 별도 항목으로 유지
-    // "Glyph=android, Size=default" / "Glyph=android, Size=micro" → 둘 다 포함
-    if (seen.has(node.name)) continue;
-    seen.add(node.name);
+    if (seen.has(node.id)) continue;
+    seen.add(node.id);
     try {
       const svgBytes = await (node as any).exportAsync({ format: 'SVG' });
       const bytes = new Uint8Array(svgBytes);
       let svg = '';
       for (let i = 0; i < bytes.length; i++) svg += String.fromCharCode(bytes[i]);
-      results.push({
-        name: node.name,
-        kebab: toKebabCase(node.name),
-        pascal: toPascalCase(node.name),
-        variants: extractVariants(node.name),
+      const sectionNode = resolveSectionNode(node as SceneNode);
+      const sp = sectionNode ? getAbsPos(sectionNode) : { x: 0, y: 0 };
+      const np = getAbsPos(node as SceneNode);
+      const { displayName, variants } = iconIdentity(node as SceneNode);
+      collected.push({
+        name: displayName,
+        kebab: toKebabCase(displayName),
+        pascal: toPascalCase(displayName),
+        variants,
         svg,
+        section: sectionNode?.name ?? '',
+        _sx: sp.x,
+        _sy: sp.y,
+        _nx: np.x,
+        _ny: np.y,
       });
     } catch (_) {
       // skip nodes that can't be exported as SVG
     }
   }
-  return results;
+  return sortByCanvasPosition(collected);
 }
 
 async function extractThemes(): Promise<Record<string, { name: string; value: string }[]>> {
@@ -1530,6 +1633,8 @@ interface VariantStyleEntry {
 interface ComponentPropertyDef {
   type: 'BOOLEAN' | 'INSTANCE_SWAP' | 'TEXT';
   defaultValue: string | boolean;
+  /** INSTANCE일 때 현재 인스턴스의 실제 값 */
+  currentValue?: string | boolean;
   preferredValues?: Array<{ type: string; key: string }>;
 }
 
@@ -1740,6 +1845,12 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
   await scanNodeStyleIds(node, colorMap);
 
   // ── Step 3: 색상 해석 헬퍼 ───────────────────────────────────────────────
+  function getBorderStyle(n: any): string {
+    const dash = n.strokeDashPattern;
+    if (!Array.isArray(dash) || dash.length === 0) return 'solid';
+    return dash[0] <= 2 ? 'dotted' : 'dashed';
+  }
+
   function resolveColor(c: { r: number; g: number; b: number }): string {
     const hex = figmaColorToHex(c);
     return colorMap.has(hex) ? 'var(' + colorMap.get(hex) + ')' : hex.toLowerCase();
@@ -1874,7 +1985,7 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
             if (stops?.length) {
               const c = stops[0].color;
               const rgba = `rgba(${Math.round(c.r * 255)},${Math.round(c.g * 255)},${Math.round(c.b * 255)},${Math.round(c.a * 100) / 100})`;
-              s['border'] = sw + 'px solid ' + rgba;
+              s['border'] = sw + 'px ' + getBorderStyle(n) + ' ' + rgba;
               delete s['border-image'];
               delete s['border-width'];
               delete s['border-style'];
@@ -1882,7 +1993,7 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
             }
           } else {
             s['border-width'] = sw + 'px';
-            s['border-style'] = 'solid';
+            s['border-style'] = getBorderStyle(n);
             s['border-image'] = 'var(' + styleIdMap.get(strokeStyleId)! + ')';
             delete s['border'];
             delete s['border-color'];
@@ -1896,11 +2007,11 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
             if (stops?.length) {
               const c = stops[0].color;
               const rgba = `rgba(${Math.round(c.r * 255)},${Math.round(c.g * 255)},${Math.round(c.b * 255)},${Math.round(c.a * 100) / 100})`;
-              s['border'] = sw + 'px solid ' + rgba;
+              s['border'] = sw + 'px ' + getBorderStyle(n) + ' ' + rgba;
             }
           } else {
             s['border-width'] = sw + 'px';
-            s['border-style'] = 'solid';
+            s['border-style'] = getBorderStyle(n);
             s['border-image'] = 'var(' + styleIdMap.get(strokeStyleId)! + ')';
             delete s['border'];
             delete s['border-color'];
@@ -1910,7 +2021,7 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
         const strokeVar = resolveBoundColor(n, 'strokes');
         const sw = 'strokeWeight' in n ? Math.round((n as any).strokeWeight) || 1 : 1;
         if (strokeVar) {
-          s['border'] = sw + 'px solid ' + strokeVar;
+          s['border'] = sw + 'px ' + getBorderStyle(n) + ' ' + strokeVar;
         } else {
           // GRADIENT_LINEAR stroke → 첫 번째 stop 색상으로 solid 변환
           // (getCSSAsync fallback의 border-image: linear-gradient(...)는 border-radius를 무효화)
@@ -1920,7 +2031,7 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
             if (stops?.length) {
               const c = stops[0].color;
               const rgba = `rgba(${Math.round(c.r * 255)},${Math.round(c.g * 255)},${Math.round(c.b * 255)},${Math.round(c.a * 100) / 100})`;
-              s['border'] = sw + 'px solid ' + rgba;
+              s['border'] = sw + 'px ' + getBorderStyle(n) + ' ' + rgba;
               delete s['border-image'];
               delete s['border-style'];
               delete s['border-width'];
@@ -2157,40 +2268,41 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
             if (stops?.length) {
               const c = stops[0].color;
               const rgba = `rgba(${Math.round(c.r * 255)},${Math.round(c.g * 255)},${Math.round(c.b * 255)},${Math.round(c.a * 100) / 100})`;
-              s['border'] = strokeWeight + 'px solid ' + rgba;
+              s['border'] = strokeWeight + 'px ' + getBorderStyle(n) + ' ' + rgba;
             }
           } else {
             s['border-width'] = strokeWeight + 'px';
-            s['border-style'] = 'solid';
+            s['border-style'] = getBorderStyle(n);
             s['border-image'] = 'var(' + styleIdMap.get(strokeStyleId)! + ')';
           }
         } catch {
           s['border-width'] = strokeWeight + 'px';
-          s['border-style'] = 'solid';
+          s['border-style'] = getBorderStyle(n);
           s['border-image'] = 'var(' + styleIdMap.get(strokeStyleId)! + ')';
         }
       } else {
         const bound = resolveBoundColor(n, 'strokes');
         if (bound) {
-          s['border'] = strokeWeight + 'px solid ' + bound;
+          s['border'] = strokeWeight + 'px ' + getBorderStyle(n) + ' ' + bound;
         } else {
           const strokes = (n as any).strokes;
           if (Array.isArray(strokes)) {
             const solid = strokes.find((f: any) => f.type === 'SOLID' && f.visible !== false);
             if (solid) {
-              s['border'] = strokeWeight + 'px solid ' + resolveColor(solid.color);
+              s['border'] =
+                strokeWeight + 'px ' + getBorderStyle(n) + ' ' + resolveColor(solid.color);
             } else {
               const gradient = strokes.find(
                 (f: any) => f.type?.startsWith('GRADIENT_') && f.visible !== false
               );
               if (gradient) {
-                // GRADIENT stroke → 첫 번째 stop 색상으로 solid 변환
+                // GRADIENT stroke → 첫 번째 stop 색상으로 변환
                 // border-image는 border-radius를 무효화하므로 사용하지 않음
                 const stops = gradient.gradientStops;
                 if (stops?.length) {
                   const c = stops[0].color;
                   const rgba = `rgba(${Math.round(c.r * 255)},${Math.round(c.g * 255)},${Math.round(c.b * 255)},${Math.round(c.a * 100) / 100})`;
-                  s['border'] = strokeWeight + 'px solid ' + rgba;
+                  s['border'] = strokeWeight + 'px ' + getBorderStyle(n) + ' ' + rgba;
                 }
               }
             }
@@ -2405,15 +2517,31 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
   let componentSetName: string | null = null;
   let variantOptions: Record<string, string[]> | undefined;
 
+  // INSTANCE → mainComponent 부모(COMPONENT_SET) 참조
+  // 다른 페이지의 컴포넌트를 참조할 때 동기 접근이 실패하므로 async API 사용
+  let instanceMasterSet: ComponentSetNode | null = null;
+  if (node.type === 'INSTANCE') {
+    try {
+      const master = await (node as InstanceNode).getMainComponentAsync();
+      if (master?.parent?.type === 'COMPONENT_SET') {
+        instanceMasterSet = master.parent as ComponentSetNode;
+      }
+    } catch (_) {}
+  }
+
   const parentSet =
     node.type === 'COMPONENT' && node.parent?.type === 'COMPONENT_SET'
       ? (node.parent as ComponentSetNode)
       : node.type === 'COMPONENT_SET'
         ? (node as unknown as ComponentSetNode)
-        : null;
+        : instanceMasterSet;
 
   let variants: VariantStyleEntry[] | undefined;
   let componentProperties: Record<string, ComponentPropertyDef> | undefined;
+
+  // INSTANCE 현재 프로퍼티 값 (Boolean, Text 등 현재 선택 상태)
+  const instanceCurrentProps: Record<string, ComponentProperty> =
+    node.type === 'INSTANCE' ? ((node as InstanceNode).componentProperties ?? {}) : {};
 
   if (parentSet) {
     const grandParent = parentSet.parent;
@@ -2439,6 +2567,11 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
             type: def.type as ComponentPropertyDef['type'],
             defaultValue: def.defaultValue as string | boolean,
           };
+          // INSTANCE일 때: 이 인스턴스의 현재 값을 currentValue로 추가
+          const instProp = instanceCurrentProps[name];
+          if (instProp !== undefined) {
+            entry.currentValue = instProp.value as string | boolean;
+          }
           if (def.type === 'INSTANCE_SWAP' && (def as any).preferredValues?.length > 0) {
             entry.preferredValues = (def as any).preferredValues;
           }
@@ -2447,22 +2580,26 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
       }
     } catch (_) {}
 
-    // 자식 COMPONENT 각각의 스타일 수집 (getCSSAsync 사용)
-    variants = [];
-    for (const child of parentSet.children as ComponentNode[]) {
-      const props = Object.fromEntries(
-        Object.entries(child.variantProperties ?? {}).map(([k, v]) => [k.toLowerCase(), v])
-      );
-      variants.push({
-        properties: props,
-        variantSlug: buildVariantSlug(props),
-        width: Math.round(child.width),
-        height: Math.round(child.height),
-        styles: await getNodeStylesAsync(child),
-        childStyles: await getChildStylesAsync(child),
-        nodeTree: buildNodeTree(child, nodeTreeCtx),
-      });
-    }
+    // 자식 COMPONENT 각각의 스타일 수집 — INSTANCE일 때는 생략 (COMPONENT_SET 자식이 아님)
+    if (node.type === 'INSTANCE') {
+      variants = undefined;
+    } else {
+      variants = [];
+      for (const child of parentSet.children as ComponentNode[]) {
+        const props = Object.fromEntries(
+          Object.entries(child.variantProperties ?? {}).map(([k, v]) => [k.toLowerCase(), v])
+        );
+        variants.push({
+          properties: props,
+          variantSlug: buildVariantSlug(props),
+          width: Math.round(child.width),
+          height: Math.round(child.height),
+          styles: await getNodeStylesAsync(child),
+          childStyles: await getChildStylesAsync(child),
+          nodeTree: buildNodeTree(child, nodeTreeCtx),
+        });
+      }
+    } // end non-INSTANCE variants block
   }
 
   const effectiveName = componentSetName ?? node.name;

@@ -27,6 +27,17 @@ export type TextRole =
   | 'caption' // 캡션
   | 'unknown'; // 역할 추론 실패
 
+/**
+ * 컴포넌트 prop → 레이어 속성 바인딩 정보.
+ * key: 'visible' | 'characters' | 'mainComponent'
+ * value: componentPropertyDefinitions의 prop key (예: "Source#3287:4621")
+ */
+export interface ComponentPropRefs {
+  visible?: string;
+  characters?: string;
+  mainComponent?: string;
+}
+
 /** 재귀 nodeTree 엔트리 */
 export interface NodeTreeEntry {
   /** 경로 기반 ID ("root", "root.0", "root.1.0") */
@@ -47,6 +58,11 @@ export interface NodeTreeEntry {
   pathData?: string;
   /** INSTANCE 노드: 참조 중인 마스터 컴포넌트 이름 */
   masterName?: string;
+  /**
+   * 이 레이어에 연결된 Component Property 바인딩.
+   * 생성기가 prop 이름 추론 없이 실제 바인딩을 읽을 수 있게 한다.
+   */
+  propRefs?: ComponentPropRefs;
   /** 자식 노드 (leaf는 omit) */
   children?: NodeTreeEntry[];
 }

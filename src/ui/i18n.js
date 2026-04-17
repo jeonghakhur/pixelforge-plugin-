@@ -150,6 +150,8 @@ var i18n = {
       copyGlobalCss: '복사',
       htmlModeInline: '인라인',
       htmlModeSeparated: 'CSS 분리',
+      selectTypePlaceholder: '타입을 선택하세요',
+      typeRequired: '컴포넌트 타입을 선택해 주세요',
     },
     image: {
       format: '포맷',
@@ -338,6 +340,8 @@ var i18n = {
       copyGlobalCss: 'Copy',
       htmlModeInline: 'Inline',
       htmlModeSeparated: 'Separate CSS',
+      selectTypePlaceholder: 'Select a type',
+      typeRequired: 'Please select a component type',
     },
     image: {
       format: 'Format',

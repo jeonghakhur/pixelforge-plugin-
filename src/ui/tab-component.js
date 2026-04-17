@@ -78,7 +78,7 @@ export function refreshComponentDbStatus() {
 
 export var compState = {
   meta: null,
-  componentType: 'layout',
+  componentType: null,
   styleMode: 'css-modules',
   htmlStyleMode: 'inline',
   useTs: true,
@@ -160,7 +160,7 @@ export function onCompSelectionChanged() {
   var detected = detectComponentType(meta.nodeName);
   compState.componentType = detected;
   var ts = $('compTypeSelect');
-  if (ts) ts.value = detected;
+  if (ts) ts.value = detected || '';
   updateTypeHint(detected);
 
   var ni = $('compNameInput');
@@ -181,6 +181,10 @@ export function onCompSelectionChanged() {
 export function updateTypeHint(type) {
   var hint = $('compTypeHint');
   if (!hint) return;
+  if (!type) {
+    hint.textContent = '';
+    return;
+  }
   var entry = RADIX_COMPONENT_REGISTRY[type];
   if (entry && entry.themeComponent) {
     hint.textContent = 'npm install @radix-ui/themes';
@@ -196,8 +200,8 @@ export function updateTypeHint(type) {
 var _typeSelect = $('compTypeSelect');
 if (_typeSelect)
   _typeSelect.addEventListener('change', function () {
-    compState.componentType = _typeSelect.value;
-    updateTypeHint(_typeSelect.value);
+    compState.componentType = _typeSelect.value || null;
+    updateTypeHint(_typeSelect.value || null);
   });
 
 document.querySelectorAll('.comp-style-btn').forEach(function (btn) {
@@ -238,6 +242,14 @@ if (generateCompBtn) {
   });
 }
 
+function syncCompCopyBtn(tab) {
+  var btn = $('compCopyBtn');
+  if (!btn) return;
+  btn.textContent = tab === 'node'
+    ? (lang === 'ko' ? 'Node 저장' : 'Save Node')
+    : t('component.copy');
+}
+
 document.querySelectorAll('[data-comp-code-tab]').forEach(function (btn) {
   btn.addEventListener('click', function () {
     compState.activeCodeTab = btn.dataset.compCodeTab;
@@ -254,20 +266,31 @@ document.querySelectorAll('[data-comp-code-tab]').forEach(function (btn) {
         data: compState.nodeData,
       }, null, 2));
     }
+    syncCompCopyBtn(compState.activeCodeTab);
   });
 });
 
 var _compCopyBtn = $('compCopyBtn');
 if (_compCopyBtn)
   _compCopyBtn.addEventListener('click', function () {
-    var content;
-    if (compState.activeCodeTab === 'tsx') {
-      content = compState.generatedTsx;
-    } else if (compState.activeCodeTab === 'css') {
-      content = compState.generatedCss;
-    } else {
-      content = JSON.stringify({ meta: compState.meta, data: compState.nodeData }, null, 2);
+    if (compState.activeCodeTab === 'node') {
+      if (!compState.nodeData) { showToast(t('component.selectFirst')); return; }
+      var nameVal = (($('compNameInput') && $('compNameInput').value) || '').trim()
+        || compToPascalCase(((compState.nodeData && compState.nodeData.name) || 'component').split('/').pop());
+      var payload = JSON.stringify({ meta: compState.meta, data: compState.nodeData }, null, 2);
+      var blob = new Blob([payload], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = nameVal + '.node.json';
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast(nameVal + '.node.json ' + (lang === 'ko' ? '저장됨' : 'saved'));
+      return;
     }
+    var content = compState.activeCodeTab === 'css'
+      ? compState.generatedCss
+      : compState.generatedTsx;
     copyToClipboard(content);
     showToast(t('component.copied'));
   });
@@ -283,6 +306,12 @@ if (_compSaveBtn) {
     }
     if (!compState.meta) {
       showToast(t('component.selectFirst'));
+      return;
+    }
+    if (!compState.componentType) {
+      showToast(t('component.typeRequired'));
+      var ts = $('compTypeSelect');
+      if (ts) ts.focus();
       return;
     }
     var key = compState.meta.masterId || compState.meta.nodeId;
@@ -611,6 +640,12 @@ if (compSendBtn) {
     // 현재 선택 없으면 마지막 생성된 nodeData.meta 폴백
     var meta = compState.meta || (compState.nodeData && compState.nodeData.meta) || null;
     if (!meta) { showToast(t('component.selectFirst')); return; }
+    if (!compState.componentType) {
+      showToast(t('component.typeRequired'));
+      var ts = $('compTypeSelect');
+      if (ts) ts.focus();
+      return;
+    }
     var nameVal = (($('compNameInput') && $('compNameInput').value) || '').trim();
     if (!nameVal) {
       nameVal = compToPascalCase(((compState.nodeData && compState.nodeData.name) || meta.nodeName || 'Component').split('/').pop());
@@ -621,6 +656,8 @@ if (compSendBtn) {
       var res = await sendToPixelForge('/api/sync/components', {
         figmaFileKey: state.figmaFileKey || null,
         figmaFileName: state.figmaFileName || null,
+        componentType: compState.componentType,
+        styleMode: compState.styleMode,
         data: Object.assign({}, compState.nodeData, { name: nameVal }),
       });
       if (res) showToast(t('settings.sendSuccess'));
