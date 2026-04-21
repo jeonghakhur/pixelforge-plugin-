@@ -1367,14 +1367,16 @@ type IconResult = {
   variants: string[];
   svg: string;
   section: string;
+  format?: 'svg' | 'png';
+  pngBase64?: string;
 };
 
-// 캔버스 절대 좌표를 포함한 내부 수집 타입
+// 캔버스 절대 좌표를 포함한 내부 수집 타입 (sortByCanvasPosition에서 제거됨)
 type IconCollected = IconResult & {
   _sx: number;
-  _sy: number; // 섹션 프레임 좌상단 절대 좌표
+  _sy: number;
   _nx: number;
-  _ny: number; // 아이콘 노드 절대 좌표
+  _ny: number;
 };
 
 function getAbsPos(node: SceneNode): { x: number; y: number } {
@@ -1414,6 +1416,69 @@ function iconIdentity(node: SceneNode): { displayName: string; variants: string[
   return { displayName: base, variants };
 }
 
+// SVG에 foreignObject(backdrop-filter) 또는 raster <image> 레이어가 있으면 PNG 필요
+// <image\b: word boundary로 <imageRendering> 등 오탐 방지
+function svgNeedsPng(svg: string): boolean {
+  return /<image\b/.test(svg) || svg.includes('foreignObject');
+}
+
+// 노드를 @2x PNG로 내보내 base64 문자열 반환
+// Figma 샌드박스에서 btoa 미지원 → 수동 base64 인코딩
+async function exportNodeAsPng(node: SceneNode): Promise<string> {
+  const bytes = await (node as any).exportAsync({
+    format: 'PNG',
+    constraint: { type: 'SCALE', value: 2 },
+  });
+  const arr = new Uint8Array(bytes);
+  if (arr.length === 0) throw new Error('PNG export returned empty bytes');
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  let result = '';
+  for (let i = 0; i < arr.length; i += 3) {
+    const b0 = arr[i];
+    const b1 = arr[i + 1] ?? 0;
+    const b2 = arr[i + 2] ?? 0;
+    result += chars[b0 >> 2];
+    result += chars[((b0 & 3) << 4) | (b1 >> 4)];
+    result += i + 1 < arr.length ? chars[((b1 & 15) << 2) | (b2 >> 6)] : '=';
+    result += i + 2 < arr.length ? chars[b2 & 63] : '=';
+  }
+  return result;
+}
+
+// exportIcons / exportIconsAll 공통 — SVG 내보내기 후 PNG 폴백 포함한 entry 생성
+async function buildIconEntry(
+  node: SceneNode,
+  section: string
+): Promise<Omit<IconCollected, '_sx' | '_sy' | '_nx' | '_ny'>> {
+  const svgBytes = await (node as any).exportAsync({ format: 'SVG' });
+  const bytes = new Uint8Array(svgBytes);
+  let svg = '';
+  for (let i = 0; i < bytes.length; i++) svg += String.fromCharCode(bytes[i]);
+
+  const { displayName, variants } = iconIdentity(node);
+  const entry: Omit<IconCollected, '_sx' | '_sy' | '_nx' | '_ny'> = {
+    name: displayName,
+    kebab: toKebabCase(displayName),
+    pascal: toPascalCase(displayName),
+    variants,
+    svg,
+    format: 'svg', // 기본값 명시 — PNG 감지 실패 시에도 앱에서 안전하게 처리
+    section,
+  };
+
+  if (svgNeedsPng(svg)) {
+    try {
+      entry.pngBase64 = await exportNodeAsPng(node);
+      entry.format = 'png';
+    } catch (e) {
+      console.error('[png-export] failed:', (e as Error).message, 'node:', node.name);
+      // format은 이미 'svg'로 초기화됨
+    }
+  }
+
+  return entry;
+}
+
 // 캔버스 시각적 위치 기준 정렬: 섹션 Y → 섹션 X → 아이콘 Y → 아이콘 X
 function sortByCanvasPosition(items: IconCollected[]): IconResult[] {
   items.sort((a, b) => a._sy - b._sy || a._sx - b._sx || a._ny - b._ny || a._nx - b._nx);
@@ -1434,28 +1499,13 @@ async function exportIcons(): Promise<IconResult[]> {
   const collected: IconCollected[] = [];
   for (const { node, section } of targets) {
     try {
-      const svgBytes = await (node as any).exportAsync({ format: 'SVG' });
-      const bytes = new Uint8Array(svgBytes);
-      let svg = '';
-      for (let i = 0; i < bytes.length; i++) svg += String.fromCharCode(bytes[i]);
       const sectionNode = resolveSectionNode(node);
       const sp = sectionNode ? getAbsPos(sectionNode) : { x: 0, y: 0 };
       const np = getAbsPos(node);
-      const { displayName, variants } = iconIdentity(node);
-      collected.push({
-        name: displayName,
-        kebab: toKebabCase(displayName),
-        pascal: toPascalCase(displayName),
-        variants,
-        svg,
-        section,
-        _sx: sp.x,
-        _sy: sp.y,
-        _nx: np.x,
-        _ny: np.y,
-      });
+      const base = await buildIconEntry(node, section);
+      collected.push({ ...base, _sx: sp.x, _sy: sp.y, _nx: np.x, _ny: np.y });
     } catch (_) {
-      // skip nodes that can't be exported as SVG
+      // skip nodes that can't be exported
     }
   }
   return sortByCanvasPosition(collected);
@@ -1491,26 +1541,13 @@ async function exportIconsAll(): Promise<IconResult[]> {
     if (seen.has(node.id)) continue;
     seen.add(node.id);
     try {
-      const svgBytes = await (node as any).exportAsync({ format: 'SVG' });
-      const bytes = new Uint8Array(svgBytes);
-      let svg = '';
-      for (let i = 0; i < bytes.length; i++) svg += String.fromCharCode(bytes[i]);
-      const sectionNode = resolveSectionNode(node as SceneNode);
+      const sceneNode = node as SceneNode;
+      const sectionNode = resolveSectionNode(sceneNode);
       const sp = sectionNode ? getAbsPos(sectionNode) : { x: 0, y: 0 };
-      const np = getAbsPos(node as SceneNode);
-      const { displayName, variants } = iconIdentity(node as SceneNode);
-      collected.push({
-        name: displayName,
-        kebab: toKebabCase(displayName),
-        pascal: toPascalCase(displayName),
-        variants,
-        svg,
-        section: sectionNode?.name ?? '',
-        _sx: sp.x,
-        _sy: sp.y,
-        _nx: np.x,
-        _ny: np.y,
-      });
+      const np = getAbsPos(sceneNode);
+      const section = sectionNode?.name ?? '';
+      const base = await buildIconEntry(sceneNode, section);
+      collected.push({ ...base, _sx: sp.x, _sy: sp.y, _nx: np.x, _ny: np.y });
     } catch (_) {
       // skip nodes that can't be exported as SVG
     }

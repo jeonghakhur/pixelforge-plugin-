@@ -21,8 +21,10 @@
 | image-assets-export | 87% | completed | 0 | `docs/03-analysis/image-assets-export.analysis.md` |
 | token-cache | ~95% (추정) | do | 0 | (분석 문서 미작성) |
 | token-type-filter | ~90% (추정) | do | 0 | (분석 문서 미작성) |
+| **icon-extraction-v2** | **~93%** | **do** | 0 | 아래 §2.11 참조 |
 
-**가중 평균 Match Rate (확인 완료 8개 기준): 95.5%**
+**가중 평균 Match Rate (확인 완료 8개 기준): 95.5%** ← 2026-03-31 기준
+**2026-04-20 재분석 후: 아이콘 추출 개선 기능 추가 (§2.11)**
 
 ---
 
@@ -153,6 +155,38 @@ GAP-01, GAP-02 (`Omit<SVGProps<SVGSVGElement>, "color">`) — 2026-03-31 수정 
 | 4 | `image.downloadOne` 텍스트 | `'개별 다운로드'` | `'다운로드'` |
 | 5 | 함수명 | `downloadAllZip` | `downloadAllImagesZip` |
 | 6 | 상태 관리 | `imageState` 변수 | DOM 클래스 토글 (`setImgState`) |
+
+---
+
+### 2.11 icon-extraction-v2 (~93%, 2026-04-20 신규)
+
+> 분석 대상: `src/code.ts` (iconIdentity·extractAllVariants·sortByCanvasPosition 등) + `src/ui/tab-icons.js` (⬇ Node 버튼·meta wrapper·다시 추출 버튼)
+> 기준: 이번 세션 구현 요구사항 7개 + icon-registry 디자인 문서 일치 항목
+
+**구현 완료 (Match):**
+
+| # | 요구사항 | 구현 위치 | 판정 |
+|---|---------|:--------:|------|
+| 1 | `iconIdentity()` — 3-case 이름 결정 | `code.ts:1389-1415` | ✅ Match |
+| 2 | `extractAllVariants()` — 전체 Key=Value 추출 (size 포함) | `code.ts:1079-1085` | ✅ Match |
+| 3 | `sortByCanvasPosition()` — 섹션Y→섹션X→노드Y→노드X | `code.ts:1418-1421` | ✅ Match |
+| 4 | `resolveSectionNode()` — PAGE 직계 최상위 FRAME/SECTION | `code.ts:1347-1354` | ✅ Match |
+| 5 | "다시 추출" 버튼 — 아이콘 0건 빈 상태 표시 | `tab-icons.js:714-728` | ✅ Match |
+| 6 | "⬇ Node" 버튼 — `icons-node-N.json` 다운로드 + meta wrapper | `tab-icons.js:995-1018` | ✅ Match |
+| 7 | `meta.sections` — 캔버스 순서 정렬된 section 배열 | `tab-icons.js:997-1007` | ✅ Match |
+| 8 | PixelForge Send payload에 동일 meta 구조 전송 | `tab-icons.js:1071-1082` | ✅ Match |
+
+**Changed (문서화 공백):**
+
+| # | 항목 | 내용 | 영향도 |
+|---|------|------|:------:|
+| 1 | `seen` 중복 제거 기준 | `exportIconsAll`: `node.name` → `node.id` (버그 수정) | High (수정됨) |
+| 2 | `size` 타입 확장 | `IconSize = number \| "default" \| "micro"` — 디자인 문서에 미반영 | Low |
+| 3 | `color` 적용 방식 | `style.color` 주입 (디자인은 className 배열) | Low |
+
+**문서화 공백 (Design X / Impl O):**
+- icon-registry 디자인 문서에 아이콘 추출 로직(code.ts 쪽) 전혀 없음
+- `iconIdentity` 3-case 로직, 캔버스 정렬 키 순서, `meta.sections` 스키마 미문서화
 
 ---
 
