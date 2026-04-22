@@ -1494,10 +1494,15 @@ function getAbsPos(node: SceneNode): { x: number; y: number } {
   return box ?? { x: node.x, y: node.y };
 }
 
+// Figma 자동 기본 레이어명 패턴 (Vector, Path, Ellipse 등)
+const FIGMA_DEFAULT_NAME_RE =
+  /^(vector|path|group|frame|rectangle|ellipse|polygon|star|line|arrow|union|subtract|intersect|exclude)\s*\d*$/i;
+
 // 아이콘 고유 이름 + variants 를 함께 결정
 // Case 1: Glyph=/Name= 키 존재 → 그 값이 이름, 나머지가 variants (기존 parseVariantName)
 // Case 2: 전부 Key=Value (ICON_ID_KEY 없음) + COMPONENT_SET 내 → parent 이름이 아이콘 이름
 // Case 3: 서술형 이름 (Key=Value 아닌 segment 포함) → node.name 그대로 사용
+// Case 4: Figma 기본 자동명(Vector, Path 등) → parent 이름으로 fallback
 function iconIdentity(node: SceneNode): { displayName: string; variants: string[] } {
   const raw = node.name;
   const segments = raw.split(/,\s*/);
@@ -1521,8 +1526,16 @@ function iconIdentity(node: SceneNode): { displayName: string; variants: string[
     };
   }
 
-  // Case 3: 서술형 이름 (혼합 or 순수 서술형) → node.name 처리
+  // Case 4: Figma 기본 자동명 → 부모 이름으로 fallback
   const { base, variants } = parseVariantName(raw);
+  if (FIGMA_DEFAULT_NAME_RE.test(base.trim()) && node.parent && 'name' in node.parent) {
+    const parentName = (node.parent as SceneNode).name;
+    if (!FIGMA_DEFAULT_NAME_RE.test(parentName.trim())) {
+      return { displayName: parentName, variants };
+    }
+  }
+
+  // Case 3: 서술형 이름 (혼합 or 순수 서술형) → node.name 처리
   return { displayName: base, variants };
 }
 
@@ -1555,15 +1568,34 @@ async function exportNodeAsPng(node: SceneNode): Promise<string> {
   return result;
 }
 
+// Variable이 semantic alias인지 판별 — valuesByMode 첫 값이 VARIABLE_ALIAS면 alias
+function isAliasVariable(variable: Variable): boolean {
+  const firstVal = Object.values(variable.valuesByMode)[0];
+  return (
+    typeof firstVal === 'object' && firstVal !== null && (firstVal as any).type === 'VARIABLE_ALIAS'
+  );
+}
+
+// Variable → CSS var 참조 문자열 (토큰 이름 정규화 포함)
+// e.g. Colors/Foreground/fg-success-secondary → "var(--fg-success-secondary, #22c55e)"
+function varToTokenRef(variable: Variable | null, id: string, color: RGB): string {
+  const tokenName = variable ? toCssVarName(variable.name, isAliasVariable(variable)).slice(2) : id;
+  return `var(--${tokenName}, ${figmaColorToHex(color)})`;
+}
+
 // exportIcons / exportIconsAll 공통 — SVG 내보내기 후 PNG 폴백 포함한 entry 생성
 async function collectColorTokens(node: SceneNode): Promise<string[]> {
   const varIds = new Set<string>();
 
   function traverse(n: BaseNode) {
-    if ('fills' in n) {
-      for (const fill of (n as GeometryMixin).fills as Paint[]) {
-        const bv = (fill as any).boundVariables?.color;
-        if (bv?.type === 'VARIABLE_ALIAS') varIds.add(bv.id as string);
+    for (const prop of ['fills', 'strokes'] as const) {
+      if (prop in n) {
+        const paints = (n as GeometryMixin)[prop];
+        if (!Array.isArray(paints)) continue; // figma.mixed guard
+        for (const paint of paints as Paint[]) {
+          const bv = (paint as any).boundVariables?.color;
+          if (bv?.type === 'VARIABLE_ALIAS') varIds.add(bv.id as string);
+        }
       }
     }
     if ('children' in n) {
@@ -1577,7 +1609,9 @@ async function collectColorTokens(node: SceneNode): Promise<string[]> {
   const names: string[] = [];
   for (const id of varIds) {
     const variable = await figma.variables.getVariableByIdAsync(id);
-    if (variable) names.push(toKebabCase(variable.name));
+    if (variable) {
+      names.push(toCssVarName(variable.name, isAliasVariable(variable)).slice(2));
+    }
   }
   return names;
 }
@@ -1624,24 +1658,38 @@ async function buildVariantCSSVars(node: SceneNode): Promise<Record<string, stri
 
   async function traverse(n: BaseNode): Promise<void> {
     if ('fills' in n) {
-      for (const fill of (n as GeometryMixin).fills as Paint[]) {
-        if ((fill as any).visible === false) continue;
-        const bv = (fill as any).boundVariables?.color;
-        if (bv?.type === 'VARIABLE_ALIAS' && (fill as SolidPaint).color) {
-          const varName = `--${toKebabCase(n.name)}`;
-          const variable = await figma.variables.getVariableByIdAsync(bv.id);
-          const tokenKebab = variable ? toKebabCase(variable.name) : bv.id;
-          const c = (fill as SolidPaint).color;
-          const hex =
-            '#' +
-            [c.r, c.g, c.b]
-              .map((v) =>
-                Math.round(v * 255)
-                  .toString(16)
-                  .padStart(2, '0')
-              )
-              .join('');
-          vars[varName] = `var(--${tokenKebab}, ${hex})`;
+      const fills = (n as GeometryMixin).fills;
+      if (Array.isArray(fills)) {
+        // figma.mixed guard
+        for (const fill of fills as Paint[]) {
+          if ((fill as any).visible === false) continue;
+          const bv = (fill as any).boundVariables?.color;
+          if (bv?.type === 'VARIABLE_ALIAS' && (fill as SolidPaint).color) {
+            const variable = await figma.variables.getVariableByIdAsync(bv.id);
+            vars[`--${toKebabCase(n.name)}`] = varToTokenRef(
+              variable,
+              bv.id,
+              (fill as SolidPaint).color
+            );
+          }
+        }
+      }
+    }
+    if ('strokes' in n) {
+      const strokes = (n as GeometryMixin).strokes;
+      if (Array.isArray(strokes)) {
+        // figma.mixed guard
+        for (const stroke of strokes as Paint[]) {
+          if ((stroke as any).visible === false) continue;
+          const bv = (stroke as any).boundVariables?.color;
+          if (bv?.type === 'VARIABLE_ALIAS' && (stroke as SolidPaint).color) {
+            const variable = await figma.variables.getVariableByIdAsync(bv.id);
+            vars[`--${toKebabCase(n.name)}-stroke`] = varToTokenRef(
+              variable,
+              bv.id,
+              (stroke as SolidPaint).color
+            );
+          }
         }
       }
     }
@@ -1728,13 +1776,24 @@ async function buildIconSetEntry(
       if (m) props[m[1].trim()] = m[2].trim();
     });
 
-    const cssVars = await buildVariantCSSVars(child as SceneNode);
-    variantDataForDefs.push({ props, cssVars });
+    let cssVars: Record<string, string | number> = {};
+    try {
+      cssVars = await buildVariantCSSVars(child as SceneNode);
+    } catch (e) {
+      console.error('[css-vars] skip variant:', child.name, (e as Error).message);
+    }
 
-    const svgBytes = await (child as any).exportAsync({ format: 'SVG' });
-    const bytes = new Uint8Array(svgBytes);
     let svg = '';
-    for (let i = 0; i < bytes.length; i++) svg += String.fromCharCode(bytes[i]);
+    try {
+      const svgBytes = await (child as any).exportAsync({ format: 'SVG' });
+      const bytes = new Uint8Array(svgBytes);
+      for (let i = 0; i < bytes.length; i++) svg += String.fromCharCode(bytes[i]);
+    } catch (e) {
+      console.error('[svg-export] skip variant:', child.name, (e as Error).message);
+      continue;
+    }
+
+    variantDataForDefs.push({ props, cssVars });
 
     const colorTokens = await collectColorTokens(child as SceneNode);
     const variant: IconVariantResult = {
@@ -1806,7 +1865,23 @@ function collectSetTargets(
     seen.add(node.id);
     return [{ node, section, isSet: true }];
   }
-  if (['FRAME', 'GROUP', 'SECTION'].includes(node.type)) {
+  // COMPONENT/INSTANCE: 아이콘 단위의 leaf — 내부 재귀 없이 바로 수집
+  if (node.type === 'COMPONENT' || node.type === 'INSTANCE') {
+    seen.add(node.id);
+    return [{ node, section, isSet: false }];
+  }
+  // FRAME: 아이콘 크기(≤64px)이면 자신이 아이콘 → leaf, 크면 폴더 → 자식 재귀
+  // SECTION: 항상 폴더 → 자식 재귀
+  // GROUP/VECTOR/BOOLEAN_OPERATION: 재귀하지 않음 (아이콘 내부 서브레이어)
+  if (node.type === 'FRAME') {
+    const w = (node as any).width as number;
+    const h = (node as any).height as number;
+    if (w <= 64 && h <= 64) {
+      // 아이콘 크기 FRAME → leaf 수집
+      seen.add(node.id);
+      return [{ node, section, isSet: false }];
+    }
+    // 큰 FRAME → 자식에서 아이콘 탐색
     if (!('children' in node)) return [];
     const out: { node: SceneNode; section: string; isSet: boolean }[] = [];
     for (const child of (node as ChildrenMixin).children) {
@@ -1814,7 +1889,16 @@ function collectSetTargets(
     }
     return out;
   }
-  if (EXPORTABLE_TYPES.has(node.type)) {
+  if (node.type === 'SECTION') {
+    if (!('children' in node)) return [];
+    const out: { node: SceneNode; section: string; isSet: boolean }[] = [];
+    for (const child of (node as ChildrenMixin).children) {
+      out.push(...collectSetTargets(child as SceneNode, seen, section));
+    }
+    return out;
+  }
+  // VECTOR/BOOLEAN_OPERATION: 사용자가 직접 선택한 경우에만 도달 (재귀 경로에서는 GROUP/FRAME leaf 처리로 차단됨)
+  if (node.type === 'VECTOR' || node.type === 'BOOLEAN_OPERATION' || node.type === 'GROUP') {
     seen.add(node.id);
     return [{ node, section, isSet: false }];
   }
@@ -1872,13 +1956,8 @@ async function exportIconsAll(): Promise<IconSetResult[]> {
     if (firstChild) {
       const w = (firstChild as any).width as number;
       const h = (firstChild as any).height as number;
-      const gp = n.parent;
-      return (
-        w <= 64 &&
-        h <= 64 &&
-        Math.abs(w - h) <= 8 &&
-        (gp?.type === 'FRAME' || gp?.type === 'SECTION')
-      );
+      // 비정방형 아이콘(예: 결제수단 34×24) 허용: 긴 변 기준 64 이하
+      return w <= 64 && h <= 64;
     }
     return false;
   });
@@ -1890,7 +1969,13 @@ async function exportIconsAll(): Promise<IconSetResult[]> {
     if (/\bIcon=false\b/i.test(n.name)) return false;
     const w = (n as any).width as number;
     const h = (n as any).height as number;
-    return ICON_RE.test(n.name) && w <= 64 && h <= 64 && Math.abs(w - h) <= 8;
+    // 비정방형 허용: 긴 변 64 이하, 단 극단적 비율(3배 초과) 제외
+    return (
+      ICON_RE.test(n.name) &&
+      w <= 64 &&
+      h <= 64 &&
+      Math.max(w, h) / Math.max(Math.min(w, h), 1) <= 3
+    );
   });
 
   const collected: IconSetCollected[] = [];

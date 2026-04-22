@@ -3167,72 +3167,72 @@
       id="panel-frame"
       style="display: none; flex-direction: column; flex: 1; overflow: hidden"
     >
-      <div class="tab-body" style="overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 12px;">
-        <!-- 선택 정보 -->
+      <!-- 고정 헤더: 선택 정보 + 옵션 -->
+      <div style="flex-shrink: 0; padding: 8px 12px; display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid var(--border);">
         <div
           id="frameSelInfo"
-          style="font-size: 12px; color: var(--text-muted); padding: 6px 10px; background: var(--bg); border-radius: 6px;"
+          style="font-size: 12px; color: var(--text-muted);"
         >
           선택된 노드 없음
         </div>
-
-        <!-- 옵션 -->
-        <div class="section-card">
-          <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">추출 옵션</div>
-          <div style="display: flex; align-items: center; gap: 8px; font-size: 12px;">
-            <label style="color: var(--text-secondary);">최대 깊이</label>
-            <input
-              id="frameMaxDepth"
-              type="number"
-              min="1"
-              max="20"
-              value="8"
-              style="
-                width: 56px;
-                padding: 4px 8px;
-                border: 1px solid var(--border);
-                border-radius: var(--radius-sm);
-                background: var(--surface2);
-                color: var(--text-primary);
-                font-size: 12px;
-                outline: none;
-              "
-            />
-          </div>
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 12px;">
+          <label style="color: var(--text-secondary); white-space: nowrap;">최대 깊이</label>
+          <input
+            id="frameMaxDepth"
+            type="number"
+            min="1"
+            max="20"
+            value="8"
+            style="
+              width: 56px;
+              padding: 4px 8px;
+              border: 1px solid var(--border);
+              border-radius: var(--radius-sm);
+              background: var(--surface2);
+              color: var(--text-primary);
+              font-size: 12px;
+              outline: none;
+            "
+          />
         </div>
+      </div>
+
+      <!-- 상태 영역: 남은 공간 전체 차지 -->
+      <div style="flex: 1; overflow: hidden; display: flex; flex-direction: column; padding: 12px;">
 
         <!-- 상태: 빈 상태 -->
-        <div id="frameStateIdle" class="section-card" style="text-align: center; color: var(--text-muted); font-size: 12px; padding: 24px 16px;">
+        <div id="frameStateIdle" style="flex: 1; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 12px;">
           FRAME 노드를 선택 후 추출하세요
         </div>
 
         <!-- 상태: 추출 중 -->
-        <div id="frameStateLoading" class="section-card hidden" style="text-align: center; color: var(--text-muted); font-size: 12px; padding: 24px 16px;">
+        <div id="frameStateLoading" class="hidden" style="flex: 1; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 12px;">
           추출 중...
         </div>
 
-        <!-- 상태: 결과 -->
-        <div id="frameStateResult" class="section-card hidden" style="font-size: 12px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-            <span id="frameResultMeta" style="color: var(--text-muted);"></span>
+        <!-- 상태: 결과 — 전체 높이 채움 -->
+        <div id="frameStateResult" class="hidden" style="flex: 1; display: flex; flex-direction: column; overflow: hidden; gap: 6px;">
+          <div style="flex-shrink: 0; font-size: 11px; color: var(--text-muted);">
+            <span id="frameResultMeta"></span>
           </div>
           <div id="frameResultPreview" style="
+            flex: 1;
+            overflow-y: auto;
             font-family: monospace;
             font-size: 11px;
             color: var(--text-secondary);
             background: var(--bg);
             border-radius: 4px;
-            padding: 8px;
-            max-height: 200px;
-            overflow-y: auto;
+            padding: 10px;
             white-space: pre-wrap;
             word-break: break-all;
           "></div>
         </div>
 
         <!-- 오류 -->
-        <div id="frameStateError" class="section-card hidden" style="color: var(--error, #e74c3c); font-size: 12px; padding: 12px 16px;">
+        <div id="frameStateError" class="hidden" style="color: var(--error, #e74c3c); font-size: 12px;">
         </div>
+
       </div>
 
       <!-- Bottom Bar -->

@@ -214,6 +214,12 @@ function iconClassNames(icon) {
   return extras ? base + ' ' + extras : base;
 }
 
+// variant-aware SVG 파일명 생성: "icon-dot--size-md--outline-false"
+function iconFileName(icon) {
+  var vs = (icon.variants || []).filter(Boolean);
+  return 'icon-' + icon.kebab + (vs.length > 0 ? '--' + vs.join('--') : '');
+}
+
 // SVG 하이픈 속성명 → JSX camelCase
 var JSX_ATTR = {
   'fill-rule': 'fillRule',
@@ -410,17 +416,11 @@ function buildIconsCss(icons, allIcons) {
 
   var classes = icons
     .map(function (icon) {
-      var cls = 'icon-' + icon.kebab;
+      var fname = iconFileName(icon);
       return (
-        '.' +
-        cls +
-        ' {\n' +
-        '  mask-image: url("../svg/icon-' +
-        icon.kebab +
-        '.svg");\n' +
-        '  -webkit-mask-image: url("../svg/icon-' +
-        icon.kebab +
-        '.svg");\n' +
+        '.' + fname + ' {\n' +
+        '  mask-image: url("../svg/' + fname + '.svg");\n' +
+        '  -webkit-mask-image: url("../svg/' + fname + '.svg");\n' +
         '}'
       );
     })
@@ -507,28 +507,22 @@ function buildIndexFile(icons) {
 
 // SVG ZIP: svg/ + css/
 async function downloadSvgZip(icons) {
-  // kebab 기준 중복제거 — 같은 아이콘의 여러 size variant 중 첫 번째만 저장
-  var seenKebab = new Set();
-  var uniqIcons = icons.filter(function (icon) {
-    if (seenKebab.has(icon.kebab)) return false;
-    seenKebab.add(icon.kebab);
-    return true;
-  });
   var zip = new JSZip();
   var svgFolder = zip.folder('svg');
   var cssFolder = zip.folder('css');
-  uniqIcons.forEach(function (icon) {
+  icons.forEach(function (icon) {
+    var fname = iconFileName(icon);
     svgFolder.file(
-      'icon-' + icon.kebab + '.svg',
+      fname + '.svg',
       replaceSvgColor(cleanSvg(icon.svg), iconColorMode, iconColorValue)
     );
   });
-  cssFolder.file('icons.css', buildIconsCss(uniqIcons, icons));
+  cssFolder.file('icons.css', buildIconsCss(icons, icons));
   var blob = await zip.generateAsync({ type: 'blob' });
   var url = URL.createObjectURL(blob);
   var a = document.createElement('a');
   a.href = url;
-  a.download = 'icons-svg-' + uniqIcons.length + '.zip';
+  a.download = 'icons-svg-' + icons.length + '.zip';
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -903,7 +897,7 @@ export function renderIconResults(data) {
   iconSearchQuery = '';
   iconSelectedIdx = null;
 
-  $('iconCount').textContent = data.length;
+  $('iconCount').textContent = iconData.length;
   $('iconResults').classList.remove('hidden');
   $('iconDetailBackdrop').classList.add('hidden');
   var iconResultBar = $('iconResultBar');
