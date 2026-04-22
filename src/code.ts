@@ -153,6 +153,90 @@ interface ExtraVarGroup {
   variables: VariableData[];
 }
 
+// ── Frame Inspector ────────────────────────────────────────────────────────────
+interface StructureNode {
+  id: string;
+  name: string;
+  type: string;
+  visible: boolean;
+  locked: boolean;
+
+  geometry: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    absoluteX: number;
+    absoluteY: number;
+    rotation: number;
+  };
+
+  layout: {
+    mode: 'NONE' | 'HORIZONTAL' | 'VERTICAL' | 'WRAP';
+    direction?: 'row' | 'column';
+    wrap?: boolean;
+    justifyContent?: string;
+    alignItems?: string;
+    gap?: number;
+    padding?: { top: number; right: number; bottom: number; left: number };
+    constraints?: { horizontal: string; vertical: string };
+    sizing?: { horizontal: string; vertical: string };
+  };
+
+  appearance: {
+    fills: readonly Paint[];
+    strokes: readonly Paint[];
+    strokeWeight: number;
+    strokeAlign: string;
+    cornerRadius: number | number[];
+    opacity: number;
+    effects: readonly Effect[];
+    blendMode: string;
+    clipsContent?: boolean;
+  };
+
+  text?: {
+    content: string;
+    fontSize: number;
+    fontFamily: string;
+    fontWeight: number;
+    fontStyle: string;
+    lineHeight: LineHeight;
+    letterSpacing: LetterSpacing;
+    textAlign: string;
+    verticalAlign: string;
+    textDecoration: string;
+    textCase: string;
+    fills: readonly Paint[];
+    styleId?: string;
+  };
+
+  componentRef?: {
+    componentId: string;
+    componentKey: string;
+    componentSetKey?: string;
+    componentName: string;
+    componentSetName?: string;
+    properties: Record<string, ComponentPropertyValue>;
+  };
+
+  truncated?: boolean;
+  children?: StructureNode[];
+}
+
+interface FrameInspectResult {
+  meta: {
+    frameId: string;
+    frameName: string;
+    extractedAt: string;
+    totalNodes: number;
+    width: number;
+    height: number;
+    maxDepth: number;
+  };
+  root: StructureNode;
+}
+
 interface ExtraVarSummaryItem {
   collectionId: string;
   collectionName: string;
@@ -1360,18 +1444,44 @@ function resolveSection(node: SceneNode): string {
   return resolveSectionNode(node)?.name ?? '';
 }
 
+type IconVariantResult = {
+  props: Record<string, string>;
+  colorTokens?: string[];
+  svg: string;
+  format?: 'svg' | 'png';
+  pngBase64?: string;
+};
+
+type IconSetResult = {
+  name: string;
+  kebab: string;
+  pascal: string;
+  section: string;
+  propDefs?: Record<string, Record<string, Record<string, string | number>>>;
+  cssDefaults?: Record<string, string | number>;
+  variants: IconVariantResult[];
+};
+
+type IconSetCollected = IconSetResult & {
+  _sx: number;
+  _sy: number;
+  _nx: number;
+  _ny: number;
+};
+
+// UI 렌더링 호환용 flat 타입 (tab-icons.js 어댑터에서 생성)
 type IconResult = {
   name: string;
   kebab: string;
   pascal: string;
   variants: string[];
+  colorTokens?: string[];
   svg: string;
   section: string;
   format?: 'svg' | 'png';
   pngBase64?: string;
 };
 
-// 캔버스 절대 좌표를 포함한 내부 수집 타입 (sortByCanvasPosition에서 제거됨)
 type IconCollected = IconResult & {
   _sx: number;
   _sy: number;
@@ -1446,6 +1556,32 @@ async function exportNodeAsPng(node: SceneNode): Promise<string> {
 }
 
 // exportIcons / exportIconsAll 공통 — SVG 내보내기 후 PNG 폴백 포함한 entry 생성
+async function collectColorTokens(node: SceneNode): Promise<string[]> {
+  const varIds = new Set<string>();
+
+  function traverse(n: BaseNode) {
+    if ('fills' in n) {
+      for (const fill of (n as GeometryMixin).fills as Paint[]) {
+        const bv = (fill as any).boundVariables?.color;
+        if (bv?.type === 'VARIABLE_ALIAS') varIds.add(bv.id as string);
+      }
+    }
+    if ('children' in n) {
+      for (const child of (n as ChildrenMixin).children) traverse(child);
+    }
+  }
+  traverse(node);
+
+  if (varIds.size === 0) return [];
+
+  const names: string[] = [];
+  for (const id of varIds) {
+    const variable = await figma.variables.getVariableByIdAsync(id);
+    if (variable) names.push(toKebabCase(variable.name));
+  }
+  return names;
+}
+
 async function buildIconEntry(
   node: SceneNode,
   section: string
@@ -1456,11 +1592,13 @@ async function buildIconEntry(
   for (let i = 0; i < bytes.length; i++) svg += String.fromCharCode(bytes[i]);
 
   const { displayName, variants } = iconIdentity(node);
+  const colorTokens = await collectColorTokens(node);
   const entry: Omit<IconCollected, '_sx' | '_sy' | '_nx' | '_ny'> = {
     name: displayName,
     kebab: toKebabCase(displayName),
     pascal: toPascalCase(displayName),
     variants,
+    ...(colorTokens.length > 0 && { colorTokens }),
     svg,
     format: 'svg', // 기본값 명시 — PNG 감지 실패 시에도 앱에서 안전하게 처리
     section,
@@ -1479,65 +1617,302 @@ async function buildIconEntry(
   return entry;
 }
 
+// ── COMPONENT_SET 기반 구조화 내보내기 ──────────────────────────────────
+
+async function buildVariantCSSVars(node: SceneNode): Promise<Record<string, string | number>> {
+  const vars: Record<string, string | number> = {};
+
+  async function traverse(n: BaseNode): Promise<void> {
+    if ('fills' in n) {
+      for (const fill of (n as GeometryMixin).fills as Paint[]) {
+        if ((fill as any).visible === false) continue;
+        const bv = (fill as any).boundVariables?.color;
+        if (bv?.type === 'VARIABLE_ALIAS' && (fill as SolidPaint).color) {
+          const varName = `--${toKebabCase(n.name)}`;
+          const variable = await figma.variables.getVariableByIdAsync(bv.id);
+          const tokenKebab = variable ? toKebabCase(variable.name) : bv.id;
+          const c = (fill as SolidPaint).color;
+          const hex =
+            '#' +
+            [c.r, c.g, c.b]
+              .map((v) =>
+                Math.round(v * 255)
+                  .toString(16)
+                  .padStart(2, '0')
+              )
+              .join('');
+          vars[varName] = `var(--${tokenKebab}, ${hex})`;
+        }
+      }
+    }
+    if ((n as any).type === 'FRAME' && (n as any).clipsContent) {
+      vars[`--${toKebabCase(n.name)}-w`] = (n as any).width as number;
+    }
+    if ('children' in n) {
+      for (const child of (n as ChildrenMixin).children) await traverse(child);
+    }
+  }
+  await traverse(node);
+  return vars;
+}
+
+function buildPropDefs(
+  variantData: Array<{ props: Record<string, string>; cssVars: Record<string, string | number> }>
+): {
+  propDefs: Record<string, Record<string, Record<string, string | number>>>;
+  cssDefaults: Record<string, string | number>;
+} {
+  if (variantData.length === 0) return { propDefs: {}, cssDefaults: {} };
+
+  const allCssKeys = [...new Set(variantData.flatMap((v) => Object.keys(v.cssVars)))];
+
+  const cssDefaults: Record<string, string | number> = {};
+  const varyingKeys = new Set<string>();
+  for (const key of allCssKeys) {
+    const vals = new Set(variantData.map((v) => String(v.cssVars[key] ?? '')));
+    if (vals.size === 1) cssDefaults[key] = variantData[0].cssVars[key];
+    else varyingKeys.add(key);
+  }
+
+  if (varyingKeys.size === 0) return { propDefs: {}, cssDefaults };
+
+  const allPropKeys = [...new Set(variantData.flatMap((v) => Object.keys(v.props)))];
+  const propDefs: Record<string, Record<string, Record<string, string | number>>> = {};
+
+  for (const propKey of allPropKeys) {
+    const propValues = [...new Set(variantData.map((v) => v.props[propKey]))].sort((a, b) => {
+      const na = parseFloat(a),
+        nb = parseFloat(b);
+      return !isNaN(na) && !isNaN(nb) ? na - nb : a.localeCompare(b);
+    });
+    const propEntry: Record<string, Record<string, string | number>> = {};
+
+    for (const propValue of propValues) {
+      const group = variantData.filter((v) => v.props[propKey] === propValue);
+      const varMapping: Record<string, string | number> = {};
+
+      for (const cssKey of varyingKeys) {
+        const valsInGroup = new Set(group.map((v) => String(v.cssVars[cssKey] ?? '')));
+        if (valsInGroup.size === 1 && !valsInGroup.has('')) {
+          varMapping[cssKey] = group[0].cssVars[cssKey];
+        }
+      }
+      if (Object.keys(varMapping).length > 0) {
+        propEntry[propValue.toLowerCase()] = varMapping;
+      }
+    }
+    if (Object.keys(propEntry).length > 0) {
+      propDefs[propKey.toLowerCase()] = propEntry;
+    }
+  }
+
+  return { propDefs, cssDefaults };
+}
+
+async function buildIconSetEntry(
+  set: ComponentSetNode,
+  section: string
+): Promise<Omit<IconSetCollected, '_sx' | '_sy' | '_nx' | '_ny'>> {
+  const variantDataForDefs: Array<{
+    props: Record<string, string>;
+    cssVars: Record<string, string | number>;
+  }> = [];
+  const variants: IconVariantResult[] = [];
+
+  for (const child of set.children) {
+    if (child.type !== 'COMPONENT') continue;
+
+    const props: Record<string, string> = {};
+    child.name.split(',').forEach((seg) => {
+      const m = seg.trim().match(/^([^=]+)=(.+)$/);
+      if (m) props[m[1].trim()] = m[2].trim();
+    });
+
+    const cssVars = await buildVariantCSSVars(child as SceneNode);
+    variantDataForDefs.push({ props, cssVars });
+
+    const svgBytes = await (child as any).exportAsync({ format: 'SVG' });
+    const bytes = new Uint8Array(svgBytes);
+    let svg = '';
+    for (let i = 0; i < bytes.length; i++) svg += String.fromCharCode(bytes[i]);
+
+    const colorTokens = await collectColorTokens(child as SceneNode);
+    const variant: IconVariantResult = {
+      props,
+      ...(colorTokens.length > 0 && { colorTokens }),
+      svg,
+      format: 'svg',
+    };
+    if (svgNeedsPng(svg)) {
+      try {
+        variant.pngBase64 = await exportNodeAsPng(child as SceneNode);
+        variant.format = 'png';
+      } catch (e) {
+        console.error('[png-export] failed:', (e as Error).message);
+      }
+    }
+    variants.push(variant);
+  }
+
+  const { propDefs, cssDefaults } = buildPropDefs(variantDataForDefs);
+
+  return {
+    name: set.name,
+    kebab: toKebabCase(set.name),
+    pascal: toPascalCase(set.name),
+    section,
+    ...(Object.keys(propDefs).length > 0 && { propDefs }),
+    ...(Object.keys(cssDefaults).length > 0 && { cssDefaults }),
+    variants,
+  };
+}
+
+async function buildStandaloneSetEntry(
+  node: SceneNode,
+  section: string
+): Promise<Omit<IconSetCollected, '_sx' | '_sy' | '_nx' | '_ny'>> {
+  const entry = await buildIconEntry(node, section);
+  const propsFromVariants = Object.fromEntries(
+    (entry.variants || []).map((v) => {
+      const idx = v.indexOf('-');
+      return idx > 0 ? [v.slice(0, idx), v.slice(idx + 1)] : [v, ''];
+    })
+  );
+  return {
+    name: entry.name,
+    kebab: entry.kebab,
+    pascal: entry.pascal,
+    section: entry.section,
+    variants: [
+      {
+        props: propsFromVariants,
+        ...(entry.colorTokens &&
+          entry.colorTokens.length > 0 && { colorTokens: entry.colorTokens }),
+        svg: entry.svg,
+        format: entry.format,
+        ...(entry.pngBase64 && { pngBase64: entry.pngBase64 }),
+      },
+    ],
+  };
+}
+
+function collectSetTargets(
+  node: SceneNode,
+  seen: Set<string>,
+  section: string
+): { node: SceneNode; section: string; isSet: boolean }[] {
+  if (seen.has(node.id)) return [];
+  if (node.type === 'COMPONENT_SET') {
+    seen.add(node.id);
+    return [{ node, section, isSet: true }];
+  }
+  if (['FRAME', 'GROUP', 'SECTION'].includes(node.type)) {
+    if (!('children' in node)) return [];
+    const out: { node: SceneNode; section: string; isSet: boolean }[] = [];
+    for (const child of (node as ChildrenMixin).children) {
+      out.push(...collectSetTargets(child as SceneNode, seen, section));
+    }
+    return out;
+  }
+  if (EXPORTABLE_TYPES.has(node.type)) {
+    seen.add(node.id);
+    return [{ node, section, isSet: false }];
+  }
+  return [];
+}
+
+function sortSetsByCanvasPosition(items: IconSetCollected[]): IconSetResult[] {
+  items.sort((a, b) => a._sy - b._sy || a._sx - b._sx || a._ny - b._ny || a._nx - b._nx);
+  return items.map(({ _sx: _1, _sy: _2, _nx: _3, _ny: _4, ...rest }) => rest);
+}
+
 // 캔버스 시각적 위치 기준 정렬: 섹션 Y → 섹션 X → 아이콘 Y → 아이콘 X
 function sortByCanvasPosition(items: IconCollected[]): IconResult[] {
   items.sort((a, b) => a._sy - b._sy || a._sx - b._sx || a._ny - b._ny || a._nx - b._nx);
   return items.map(({ _sx: _1, _sy: _2, _nx: _3, _ny: _4, ...rest }) => rest);
 }
 
-async function exportIcons(): Promise<IconResult[]> {
+async function exportIcons(): Promise<IconSetResult[]> {
   const sel = figma.currentPage.selection;
   if (sel.length === 0) return [];
 
   const seen = new Set<string>();
-  const targets: { node: SceneNode; section: string }[] = [];
+  const targets: { node: SceneNode; section: string; isSet: boolean }[] = [];
   for (const node of sel) {
     const section = CONTAINER_TYPES.has(node.type) ? node.name : resolveSection(node);
-    targets.push(...collectExportTargets(node, seen, section));
+    targets.push(...collectSetTargets(node, seen, section));
   }
 
-  const collected: IconCollected[] = [];
-  for (const { node, section } of targets) {
+  const collected: IconSetCollected[] = [];
+  for (const { node, section, isSet } of targets) {
     try {
       const sectionNode = resolveSectionNode(node);
       const sp = sectionNode ? getAbsPos(sectionNode) : { x: 0, y: 0 };
       const np = getAbsPos(node);
-      const base = await buildIconEntry(node, section);
+      const base = isSet
+        ? await buildIconSetEntry(node as ComponentSetNode, section)
+        : await buildStandaloneSetEntry(node, section);
       collected.push({ ...base, _sx: sp.x, _sy: sp.y, _nx: np.x, _ny: np.y });
     } catch (_) {
       // skip nodes that can't be exported
     }
   }
-  return sortByCanvasPosition(collected);
+  return sortSetsByCanvasPosition(collected);
 }
 
-async function exportIconsAll(): Promise<IconResult[]> {
+async function exportIconsAll(): Promise<IconSetResult[]> {
   const ICON_RE = /icon|ic[/\\]/i;
-  const nodes = figma.currentPage.findAll((n) => {
-    if (n.type !== 'COMPONENT') return false;
-    if (/\bIcon=false\b/i.test(n.name)) return false;
-    const parent = n.parent;
-    const parentName = parent && 'name' in parent ? ((parent as any).name as string) : '';
-    // 1. 이름 기반 감지: "icon-*", "ic/*" 패턴
-    const nameMatch = /=/.test(n.name)
-      ? ICON_RE.test(parentName)
-      : ICON_RE.test(n.name) || ICON_RE.test(parentName);
+
+  // COMPONENT_SET 단위로 수집
+  const sets = figma.currentPage.findAll((n) => {
+    if (n.type !== 'COMPONENT_SET') return false;
+    const nameMatch = ICON_RE.test(n.name);
     if (nameMatch) return true;
-    // 2. 구조 기반 감지: COMPONENT → COMPONENT_SET → FRAME/SECTION + 소형 정사각형
-    if (parent?.type === 'COMPONENT_SET') {
-      const grandParent = parent.parent;
-      if (grandParent?.type === 'FRAME' || grandParent?.type === 'SECTION') {
-        const w = (n as any).width as number;
-        const h = (n as any).height as number;
-        return w <= 64 && h <= 64 && Math.abs(w - h) <= 8;
-      }
+    const firstChild = (n as ComponentSetNode).children[0];
+    if (firstChild) {
+      const w = (firstChild as any).width as number;
+      const h = (firstChild as any).height as number;
+      const gp = n.parent;
+      return (
+        w <= 64 &&
+        h <= 64 &&
+        Math.abs(w - h) <= 8 &&
+        (gp?.type === 'FRAME' || gp?.type === 'SECTION')
+      );
     }
     return false;
   });
 
-  const collected: IconCollected[] = [];
+  // COMPONENT_SET 없이 단독으로 있는 COMPONENT 아이콘
+  const standalones = figma.currentPage.findAll((n) => {
+    if (n.type !== 'COMPONENT') return false;
+    if (n.parent?.type === 'COMPONENT_SET') return false;
+    if (/\bIcon=false\b/i.test(n.name)) return false;
+    const w = (n as any).width as number;
+    const h = (n as any).height as number;
+    return ICON_RE.test(n.name) && w <= 64 && h <= 64 && Math.abs(w - h) <= 8;
+  });
+
+  const collected: IconSetCollected[] = [];
   const seen = new Set<string>();
-  for (const node of nodes) {
+
+  for (const node of sets) {
+    if (seen.has(node.id)) continue;
+    seen.add(node.id);
+    try {
+      const set = node as ComponentSetNode;
+      const sectionNode = resolveSectionNode(set);
+      const sp = sectionNode ? getAbsPos(sectionNode) : { x: 0, y: 0 };
+      const np = getAbsPos(set);
+      const section = sectionNode?.name ?? '';
+      const base = await buildIconSetEntry(set, section);
+      collected.push({ ...base, _sx: sp.x, _sy: sp.y, _nx: np.x, _ny: np.y });
+    } catch (_) {
+      // skip
+    }
+  }
+
+  for (const node of standalones) {
     if (seen.has(node.id)) continue;
     seen.add(node.id);
     try {
@@ -1546,13 +1921,14 @@ async function exportIconsAll(): Promise<IconResult[]> {
       const sp = sectionNode ? getAbsPos(sectionNode) : { x: 0, y: 0 };
       const np = getAbsPos(sceneNode);
       const section = sectionNode?.name ?? '';
-      const base = await buildIconEntry(sceneNode, section);
+      const base = await buildStandaloneSetEntry(sceneNode, section);
       collected.push({ ...base, _sx: sp.x, _sy: sp.y, _nx: np.x, _ny: np.y });
     } catch (_) {
-      // skip nodes that can't be exported as SVG
+      // skip
     }
   }
-  return sortByCanvasPosition(collected);
+
+  return sortSetsByCanvasPosition(collected);
 }
 
 async function extractThemes(): Promise<Record<string, { name: string; value: string }[]>> {
@@ -2667,6 +3043,221 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
   };
 }
 
+// ── Frame Inspector ───────────────────────────────────────────────────────────
+
+const JUSTIFY_MAP: Record<string, string> = {
+  MIN: 'flex-start',
+  CENTER: 'center',
+  MAX: 'flex-end',
+  SPACE_BETWEEN: 'space-between',
+};
+const ALIGN_MAP: Record<string, string> = {
+  MIN: 'flex-start',
+  CENTER: 'center',
+  MAX: 'flex-end',
+  STRETCH: 'stretch',
+  BASELINE: 'baseline',
+};
+
+function mapLayout(node: SceneNode): StructureNode['layout'] {
+  if (!('layoutMode' in node) || (node as FrameNode).layoutMode === 'NONE') {
+    return {
+      mode: 'NONE',
+      constraints:
+        'constraints' in node
+          ? {
+              horizontal: (node as any).constraints.horizontal,
+              vertical: (node as any).constraints.vertical,
+            }
+          : undefined,
+      sizing:
+        'layoutSizingHorizontal' in node
+          ? {
+              horizontal: (node as any).layoutSizingHorizontal,
+              vertical: (node as any).layoutSizingVertical,
+            }
+          : undefined,
+    };
+  }
+  const f = node as FrameNode;
+  return {
+    mode: f.layoutMode as 'HORIZONTAL' | 'VERTICAL' | 'WRAP',
+    direction: f.layoutMode === 'HORIZONTAL' ? 'row' : 'column',
+    wrap: f.layoutWrap === 'WRAP',
+    justifyContent: JUSTIFY_MAP[f.primaryAxisAlignItems] ?? f.primaryAxisAlignItems,
+    alignItems: ALIGN_MAP[f.counterAxisAlignItems] ?? f.counterAxisAlignItems,
+    gap: f.itemSpacing,
+    padding: {
+      top: f.paddingTop,
+      right: f.paddingRight,
+      bottom: f.paddingBottom,
+      left: f.paddingLeft,
+    },
+    sizing: {
+      horizontal: (f as any).layoutSizingHorizontal ?? 'FIXED',
+      vertical: (f as any).layoutSizingVertical ?? 'FIXED',
+    },
+  };
+}
+
+function extractAppearance(node: SceneNode): StructureNode['appearance'] {
+  const n = node as any;
+  let cornerRadius: number | number[] = 0;
+  if ('cornerRadius' in n) {
+    cornerRadius =
+      typeof n.cornerRadius === 'number' && n.cornerRadius !== figma.mixed
+        ? n.cornerRadius
+        : [
+            n.topLeftRadius ?? 0,
+            n.topRightRadius ?? 0,
+            n.bottomRightRadius ?? 0,
+            n.bottomLeftRadius ?? 0,
+          ];
+  }
+  return {
+    fills: 'fills' in n ? (n.fills === figma.mixed ? [] : n.fills) : [],
+    strokes: 'strokes' in n ? n.strokes : [],
+    strokeWeight: 'strokeWeight' in n ? (n.strokeWeight === figma.mixed ? 0 : n.strokeWeight) : 0,
+    strokeAlign: 'strokeAlign' in n ? n.strokeAlign : 'INSIDE',
+    cornerRadius,
+    opacity: 'opacity' in n ? n.opacity : 1,
+    effects: 'effects' in n ? n.effects : [],
+    blendMode: 'blendMode' in n ? n.blendMode : 'NORMAL',
+    clipsContent: n.type === 'FRAME' ? n.clipsContent : undefined,
+  };
+}
+
+async function extractComponentRef(node: InstanceNode): Promise<StructureNode['componentRef']> {
+  try {
+    const main = await node.getMainComponentAsync();
+    if (!main) return undefined;
+    const set = main.parent?.type === 'COMPONENT_SET' ? (main.parent as ComponentSetNode) : null;
+    let properties: Record<string, ComponentPropertyValue> = {};
+    try {
+      properties = node.componentProperties ?? {};
+    } catch (_) {}
+    return {
+      componentId: main.id,
+      componentKey: main.key,
+      componentSetKey: set?.key,
+      componentName: main.name,
+      componentSetName: set?.name,
+      properties,
+    };
+  } catch (e) {
+    console.warn('[frame-inspector] extractComponentRef failed:', String(e));
+    return undefined;
+  }
+}
+
+let _frameInspectTotal = 0;
+
+async function buildStructureNode(
+  node: SceneNode,
+  parentAbsX: number,
+  parentAbsY: number,
+  depth: number,
+  maxDepth: number
+): Promise<StructureNode> {
+  _frameInspectTotal++;
+  const abs = (node as any).absoluteBoundingBox as {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null;
+  const absX = abs?.x ?? parentAbsX;
+  const absY = abs?.y ?? parentAbsY;
+
+  const result: StructureNode = {
+    id: node.id,
+    name: node.name,
+    type: node.type,
+    visible: node.visible,
+    locked: (node as any).locked ?? false,
+    geometry: {
+      x: abs ? abs.x - parentAbsX : ((node as any).x ?? 0),
+      y: abs ? abs.y - parentAbsY : ((node as any).y ?? 0),
+      width: abs?.width ?? (node as any).width ?? 0,
+      height: abs?.height ?? (node as any).height ?? 0,
+      absoluteX: absX,
+      absoluteY: absY,
+      rotation: (node as any).rotation ?? 0,
+    },
+    layout: mapLayout(node),
+    appearance: extractAppearance(node),
+  };
+
+  if (node.type === 'TEXT') {
+    const t = node as TextNode;
+    result.text = {
+      content: t.characters,
+      fontSize: t.fontSize === figma.mixed ? 0 : t.fontSize,
+      fontFamily: t.fontName === figma.mixed ? '' : (t.fontName as FontName).family,
+      fontWeight:
+        t.fontName === figma.mixed
+          ? 400
+          : (t.fontName as FontName).style.toLowerCase().includes('bold')
+            ? 700
+            : 400,
+      fontStyle: t.fontName === figma.mixed ? 'normal' : (t.fontName as FontName).style,
+      lineHeight: t.lineHeight === figma.mixed ? { unit: 'AUTO' } : t.lineHeight,
+      letterSpacing:
+        t.letterSpacing === figma.mixed ? { unit: 'PIXELS', value: 0 } : t.letterSpacing,
+      textAlign: t.textAlignHorizontal === figma.mixed ? 'LEFT' : t.textAlignHorizontal,
+      verticalAlign: t.textAlignVertical,
+      textDecoration: t.textDecoration === figma.mixed ? 'NONE' : t.textDecoration,
+      textCase: t.textCase === figma.mixed ? 'ORIGINAL' : t.textCase,
+      fills: t.fills === figma.mixed ? [] : t.fills,
+      styleId: typeof t.textStyleId === 'string' ? t.textStyleId : undefined,
+    };
+  }
+
+  if (node.type === 'INSTANCE') {
+    result.componentRef = await extractComponentRef(node as InstanceNode);
+  }
+
+  if (depth >= maxDepth) {
+    result.truncated = true;
+    return result;
+  }
+
+  if ('children' in node && (node as any).children.length > 0) {
+    result.children = await Promise.all(
+      ((node as any).children as SceneNode[]).map((child) =>
+        buildStructureNode(child, absX, absY, depth + 1, maxDepth)
+      )
+    );
+  }
+
+  return result;
+}
+
+async function handleFrameInspect(options: { maxDepth?: number } = {}): Promise<void> {
+  const maxDepth = options.maxDepth ?? 8;
+  const node = figma.currentPage.selection[0] as SceneNode | undefined;
+  if (!node || (node.type !== 'FRAME' && node.type !== 'COMPONENT' && node.type !== 'INSTANCE')) {
+    figma.ui.postMessage({ type: 'frame-inspect-error', message: 'FRAME 노드를 선택해 주세요.' });
+    return;
+  }
+  _frameInspectTotal = 0;
+  const abs = (node as any).absoluteBoundingBox as { x: number; y: number } | null;
+  const root = await buildStructureNode(node, abs?.x ?? 0, abs?.y ?? 0, 0, maxDepth);
+  const result: FrameInspectResult = {
+    meta: {
+      frameId: node.id,
+      frameName: node.name,
+      extractedAt: new Date().toISOString(),
+      totalNodes: _frameInspectTotal,
+      width: (node as any).width ?? 0,
+      height: (node as any).height ?? 0,
+      maxDepth,
+    },
+    root,
+  };
+  figma.ui.postMessage({ type: 'frame-inspect-result', data: result });
+}
+
 figma.ui.onmessage = (msg: {
   type: string;
   options?: ExtractOptions;
@@ -2787,6 +3378,11 @@ figma.ui.onmessage = (msg: {
     generateComponent()
       .then((data) => figma.ui.postMessage({ type: 'generate-component-result', data }))
       .catch((e) => figma.ui.postMessage({ type: 'generate-component-error', message: String(e) }));
+  }
+  if (msg.type === 'export-frame-inspect') {
+    handleFrameInspect((msg as any).options ?? {}).catch((e) =>
+      figma.ui.postMessage({ type: 'frame-inspect-error', message: String(e) })
+    );
   }
   if (msg.type === 'registry-get') {
     const key = `pf-registry-${figma.root.id}`;

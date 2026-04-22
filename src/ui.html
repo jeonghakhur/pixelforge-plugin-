@@ -1848,6 +1848,7 @@
       <button class="main-tab" data-tab="themes" data-i18n="tabs.theme">테마</button>
       <button class="main-tab" data-tab="component" data-i18n="tabs.component">컴포넌트</button>
       <button class="main-tab" data-tab="images" data-i18n="tabs.image">이미지</button>
+      <button class="main-tab" data-tab="frame" data-i18n="tabs.frame">프레임</button>
       <button class="main-tab" data-tab="settings" data-i18n="tabs.settings">설정</button>
     </div>
 
@@ -3157,6 +3158,94 @@
           </button>
           <button class="btn-ghost" id="pfSendImagesBtn" style="flex-shrink: 0" disabled data-i18n="settings.sendBtn">PixelForge로 전송</button>
         </div>
+      </div>
+    </div>
+
+    <!-- ── Frame Inspector Panel ── -->
+    <div
+      class="tab-panel"
+      id="panel-frame"
+      style="display: none; flex-direction: column; flex: 1; overflow: hidden"
+    >
+      <div class="tab-body" style="overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 12px;">
+        <!-- 선택 정보 -->
+        <div
+          id="frameSelInfo"
+          style="font-size: 12px; color: var(--text-muted); padding: 6px 10px; background: var(--bg); border-radius: 6px;"
+        >
+          선택된 노드 없음
+        </div>
+
+        <!-- 옵션 -->
+        <div class="section-card">
+          <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">추출 옵션</div>
+          <div style="display: flex; align-items: center; gap: 8px; font-size: 12px;">
+            <label style="color: var(--text-secondary);">최대 깊이</label>
+            <input
+              id="frameMaxDepth"
+              type="number"
+              min="1"
+              max="20"
+              value="8"
+              style="
+                width: 56px;
+                padding: 4px 8px;
+                border: 1px solid var(--border);
+                border-radius: var(--radius-sm);
+                background: var(--surface2);
+                color: var(--text-primary);
+                font-size: 12px;
+                outline: none;
+              "
+            />
+          </div>
+        </div>
+
+        <!-- 상태: 빈 상태 -->
+        <div id="frameStateIdle" class="section-card" style="text-align: center; color: var(--text-muted); font-size: 12px; padding: 24px 16px;">
+          FRAME 노드를 선택 후 추출하세요
+        </div>
+
+        <!-- 상태: 추출 중 -->
+        <div id="frameStateLoading" class="section-card hidden" style="text-align: center; color: var(--text-muted); font-size: 12px; padding: 24px 16px;">
+          추출 중...
+        </div>
+
+        <!-- 상태: 결과 -->
+        <div id="frameStateResult" class="section-card hidden" style="font-size: 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span id="frameResultMeta" style="color: var(--text-muted);"></span>
+          </div>
+          <div id="frameResultPreview" style="
+            font-family: monospace;
+            font-size: 11px;
+            color: var(--text-secondary);
+            background: var(--bg);
+            border-radius: 4px;
+            padding: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+          "></div>
+        </div>
+
+        <!-- 오류 -->
+        <div id="frameStateError" class="section-card hidden" style="color: var(--error, #e74c3c); font-size: 12px; padding: 12px 16px;">
+        </div>
+      </div>
+
+      <!-- Bottom Bar -->
+      <div class="result-bar" style="align-items: center; gap: 8px;">
+        <button class="btn-ghost" id="frameExtractBtn" style="flex: 1;">
+          프레임 추출
+        </button>
+        <button class="btn-ghost" id="frameDownloadBtn" disabled>
+          ⬇ JSON
+        </button>
+        <button class="btn-ghost" id="pfSendFrameBtn" disabled data-i18n="settings.sendBtn">
+          PixelForge로 전송
+        </button>
       </div>
     </div>
 

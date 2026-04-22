@@ -49,6 +49,7 @@ import {
 } from './ui/component-builders.js';
 import { imageAssets, setImgState, renderImageList, setImgOutputPath } from './ui/tab-images.js';
 import { loadSettings, onSettingsData, isPfConnected } from './ui/tab-settings.js';
+import { updateFrameSelInfo, onFrameInspectResult, onFrameInspectError } from './ui/tab-frame.js';
 
 // ── scope 변경 → icon tab syncIconMode 연결 ──
 // tab-extract의 scope radio 리스너에서 window._syncIconMode()를 호출
@@ -70,6 +71,7 @@ var tabPanels = {
   themes: $('panel-themes'),
   component: $('panel-component'),
   images: $('panel-images'),
+  frame: $('panel-frame'),
   settings: $('panel-settings'),
 };
 
@@ -100,6 +102,9 @@ function switchMainTab(tab) {
   if (tab === 'component') {
     updateCompSelInfo();
     if (isPfConnected() && state.figmaFileKey) refreshComponentDbStatus();
+  }
+  if (tab === 'frame') {
+    updateFrameSelInfo(state.lastSelection);
   }
 }
 
@@ -380,6 +385,15 @@ window.onmessage = function (event) {
   if (msg.type === 'selection-changed') {
     if (currentMainTab === 'icons') updateIconSelInfo();
     if (currentMainTab === 'component') onCompSelectionChanged();
+    if (currentMainTab === 'frame') updateFrameSelInfo(msg.selection);
+  }
+
+  // Frame Inspector results
+  if (msg.type === 'frame-inspect-result') {
+    onFrameInspectResult(msg.data);
+  }
+  if (msg.type === 'frame-inspect-error') {
+    onFrameInspectError(msg.message);
   }
 };
 

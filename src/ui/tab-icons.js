@@ -9,8 +9,32 @@ import { $, showToast, copyToClipboard, getScope, sendToPixelForge } from './uti
 // ══════════════════════════════════════════════
 // ── Icon Tab ──
 // ══════════════════════════════════════════════
-var iconData = [];
+var iconData = [];        // flat list — UI 렌더링용
+var iconRawData = [];     // grouped IconSetResult[] — JSON 다운로드/전송용
 var iconMode = 'all';
+
+// IconSetResult[] → flat IconResult[] 어댑터 (UI 렌더링 호환)
+function flattenIconSets(sets) {
+  return sets.flatMap(function (iconSet) {
+    // 구 포맷(string[] variants) 그대로 패스
+    if (!iconSet.variants || typeof iconSet.variants[0] === 'string') return [iconSet];
+    return iconSet.variants.map(function (variant) {
+      return {
+        name: iconSet.name,
+        kebab: iconSet.kebab,
+        pascal: iconSet.pascal,
+        section: iconSet.section,
+        variants: Object.entries(variant.props || {}).map(function (entry) {
+          return (entry[0] + '-' + entry[1]).toLowerCase().replace(/\s+/g, '-');
+        }),
+        colorTokens: variant.colorTokens,
+        svg: variant.svg,
+        format: variant.format,
+        pngBase64: variant.pngBase64,
+      };
+    });
+  });
+}
 export var exportIconsBtn = $('exportIconsBtn');
 export var exportIconsAllBtn = $('exportIconsAllBtn');
 
@@ -873,8 +897,9 @@ try { $('iconCacheClearBtn').addEventListener('click', function () {
 }); } catch(e) { showToast('[icons init] iconCacheClearBtn: ' + e.message); }
 
 export function renderIconResults(data) {
-  iconData = data;
-  iconFilteredData = data.slice();
+  iconRawData = data;
+  iconData = flattenIconSets(data);
+  iconFilteredData = iconData.slice();
   iconSearchQuery = '';
   iconSelectedIdx = null;
 
@@ -994,27 +1019,29 @@ try { $('iconDetailCopyBtn').addEventListener('click', function () {
 // Node JSON 저장
 try { $('iconCopyAllBtn').addEventListener('click', function () {
   if (iconData.length === 0) { showToast(t('icon.noIcons')); return; }
-  var sections = iconData.reduce(function(acc, ic) {
+  var sections = iconRawData.reduce(function(acc, ic) {
     if (ic.section && acc.indexOf(ic.section) === -1) acc.push(ic.section);
     return acc;
   }, []);
+  var variantCount = iconData.length;
   var payload = {
     meta: {
       extractedAt: new Date().toISOString(),
-      totalCount: iconData.length,
+      totalCount: iconRawData.length,
+      variantCount: variantCount,
       sections: sections,
     },
-    icons: iconData,
+    icons: iconRawData,
   };
   var json = JSON.stringify(payload, null, 2);
   var blob = new Blob([json], { type: 'application/json' });
   var url = URL.createObjectURL(blob);
   var a = document.createElement('a');
   a.href = url;
-  a.download = 'icons-node-' + iconData.length + '.json';
+  a.download = 'icons-node-' + variantCount + '.json';
   a.click();
   URL.revokeObjectURL(url);
-  showToast(lang === 'ko' ? 'icons-node-' + iconData.length + '.json 저장됨' : 'Saved icons-node-' + iconData.length + '.json');
+  showToast(lang === 'ko' ? 'icons-node-' + variantCount + '.json 저장됨' : 'Saved icons-node-' + variantCount + '.json');
 }); } catch(e) { showToast('[icons init] iconCopyAllBtn: ' + e.message); }
 
 // SVG ZIP 다운로드
@@ -1068,17 +1095,18 @@ if (pfSendIconsBtn) {
     pfSendIconsBtn.disabled = true;
     pfSendIconsBtn.textContent = t('settings.sending');
     try {
-      var sections = iconData.reduce(function(acc, ic) {
-    if (ic.section && acc.indexOf(ic.section) === -1) acc.push(ic.section);
-    return acc;
-  }, []);
+      var sections = iconRawData.reduce(function(acc, ic) {
+        if (ic.section && acc.indexOf(ic.section) === -1) acc.push(ic.section);
+        return acc;
+      }, []);
       var result = await sendToPixelForge('/api/sync/icons', {
         meta: {
           extractedAt: new Date().toISOString(),
-          totalCount: iconData.length,
+          totalCount: iconRawData.length,
+          variantCount: iconData.length,
           sections: sections,
         },
-        icons: iconData,
+        icons: iconRawData,
       });
       if (result) showToast(t('settings.sendSuccess'));
     } finally {

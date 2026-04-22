@@ -12,6 +12,7 @@ var i18n = {
       theme: '테마',
       component: '컴포넌트',
       image: '이미지',
+      frame: '프레임',
       settings: '설정',
     },
     extract: {
@@ -201,6 +202,7 @@ var i18n = {
       theme: 'Theme',
       component: 'Component',
       image: 'Images',
+      frame: 'Frame',
       settings: 'Settings',
     },
     extract: {
