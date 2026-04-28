@@ -1826,6 +1826,45 @@ async function buildIconSetEntry(
   };
 }
 
+// Type prop이 있는 ComponentSet을 Type 값별 항목으로 분리
+// "Featured icon" (68 variants) → ["Featured icon Light", "Featured icon Dark", ...]
+// 앱이 DB 항목 1개 = 컴포넌트 파일 1개로 처리하는 1:1 매핑 보장
+function splitIconSetByType(
+  entry: Omit<IconSetCollected, '_sx' | '_sy' | '_nx' | '_ny'>
+): Omit<IconSetCollected, '_sx' | '_sy' | '_nx' | '_ny'>[] {
+  const typeKey = Object.keys(entry.variants[0]?.props ?? {}).find(
+    (k) => k.toLowerCase() === 'type'
+  );
+  if (!typeKey) return [entry];
+
+  const typeValues = [...new Set(entry.variants.map((v) => v.props[typeKey]))].filter(Boolean);
+  if (typeValues.length <= 1) return [entry];
+
+  return typeValues.map((typeVal) => {
+    const filtered = entry.variants
+      .filter((v) => v.props[typeKey] === typeVal)
+      .map((v) => {
+        const { [typeKey]: _removed, ...restProps } = v.props;
+        return { ...v, props: restProps };
+      });
+
+    const newPropDefs = entry.propDefs
+      ? Object.fromEntries(Object.entries(entry.propDefs).filter(([k]) => k !== typeKey))
+      : undefined;
+
+    return {
+      ...entry,
+      name: `${entry.name} ${typeVal}`,
+      pascal: `${entry.pascal}${toPascalCase(typeVal)}`,
+      kebab: `${entry.kebab}-${toKebabCase(typeVal)}`,
+      variants: filtered,
+      ...(newPropDefs && Object.keys(newPropDefs).length > 0
+        ? { propDefs: newPropDefs }
+        : { propDefs: undefined }),
+    };
+  });
+}
+
 async function buildStandaloneSetEntry(
   node: SceneNode,
   section: string
@@ -1933,10 +1972,12 @@ async function exportIcons(): Promise<IconSetResult[]> {
       const sectionNode = resolveSectionNode(node);
       const sp = sectionNode ? getAbsPos(sectionNode) : { x: 0, y: 0 };
       const np = getAbsPos(node);
-      const base = isSet
-        ? await buildIconSetEntry(node as ComponentSetNode, section)
-        : await buildStandaloneSetEntry(node, section);
-      collected.push({ ...base, _sx: sp.x, _sy: sp.y, _nx: np.x, _ny: np.y });
+      const entries = isSet
+        ? splitIconSetByType(await buildIconSetEntry(node as ComponentSetNode, section))
+        : [await buildStandaloneSetEntry(node, section)];
+      for (const entry of entries) {
+        collected.push({ ...entry, _sx: sp.x, _sy: sp.y, _nx: np.x, _ny: np.y });
+      }
     } catch (_) {
       // skip nodes that can't be exported
     }
@@ -1990,8 +2031,9 @@ async function exportIconsAll(): Promise<IconSetResult[]> {
       const sp = sectionNode ? getAbsPos(sectionNode) : { x: 0, y: 0 };
       const np = getAbsPos(set);
       const section = sectionNode?.name ?? '';
-      const base = await buildIconSetEntry(set, section);
-      collected.push({ ...base, _sx: sp.x, _sy: sp.y, _nx: np.x, _ny: np.y });
+      for (const entry of splitIconSetByType(await buildIconSetEntry(set, section))) {
+        collected.push({ ...entry, _sx: sp.x, _sy: sp.y, _nx: np.x, _ny: np.y });
+      }
     } catch (_) {
       // skip
     }
