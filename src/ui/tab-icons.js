@@ -1093,14 +1093,21 @@ if (pfSendIconsBtn) {
         if (ic.section && acc.indexOf(ic.section) === -1) acc.push(ic.section);
         return acc;
       }, []);
+      var fileKey = state.figmaFileKey
+        || (state.extractedData && state.extractedData.meta && state.extractedData.meta.figmaFileKey)
+        || null;
+      if (!fileKey) {
+        showToast('설정 탭에서 Figma 파일 키를 먼저 저장해 주세요.', 'error');
+        return;
+      }
       var result = await sendToPixelForge('/api/sync/icons', {
-        meta: {
-          extractedAt: new Date().toISOString(),
-          totalCount: iconRawData.length,
-          variantCount: iconData.length,
-          sections: sections,
-        },
-        icons: iconRawData,
+        figmaFileKey: fileKey,
+        icons: iconRawData.map(function(iconSet) {
+          var firstVariant = iconSet.variants && iconSet.variants[0];
+          return Object.assign({}, iconSet, {
+            svg: firstVariant ? (firstVariant.svg || '') : '',
+          });
+        }),
       });
       if (result) showToast(t('settings.sendSuccess'));
     } finally {

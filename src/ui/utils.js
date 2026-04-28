@@ -53,10 +53,10 @@ export async function sendToPixelForge(endpoint, data, method) {
 
     if (reqMethod === 'POST') {
       var meta = state.extractedData ? state.extractedData.meta : {};
-      // data에 이미 figmaFileKey가 있으면 우선, 없으면 meta에서 보완
       var payload = Object.assign({}, data);
-      if (!payload.figmaFileKey) payload.figmaFileKey = (meta && meta.figmaFileKey) || state.figmaFileKey || null;
-      if (!payload.figmaFileName) payload.figmaFileName = (meta && meta.fileName) || state.figmaFileName || null;
+      // null/undefined일 때만 보완 (빈 문자열 ''은 그대로 유지)
+      if (payload.figmaFileKey == null) payload.figmaFileKey = (meta && meta.figmaFileKey) || state.figmaFileKey || null;
+      if (payload.figmaFileName == null) payload.figmaFileName = (meta && meta.fileName) || state.figmaFileName || null;
       fetchOpts.headers['Content-Type'] = 'application/json';
       fetchOpts.body = JSON.stringify(payload);
     }

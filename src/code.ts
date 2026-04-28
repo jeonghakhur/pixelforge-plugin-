@@ -2326,14 +2326,14 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
   const styleIdMap = new Map<string, string>();
   const paintStyles = await figma.getLocalPaintStylesAsync();
   for (const style of paintStyles) {
-    styleIdMap.set(style.id, toCssVarName(style.name, true));
+    styleIdMap.set(style.id, toCssVarName(style.name, false)); // Paint Style은 full path 사용
     const paint = (style.paints as ReadonlyArray<Paint>)[0];
     if (paint?.type === 'SOLID') {
       const hex = figmaColorToHex((paint as SolidPaint).color);
       if (!colorMap.has(hex)) colorMap.set(hex, toCssVarName(style.name));
     }
   }
-  // Effect Styles
+  // Effect Styles — 마지막 세그먼트가 이미 시맨틱 토큰명이므로 alias 방식 사용
   const effectStyles = await figma.getLocalEffectStylesAsync();
   for (const style of effectStyles) {
     styleIdMap.set(style.id, toCssVarName(style.name, true));
@@ -2469,7 +2469,8 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
     }
 
     // stroke → strokeStyleId 토큰 우선
-    if ('strokes' in n) {
+    // VECTOR/SVG 노드는 getCSSAsync가 SVG stroke 속성을 이미 반환 → border-image 중복 방지
+    if ('strokes' in n && !s['stroke']) {
       const strokeStyleId = 'strokeStyleId' in n ? (n as any).strokeStyleId : '';
       if (typeof strokeStyleId === 'string' && strokeStyleId && styleIdMap.has(strokeStyleId)) {
         const sw = 'strokeWeight' in n ? Math.round((n as any).strokeWeight) || 1 : 1;
@@ -2490,11 +2491,13 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
               delete s['border-color'];
             }
           } else {
-            s['border-width'] = sw + 'px';
-            s['border-style'] = getBorderStyle(n);
-            s['border-image'] = 'var(' + styleIdMap.get(strokeStyleId)! + ')';
-            delete s['border'];
+            // Solid paint style → border: Xpx solid var(--token)
+            s['border'] =
+              sw + 'px ' + getBorderStyle(n) + ' var(' + styleIdMap.get(strokeStyleId)! + ')';
+            delete s['border-width'];
+            delete s['border-style'];
             delete s['border-color'];
+            delete s['border-image'];
           }
         } catch {
           // getStyleById 실패 시 → strokes 배열 직접 확인
@@ -2508,11 +2511,12 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
               s['border'] = sw + 'px ' + getBorderStyle(n) + ' ' + rgba;
             }
           } else {
-            s['border-width'] = sw + 'px';
-            s['border-style'] = getBorderStyle(n);
-            s['border-image'] = 'var(' + styleIdMap.get(strokeStyleId)! + ')';
-            delete s['border'];
+            s['border'] =
+              sw + 'px ' + getBorderStyle(n) + ' var(' + styleIdMap.get(strokeStyleId)! + ')';
+            delete s['border-width'];
+            delete s['border-style'];
             delete s['border-color'];
+            delete s['border-image'];
           }
         }
       } else {
@@ -2537,6 +2541,20 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
           }
         }
       }
+    }
+
+    // VECTOR/LINE 노드: CSS border는 SVG에서 무의미 → stroke/stroke-width로 변환
+    if (
+      (n.type === 'VECTOR' || n.type === 'BOOLEAN_OPERATION' || n.type === 'LINE') &&
+      s['border']
+    ) {
+      const m = s['border'].match(/^(\d+)px\s+\S+\s+(.+)$/);
+      if (m) {
+        s['stroke-width'] = m[1] + 'px';
+        s['stroke'] = m[2];
+      }
+      delete s['border'];
+      delete s['border-image'];
     }
 
     // effects → effectStyleId 토큰 우선
@@ -2604,11 +2622,11 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
       }
     }
 
-    // 도형 노드의 iconColor 추출
+    // 도형 노드의 iconColor 추출 (stroke 우선, 없으면 border)
     if ('fills' in n && n.type !== 'TEXT' && n.type !== 'FRAME' && n.type !== 'GROUP') {
-      const border = s['border'];
-      if (border) {
-        const varMatch = border.match(/var\([^)]+\)/);
+      const strokeVal = s['stroke'] || s['border'];
+      if (strokeVal) {
+        const varMatch = strokeVal.match(/var\([^)]+\)/);
         if (varMatch) s['iconColor'] = varMatch[0];
       }
     }
@@ -2652,7 +2670,15 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
         const fills = (n as any).fills;
         if (Array.isArray(fills)) {
           const solid = fills.find((f: any) => f.type === 'SOLID' && f.visible !== false);
-          if (solid) s[fillProp] = resolveColor(solid.color);
+          if (solid) {
+            if (typeof solid.opacity === 'number' && solid.opacity < 1) {
+              const c = solid.color;
+              s[fillProp] =
+                `rgba(${Math.round(c.r * 255)},${Math.round(c.g * 255)},${Math.round(c.b * 255)},${Math.round(solid.opacity * 100) / 100})`;
+            } else {
+              s[fillProp] = resolveColor(solid.color);
+            }
+          }
         }
       }
     }
@@ -2752,7 +2778,8 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
     }
 
     // stroke: strokeStyleId 우선 → boundVariables → raw 값
-    if ('strokes' in n) {
+    // VECTOR/SVG 노드는 getCSSAsync가 SVG stroke를 이미 반환 → border-image 중복 방지
+    if ('strokes' in n && !s['stroke']) {
       const strokeWeight = 'strokeWeight' in n ? Math.round((n as any).strokeWeight) || 1 : 1;
       const strokeStyleId = 'strokeStyleId' in n ? (n as any).strokeStyleId : '';
 
@@ -2769,14 +2796,28 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
               s['border'] = strokeWeight + 'px ' + getBorderStyle(n) + ' ' + rgba;
             }
           } else {
-            s['border-width'] = strokeWeight + 'px';
-            s['border-style'] = getBorderStyle(n);
-            s['border-image'] = 'var(' + styleIdMap.get(strokeStyleId)! + ')';
+            s['border'] =
+              strokeWeight +
+              'px ' +
+              getBorderStyle(n) +
+              ' var(' +
+              styleIdMap.get(strokeStyleId)! +
+              ')';
+            delete s['border-width'];
+            delete s['border-style'];
+            delete s['border-image'];
           }
         } catch {
-          s['border-width'] = strokeWeight + 'px';
-          s['border-style'] = getBorderStyle(n);
-          s['border-image'] = 'var(' + styleIdMap.get(strokeStyleId)! + ')';
+          s['border'] =
+            strokeWeight +
+            'px ' +
+            getBorderStyle(n) +
+            ' var(' +
+            styleIdMap.get(strokeStyleId)! +
+            ')';
+          delete s['border-width'];
+          delete s['border-style'];
+          delete s['border-image'];
         }
       } else {
         const bound = resolveBoundColor(n, 'strokes');
@@ -2807,6 +2848,20 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
           }
         }
       }
+    }
+
+    // VECTOR/LINE 노드: CSS border는 SVG에서 무의미 → stroke/stroke-width로 변환
+    if (
+      (n.type === 'VECTOR' || n.type === 'BOOLEAN_OPERATION' || n.type === 'LINE') &&
+      s['border']
+    ) {
+      const m = s['border'].match(/^(\d+)px\s+\S+\s+(.+)$/);
+      if (m) {
+        s['stroke-width'] = m[1] + 'px';
+        s['stroke'] = m[2];
+      }
+      delete s['border'];
+      delete s['border-image'];
     }
 
     // effects: effectStyleId 우선 → raw shadow 값
@@ -3043,11 +3098,17 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
 
   if (parentSet) {
     const grandParent = parentSet.parent;
-    const isNamedContainer =
-      grandParent &&
-      (grandParent.type === 'FRAME' || grandParent.type === 'GROUP') &&
-      grandParent.name;
-    componentSetName = isNamedContainer ? grandParent.name : parentSet.name;
+    const gpName =
+      grandParent && (grandParent.type === 'FRAME' || grandParent.type === 'GROUP')
+        ? grandParent.name
+        : '';
+    // grandParent 이름이 componentSet 이름과 포함 관계인 경우만 상위 이름 사용
+    // "Featured icon" ↔ "Button close X" 처럼 무관한 이름이면 parentSet.name 사용
+    const gpLower = gpName.toLowerCase();
+    const psFirst = parentSet.name.toLowerCase().split(/[\s/]/)[0];
+    const isRelatedContainer =
+      gpName && (parentSet.name.toLowerCase().includes(gpLower) || gpLower.includes(psFirst));
+    componentSetName = isRelatedContainer ? gpName : parentSet.name;
     const vgProps = parentSet.variantGroupProperties ?? {};
     variantOptions = {};
     for (const [key, val] of Object.entries(vgProps)) {
