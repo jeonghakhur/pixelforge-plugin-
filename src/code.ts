@@ -2468,6 +2468,10 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
       if (!isText && s['background']) delete s['background'];
     }
 
+    // strokes → stroke (VECTOR 노드에서 getCSSAsync가 full-path 이름을 반환하는 경우 alias 단축명으로 교체)
+    const strokeVar = resolveBoundColor(n, 'strokes');
+    if (strokeVar && s['stroke']) s['stroke'] = strokeVar;
+
     // stroke → strokeStyleId 토큰 우선
     // VECTOR/SVG 노드는 getCSSAsync가 SVG stroke 속성을 이미 반환 → border-image 중복 방지
     if ('strokes' in n && !s['stroke']) {
