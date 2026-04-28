@@ -18,12 +18,26 @@ function flattenIconSets(sets) {
   return sets.flatMap(function (iconSet) {
     // 구 포맷(string[] variants) 그대로 패스
     if (!iconSet.variants || typeof iconSet.variants[0] === 'string') return [iconSet];
+    // "FileTypeIconDefault" → "FileTypeDefault" (중복 Icon 제거)
+    var baseNoIcon = (iconSet.pascal || '').replace(/Icon(?=[A-Z]|$)/g, '');
     return iconSet.variants.map(function (variant) {
+      // 각 prop value를 PascalCase로 변환 (원본 대소문자 유지: SVG→SVG, Image→Image)
+      var variantPascal = Object.values(variant.props || {}).map(function (val) {
+        return String(val)
+          .replace(/\(.*?\)/g, '').trim()            // "(after effects)" 제거
+          .replace(/[^a-zA-Z0-9]+/g, ' ').trim()
+          .split(/\s+/).filter(Boolean)
+          .map(function (w) {
+            // 2자 이상 ALL-CAPS는 그대로 (SVG, PNG, RAR...)
+            return /^[A-Z0-9]{2,}$/.test(w) ? w : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+          }).join('');
+      }).join('');
       return {
         name: iconSet.name,
         kebab: iconSet.kebab,
         pascal: iconSet.pascal,
         section: iconSet.section,
+        pascalFileName: 'Icon' + baseNoIcon + variantPascal,
         variants: Object.entries(variant.props || {}).map(function (entry) {
           return (entry[0] + '-' + entry[1]).toLowerCase().replace(/\s+/g, '-');
         }),
@@ -42,8 +56,8 @@ export var exportIconsAllBtn = $('exportIconsAllBtn');
 var iconSearchQuery = '';
 var iconFilteredData = [];
 var iconSelectedIdx = null;
-var iconColorMode = 'currentColor';
-var iconColorValue = 'currentColor';
+var iconColorMode = 'original';
+var iconColorValue = '';
 var iconDetailTab = 'svg';
 
 // ── SVG 색상 치환 ──
@@ -64,13 +78,13 @@ function replaceSvgColor(svg, mode, value) {
   return replaceOutsideClipPath(svg, function (chunk) {
     return chunk
       .replace(/fill="([^"]*)"/g, function (_, v) {
-        if (KEEP.test(v)) return 'fill="' + v + '"';
+        if (KEEP.test(v) || mode === 'original') return 'fill="' + v + '"';
         if (mode === 'currentColor') return 'fill="currentColor"';
         if (mode === 'cssVar') return 'fill="var(' + value + ')"';
         return 'fill="' + value + '"';
       })
       .replace(/stroke="([^"]*)"/g, function (_, v) {
-        if (KEEP.test(v)) return 'stroke="' + v + '"';
+        if (KEEP.test(v) || mode === 'original') return 'stroke="' + v + '"';
         if (mode === 'currentColor') return 'stroke="currentColor"';
         if (mode === 'cssVar') return 'stroke="var(' + value + ')"';
         return 'stroke="' + value + '"';
@@ -379,55 +393,6 @@ function buildReactFile(icon, processedSvg, iconSizes) {
   );
 }
 
-// ZIP 전체 CSS 파일 생성
-// allIcons: 사이즈 수집용 전체 목록, icons: CSS 클래스 생성용 (중복제거된) 목록
-function buildIconsCss(icons, allIcons) {
-  var date = new Date().toISOString().slice(0, 10);
-  var sizePxMap = collectIconSizePx(allIcons || icons);
-  var sizeEntries = Object.keys(sizePxMap).sort();
-
-  var sizeClasses = sizeEntries.length
-    ? sizeEntries
-        .map(function (name) {
-          var px = sizePxMap[name];
-          return '.size-' + name + ' { width: ' + px + 'px; height: ' + px + 'px; }';
-        })
-        .join('\n') + '\n\n'
-    : '';
-
-  var header =
-    '/* PixelForge Icon CSS — ' +
-    date +
-    ' */\n' +
-    '/* Usage: <span class="icon icon-android size-default"></span> */\n\n' +
-    '.icon {\n' +
-    '  display: inline-block;\n' +
-    '  width: 1em;\n' +
-    '  height: 1em;\n' +
-    '  background-color: currentColor;\n' +
-    '  mask-repeat: no-repeat;\n' +
-    '  mask-size: contain;\n' +
-    '  mask-position: center;\n' +
-    '  -webkit-mask-repeat: no-repeat;\n' +
-    '  -webkit-mask-size: contain;\n' +
-    '  -webkit-mask-position: center;\n' +
-    '}\n\n' +
-    sizeClasses;
-
-  var classes = icons
-    .map(function (icon) {
-      var fname = iconFileName(icon);
-      return (
-        '.' + fname + ' {\n' +
-        '  mask-image: url("../svg/' + fname + '.svg");\n' +
-        '  -webkit-mask-image: url("../svg/' + fname + '.svg");\n' +
-        '}'
-      );
-    })
-    .join('\n\n');
-
-  return header + classes + '\n';
-}
 
 // ZIP 레지스트리 파일 (Icon.tsx)
 function buildIconRegistryFile(icons, iconSizes) {
@@ -505,19 +470,17 @@ function buildIndexFile(icons) {
   return exports.join('\n') + '\n';
 }
 
-// SVG ZIP: svg/ + css/
+// SVG ZIP: svg/
 async function downloadSvgZip(icons) {
   var zip = new JSZip();
   var svgFolder = zip.folder('svg');
-  var cssFolder = zip.folder('css');
   icons.forEach(function (icon) {
-    var fname = iconFileName(icon);
+    var fname = icon.pascalFileName || iconFileName(icon);
     svgFolder.file(
       fname + '.svg',
       replaceSvgColor(cleanSvg(icon.svg), iconColorMode, iconColorValue)
     );
   });
-  cssFolder.file('icons.css', buildIconsCss(icons, icons));
   var blob = await zip.generateAsync({ type: 'blob' });
   var url = URL.createObjectURL(blob);
   var a = document.createElement('a');
@@ -980,6 +943,7 @@ try { $('iconColorModeSelect').addEventListener('change', function () {
   iconColorMode = this.value;
   $('iconColorVarInput').classList.toggle('hidden', iconColorMode !== 'cssVar');
   $('iconColorPicker').classList.toggle('hidden', iconColorMode !== 'custom');
+  if (iconColorMode === 'original') iconColorValue = '';
   if (iconColorMode === 'currentColor') iconColorValue = 'currentColor';
   if (iconColorMode === 'cssVar') iconColorValue = $('iconColorVarInput').value || '--icon-color';
   if (iconColorMode === 'custom') iconColorValue = $('iconColorPicker').value;
