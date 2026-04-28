@@ -1848,8 +1848,11 @@ function splitIconSetByType(
         return { ...v, props: restProps };
       });
 
+    const typeKeyLower = typeKey.toLowerCase();
     const newPropDefs = entry.propDefs
-      ? Object.fromEntries(Object.entries(entry.propDefs).filter(([k]) => k !== typeKey))
+      ? Object.fromEntries(
+          Object.entries(entry.propDefs).filter(([k]) => k.toLowerCase() !== typeKeyLower)
+        )
       : undefined;
 
     return {
