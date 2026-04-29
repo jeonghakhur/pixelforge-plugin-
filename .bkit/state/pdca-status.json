@@ -1,6 +1,6 @@
 {
   "version": "2.0",
-  "lastUpdated": "2026-04-28T08:14:42.474Z",
+  "lastUpdated": "2026-04-28T09:37:24.884Z",
   "activeFeatures": [
     "pixelforge-plugin-",
     "converters",
@@ -108,7 +108,7 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-31T07:49:57.839Z",
-        "lastUpdated": "2026-04-23T02:18:22.687Z"
+        "lastUpdated": "2026-04-28T09:37:24.884Z"
       },
       "lastFile": "/Users/jeonghak/work/pixelforge-plugin-/src/ui/tab-icons.js"
     },
@@ -317,7 +317,7 @@
   "session": {
     "startedAt": "2026-03-30T05:13:36.824Z",
     "onboardingCompleted": false,
-    "lastActivity": "2026-04-28T08:14:42.474Z"
+    "lastActivity": "2026-04-28T09:37:24.884Z"
   },
   "history": [
     {
@@ -4799,6 +4799,66 @@
     {
       "timestamp": "2026-04-28T08:14:42.474Z",
       "feature": "pixelforge-plugin-",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-28T09:09:55.913Z",
+      "feature": "ui",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-28T09:10:04.847Z",
+      "feature": "ui",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-28T09:10:09.727Z",
+      "feature": "ui",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-28T09:10:16.207Z",
+      "feature": "ui",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-28T09:10:48.020Z",
+      "feature": "ui",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-28T09:10:58.154Z",
+      "feature": "ui",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-28T09:22:19.262Z",
+      "feature": "ui",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-28T09:22:25.585Z",
+      "feature": "ui",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-28T09:37:19.148Z",
+      "feature": "ui",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-28T09:37:24.884Z",
+      "feature": "ui",
       "phase": "do",
       "action": "updated"
     }
