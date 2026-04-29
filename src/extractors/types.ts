@@ -73,4 +73,9 @@ export interface NodeTreeContext {
   getStyles: (node: SceneNode) => Record<string, string>;
   /** 노드 → 안전한 텍스트 문자열 (master fallback 포함) */
   getText: (node: SceneNode) => string;
+  /**
+   * VECTOR/BOOLEAN_OPERATION 노드 ID → SVG path 문자열.
+   * exportAsync로 사전 수집된 정확한 경로. 없으면 vectorPaths fallback.
+   */
+  vectorPathCache?: ReadonlyMap<string, string>;
 }

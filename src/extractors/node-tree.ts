@@ -44,9 +44,10 @@ export function buildNodeTree(
     if (shape === 'ellipse' && !entry.styles['border-radius']) {
       entry.styles['border-radius'] = '50%';
     }
-    // VECTOR: pathData 선택적 추출
-    if (shape === 'vector') {
-      const pathData = extractVectorPath(node as VectorNode);
+    // VECTOR: exportAsync 캐시 우선, fallback으로 vectorPaths
+    if (shape === 'vector' || shape === 'boolean') {
+      const cached = ctx.vectorPathCache?.get((node as SceneNode & { id: string }).id);
+      const pathData = cached ?? extractVectorPath(node as VectorNode);
       if (pathData) entry.pathData = pathData;
     }
   }

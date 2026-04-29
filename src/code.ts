@@ -3122,9 +3122,43 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
     if (!rootStyles['height']) rootStyles['height'] = Math.round(node.height) + 'px';
   }
 
+  // ── VECTOR 경로 사전 수집 (exportAsync → 정확한 좌표) ────────────────────
+  // vectorPaths API는 인스턴스 자식 VECTOR에서 마스터 좌표를 잘못 반환하는 경우가 있음.
+  // exportAsync(SVG)로 렌더링 기준 경로를 추출하여 캐시에 저장.
+  const vectorPathCache = new Map<string, string>();
+
+  async function collectVectorPathsFromNode(n: SceneNode): Promise<void> {
+    if (n.type === 'VECTOR' || n.type === 'BOOLEAN_OPERATION') {
+      if (!vectorPathCache.has(n.id)) {
+        try {
+          const svgBytes = await (n as any).exportAsync({
+            format: 'SVG',
+            constraint: { type: 'SCALE', value: 1 },
+          });
+          const arr = new Uint8Array(svgBytes);
+          let svg = '';
+          for (let i = 0; i < arr.length; i++) svg += String.fromCharCode(arr[i]);
+          // d 속성만 추출 (복수 path 지원)
+          const dMatches = [...svg.matchAll(/\bd="([^"]+)"/g)];
+          if (dMatches.length > 0) {
+            vectorPathCache.set(n.id, dMatches.map((m) => m[1]).join(' '));
+          }
+        } catch (_) {}
+      }
+    }
+    if ('children' in n) {
+      for (const child of (n as ChildrenMixin).children as SceneNode[]) {
+        await collectVectorPathsFromNode(child);
+      }
+    }
+  }
+
+  await collectVectorPathsFromNode(node);
+
   const nodeTreeCtx: NodeTreeContext = {
     getStyles: (n) => getNodeStyles(n),
     getText: (n) => safeGetText(n),
+    vectorPathCache,
   };
 
   // ── COMPONENT_SET 정보 수집 ───────────────────────────────────────────────
@@ -3209,6 +3243,9 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
     } else {
       variants = [];
       for (const child of parentSet.children as ComponentNode[]) {
+        // 각 variant의 VECTOR 경로 사전 수집
+        await collectVectorPathsFromNode(child);
+
         let rawVariantProps: Record<string, string> = {};
         try {
           rawVariantProps = child.variantProperties ?? {};
