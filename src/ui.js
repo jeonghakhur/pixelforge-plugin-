@@ -64,6 +64,8 @@ registerLangChangeCallback(function () {
 // ── Main Tab System ──
 var currentMainTab = 'extract';
 var mainTabs = document.querySelectorAll('.main-tab');
+var scopeToggleEl = document.querySelector('.scope-toggle');
+var TABS_WITHOUT_SCOPE = { component: true, settings: true, a11y: true };
 var tabPanels = {
   extract: $('panel-extract'),
   icons: $('panel-icons'),
@@ -89,6 +91,9 @@ function switchMainTab(tab) {
       el.style.display = 'none';
     }
   });
+  if (scopeToggleEl) {
+    scopeToggleEl.style.display = TABS_WITHOUT_SCOPE[tab] ? 'none' : 'flex';
+  }
   if (tab === 'icons') {
     syncIconMode();
     updateIconSelInfo();

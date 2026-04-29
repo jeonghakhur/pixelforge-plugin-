@@ -138,17 +138,23 @@ document.querySelectorAll('.comp-subtab').forEach(function (btn) {
 
 export function updateCompSelInfo() {
   var info = $('compSelInfo');
+  var emptyState = $('compEmptyState');
+  var optionsCard = $('compOptionsCard');
   if (!info) return;
   if (state.lastSelection.count > 0 && state.lastSelection.meta) {
     info.textContent = (lang === 'ko' ? '선택: ' : 'Selected: ') + state.lastSelection.meta.nodeName;
     info.style.color = 'var(--primary)';
     info.style.background = 'var(--primary-light)';
     info.style.border = '1px solid var(--primary-border)';
+    if (emptyState) emptyState.style.display = 'none';
+    if (optionsCard) optionsCard.style.display = 'block';
   } else {
     info.textContent = t('component.noSel');
     info.style.color = 'var(--text-muted)';
     info.style.background = 'var(--bg)';
     info.style.border = 'none';
+    if (emptyState) emptyState.style.display = 'flex';
+    if (optionsCard) optionsCard.style.display = 'none';
   }
 }
 

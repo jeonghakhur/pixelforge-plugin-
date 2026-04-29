@@ -2204,18 +2204,22 @@ interface GenerateComponentResult {
 function inferRadixVariant(node: SceneNode): RadixProps['variant'] {
   // COMPONENT_SET: variantGroupProperties에서 첫 번째 variant 값 읽기
   if (node.type === 'COMPONENT_SET') {
-    const props = (node as ComponentSetNode).variantGroupProperties ?? {};
-    const variantKey = Object.keys(props).find((k) => /variant|type|style|kind/i.test(k));
-    if (variantKey) {
-      const values = props[variantKey].values;
-      if (values.length > 0) return values[0];
-    }
+    try {
+      const props = (node as ComponentSetNode).variantGroupProperties ?? {};
+      const variantKey = Object.keys(props).find((k) => /variant|type|style|kind/i.test(k));
+      if (variantKey) {
+        const values = props[variantKey].values;
+        if (values.length > 0) return values[0];
+      }
+    } catch (_) {}
   }
   // COMPONENT / INSTANCE: variantProperties에서 현재 값 읽기
   if (node.type === 'COMPONENT' || node.type === 'INSTANCE') {
-    const props = (node as ComponentNode | InstanceNode).variantProperties ?? {};
-    const variantKey = Object.keys(props).find((k) => /variant|type|style|kind/i.test(k));
-    if (variantKey) return props[variantKey];
+    try {
+      const props = (node as ComponentNode | InstanceNode).variantProperties ?? {};
+      const variantKey = Object.keys(props).find((k) => /variant|type|style|kind/i.test(k));
+      if (variantKey) return props[variantKey];
+    } catch (_) {}
   }
   return undefined;
 }
@@ -2304,18 +2308,22 @@ function inferRadixColor(node: SceneNode, colorMap: Map<string, string>): string
 function inferRadixSize(node: SceneNode): RadixProps['size'] {
   // COMPONENT_SET: variantGroupProperties에서 size 키 읽기
   if (node.type === 'COMPONENT_SET') {
-    const props = (node as ComponentSetNode).variantGroupProperties ?? {};
-    const sizeKey = Object.keys(props).find((k) => /^size$/i.test(k));
-    if (sizeKey) {
-      const values = props[sizeKey].values;
-      if (values.length > 0) return values[0];
-    }
+    try {
+      const props = (node as ComponentSetNode).variantGroupProperties ?? {};
+      const sizeKey = Object.keys(props).find((k) => /^size$/i.test(k));
+      if (sizeKey) {
+        const values = props[sizeKey].values;
+        if (values.length > 0) return values[0];
+      }
+    } catch (_) {}
   }
   // COMPONENT / INSTANCE: variantProperties에서 현재 값 읽기
   if (node.type === 'COMPONENT' || node.type === 'INSTANCE') {
-    const props = (node as ComponentNode | InstanceNode).variantProperties ?? {};
-    const sizeKey = Object.keys(props).find((k) => /^size$/i.test(k));
-    if (sizeKey) return props[sizeKey];
+    try {
+      const props = (node as ComponentNode | InstanceNode).variantProperties ?? {};
+      const sizeKey = Object.keys(props).find((k) => /^size$/i.test(k));
+      if (sizeKey) return props[sizeKey];
+    } catch (_) {}
   }
   return undefined;
 }
@@ -2522,7 +2530,8 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
     if ('strokes' in n && !s['stroke']) {
       const strokeStyleId = 'strokeStyleId' in n ? (n as any).strokeStyleId : '';
       if (typeof strokeStyleId === 'string' && strokeStyleId && styleIdMap.has(strokeStyleId)) {
-        const sw = 'strokeWeight' in n ? Math.round((n as any).strokeWeight) || 1 : 1;
+        const rawSw = 'strokeWeight' in n ? (n as any).strokeWeight : 1;
+        const sw = typeof rawSw === 'number' ? Math.round(rawSw) || 1 : 1;
         // Paint Style이 gradient인지 확인 → gradient이면 첫 번째 stop 색으로 solid 변환
         // border-image는 border-radius를 무효화하므로 사용하지 않음
         try {
@@ -2570,7 +2579,8 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
         }
       } else {
         const strokeVar = resolveBoundColor(n, 'strokes');
-        const sw = 'strokeWeight' in n ? Math.round((n as any).strokeWeight) || 1 : 1;
+        const rawSw2 = 'strokeWeight' in n ? (n as any).strokeWeight : 1;
+        const sw = typeof rawSw2 === 'number' ? Math.round(rawSw2) || 1 : 1;
         if (strokeVar) {
           s['border'] = sw + 'px ' + getBorderStyle(n) + ' ' + strokeVar;
         } else {
@@ -2829,7 +2839,9 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
     // stroke: strokeStyleId 우선 → boundVariables → raw 값
     // VECTOR/SVG 노드는 getCSSAsync가 SVG stroke를 이미 반환 → border-image 중복 방지
     if ('strokes' in n && !s['stroke']) {
-      const strokeWeight = 'strokeWeight' in n ? Math.round((n as any).strokeWeight) || 1 : 1;
+      const rawStrokeWeight = 'strokeWeight' in n ? (n as any).strokeWeight : 1;
+      const strokeWeight =
+        typeof rawStrokeWeight === 'number' ? Math.round(rawStrokeWeight) || 1 : 1;
       const strokeStyleId = 'strokeStyleId' in n ? (n as any).strokeStyleId : '';
 
       if (typeof strokeStyleId === 'string' && strokeStyleId && styleIdMap.has(strokeStyleId)) {
@@ -3158,7 +3170,10 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
     const isRelatedContainer =
       gpName && (parentSet.name.toLowerCase().includes(gpLower) || gpLower.includes(psFirst));
     componentSetName = isRelatedContainer ? gpName : parentSet.name;
-    const vgProps = parentSet.variantGroupProperties ?? {};
+    let vgProps: Record<string, { values: string[] }> = {};
+    try {
+      vgProps = parentSet.variantGroupProperties ?? {};
+    } catch (_) {}
     variantOptions = {};
     for (const [key, val] of Object.entries(vgProps)) {
       variantOptions[key.toLowerCase()] = val.values;
@@ -3194,8 +3209,12 @@ async function generateComponent(): Promise<GenerateComponentResult | null> {
     } else {
       variants = [];
       for (const child of parentSet.children as ComponentNode[]) {
+        let rawVariantProps: Record<string, string> = {};
+        try {
+          rawVariantProps = child.variantProperties ?? {};
+        } catch (_) {}
         const props = Object.fromEntries(
-          Object.entries(child.variantProperties ?? {}).map(([k, v]) => [k.toLowerCase(), v])
+          Object.entries(rawVariantProps).map(([k, v]) => [k.toLowerCase(), v])
         );
         variants.push({
           properties: props,

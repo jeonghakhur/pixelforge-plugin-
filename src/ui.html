@@ -2649,7 +2649,31 @@
           선택된 노드 없음
         </div>
 
-        <div class="section-card">
+        <!-- 선택 없음 빈 상태 -->
+        <div
+          id="compEmptyState"
+          style="
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 40px 20px;
+            color: var(--text-muted);
+            font-size: 12px;
+            text-align: center;
+          "
+        >
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" style="opacity:0.35">
+            <rect x="5" y="5" width="9" height="9" rx="2" stroke="currentColor" stroke-width="1.5"/>
+            <rect x="18" y="5" width="9" height="9" rx="2" stroke="currentColor" stroke-width="1.5"/>
+            <rect x="5" y="18" width="9" height="9" rx="2" stroke="currentColor" stroke-width="1.5"/>
+            <rect x="18" y="18" width="9" height="9" rx="2" stroke="currentColor" stroke-width="1.5"/>
+          </svg>
+          <span data-i18n="component.emptyState">컴포넌트를 선택해주세요</span>
+        </div>
+
+        <div id="compOptionsCard" class="section-card" style="display:none">
           <!-- 컴포넌트 타입 -->
           <div style="margin-bottom: 10px">
             <div
